@@ -197,3 +197,12 @@ tutma245 4.14 → 4.43 (kötü), fansız baskı eksik güç p95 1.45 → 1.65, e
 değişimi logunda log sonu k 0.980 → 1.000. Deney G-code'ları Klipper'da baskı sayıldığından onları ayırmaz.
 Ayar iyileşmesi yok, bir faz kötü → UYGULANMADI. Sınırlılık: sıcakken yapılan elle işlemler (filaman değişimi,
 temizleme) k'ya öğrenilebilir; nadir, durum yedeğinden geri alınır.
+
+
+## K23 — "Canlı başlangıç" `degerlendir.py --canli` oldu (2026-10-18)
+README'deki 3.76 / 3.30 (K17) belgelenmiş bir komutla üretilemiyordu: canlı başlangıç (her log kaydedildiği andaki
+k_loss / k_fil ile, KAYIP referansı = k) geçici betikle hesaplanmıştı ve setler o günden beri büyüdü. `--canli`
+eklendi (yalnız değerlendirme aracı, model aynı). Doğrulama: 15.10 setleriyle ayar 3.76 / 12 arıza, sınav 3.30 / 12
+(K17 ile birebir); taze mod çıktısı değişmedi. Bugünkü setler (README): Eylül 3.62, ayar 34 log 3.50 / 13,
+sınav 45 log 3.36 / 14; taze başlangıçla sınav 4.83 (Ekim k'sı 1'den uzak). Değerlendirme verisi temiz bir
+klonda (yalnız git + veri arşivi) satırı satırına aynı skoru veriyor.

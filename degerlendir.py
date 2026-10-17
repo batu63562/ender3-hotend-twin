@@ -23,6 +23,7 @@ Kullanim:
     python degerlendir.py --kaydet baseline        # benchmark/skorlar/baseline.csv
     python degerlendir.py --karsilastir baseline   # kayitli skora gore fark
     python degerlendir.py --set sinav              # benchmark/setler.csv'deki sinav loglari
+    python degerlendir.py --set sinav --canli      # her log kaydedildigi andaki k ile (README skorlari)
 
 Setler (benchmark/setler.csv): 'ayar' = parametre/esik ayarlarken bakilan loglar, 'sinav' =
 hicbir ayarda kullanilmayan, sadece puan tablosu icin dondurulmus loglar (2026-10-09'dan
@@ -200,10 +201,21 @@ def set_paths(name):
 # ---------------------------------------------------------------------------
 # Skorlama
 # ---------------------------------------------------------------------------
-def evaluate(overrides=None, paths=None, chain=False):
+def live_start(df):
+    """Logun kaydedildigi andaki ogrenilmis durum: ilk satirin k_loss / k_fil'i (sutun yoksa 1.0).
+    KAYIP referansi loglanmiyor; k'ye esit alinir (oturum basinda alarm yok)."""
+    def first(col):
+        v = pd.to_numeric(df[col], errors="coerce").dropna() if col in df else pd.Series(dtype=float)
+        return float(v.iloc[0]) if len(v) else 1.0
+    k = first("k_loss")
+    return k, first("k_fil"), k
+
+
+def evaluate(overrides=None, paths=None, chain=False, live=False):
     """Uzun formatta skor DataFrame'i: log, clock, faz, n, sure_s, rmse, bias, max, anomali.
     chain=True: loglar verilen sirayla ardisik oturumlar sayilir, her biri oncekinin son k'sini
-    devralir (canli scriptteki hatirlama); False: her log k=1 ile taze baslar."""
+    devralir (canli scriptteki hatirlama); live=True: her log kaydedildigi andaki k/k_fil ile baslar
+    ("canli baslangic"; kabul kapisi ve README skorlari); ikisi de False: her log k=1 ile taze baslar."""
     m = load_model(overrides)
     paths = paths or sorted(p for p in glob.glob(os.path.join(BENCH_DIR, "*.csv")) if p != SET_FILE)
     rows = []
@@ -211,7 +223,8 @@ def evaluate(overrides=None, paths=None, chain=False):
     for p in paths:
         df = read_log(p)
         events, st = [], {}
-        k_start, kfil_start, ref_start = (k_carry, kfil_carry, ref_carry) if chain else (1.0, 1.0, 1.0)
+        k_start, kfil_start, ref_start = (k_carry, kfil_carry, ref_carry) if chain else \
+            live_start(df) if live else (1.0, 1.0, 1.0)
         _, res, anom, ks, synced = replay(df, m, events, k0=k_start, kfil0=kfil_start, state=st, k_ref0=ref_start)
         k_carry, kfil_carry, ref_carry = float(ks[-1]), st["kfil"], st["k_ref"]
         kanom = abs(ks - st["k_refs"]) > m.K_ALARM_BAND   # ogrenilen kayip yavas referanstan bandin disinda
@@ -297,9 +310,13 @@ if __name__ == "__main__":
                     help="benchmark/setler.csv'deki log seti (verilmezse sadece benchmark/*.csv)")
     ap.add_argument("--zincir", action="store_true",
                     help="loglari ardisik oturum say: her biri oncekinin ogrendigi k ile baslar")
+    ap.add_argument("--canli", action="store_true",
+                    help="her log kaydedildigi andaki k/k_fil ile baslar (canli baslangic; README skorlari)")
     a = ap.parse_args()
+    if a.zincir and a.canli:
+        ap.error("--zincir ve --canli birlikte kullanilmaz")
 
-    sc = evaluate(paths=set_paths(a.set) if a.set else None, chain=a.zincir)
+    sc = evaluate(paths=set_paths(a.set) if a.set else None, chain=a.zincir, live=a.canli)
     print_scorecard(sc)
     if a.karsilastir:
         print_comparison(sc, pd.read_csv(os.path.join(SCORE_DIR, a.karsilastir + ".csv")), a.karsilastir)

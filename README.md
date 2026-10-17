@@ -208,7 +208,7 @@ the window (`[K17]`). It is the same dilemma as numerical diffusion in CFD.
 | File | Role |
 |---|---|
 | `realtime_websocket.py` | Live twin: Moonraker connection, model, learner, alarms, CSV, phone page, plan trigger, shadow pause, maintenance advice. |
-| `degerlendir.py` | Offline evaluation: replays logs through the live code, phase-by-phase RMSE and alarm counts (`--set ayar|sinav`, `--zincir`). |
+| `degerlendir.py` | Offline evaluation: replays logs through the live code, phase-by-phase RMSE and alarm counts (`--set ayar|sinav`, `--canli`, `--zincir`). |
 | `tabla_model.py` | Bed twin (aluminium plate + glass, 2 nodes) with its own loss learner. Observation only, no alarm. |
 | `gcode_tahmin.py` | The "plan": parses the G-code, replicates Klipper's motion planner, simulates hotend/bed with the PID (`kapali_dongu.py`), writes the expected timeline and the toolpath (`tahminler/`). Unity compares plan vs. reality (schedule deviation, flow, power). |
 | `kapali_dongu.py` | Closed-loop (PID) simulation used by the plan and for validation. |
@@ -238,13 +238,20 @@ Many intuitively right changes failed this gate (see `KARARLAR.md`), which is th
 Fault library: `benchmark/ariza_ornekleri/etiketler.csv` (labelled windows: expected category, or `-` for
 benign events that must not trigger a pause).
 
-Indicative numbers (RMSE of the temperature residual, °C; lower is better):
+Scores (RMSE of the temperature residual over all phases, °C, lower is better; *alarms* = confirmed alarm
+onsets). Each number is the `TUMU` row under *KLIPPER ZAMANLI LOGLAR* of the command shown:
 
-| Set | Score |
-|---|---|
-| September calibration runs (all phases) | 3.62 |
-| Calibration set, live start states | 3.76 |
-| Test set | 3.30 |
+| Set | Logs | Command | RMSE | Alarms |
+|---|---|---|---|---|
+| September calibration runs | 9 | `python degerlendir.py` | 3.62 | 0 |
+| Calibration set (`ayar`) | 34 | `python degerlendir.py --set ayar --canli` | 3.50 | 13 |
+| Test set (`sınav`) | 45 | `python degerlendir.py --set sinav --canli` | 3.36 | 14 |
+
+`--canli` ("live start") starts each log from the `k` and `k_fil` the live twin had when it was recorded,
+as it really ran. Without it every log starts from `k = 1`, which is wrong for the October logs (the real
+`k` drifted to 0.87–1.06): the test set then scores 4.83. The logs are in the evaluation-data release
+asset; the September runs are in the repository. Earlier reports in `KARARLAR.md` (3.76 / 3.30) used the
+sets as of 15 Oct; they have grown since, the model has not changed.
 
 Representative real events: filament run-out detected in ~20 s (+4.5 W); a single bad first-layer object
 out of four localized from the log + toolpath; maintenance need (dirty heatsink, missing thermal paste)
@@ -261,7 +268,8 @@ plan, classifier and evaluation tools). Klipper + Moonraker reachable on the net
 2. Start the twin **before** starting a print (the G-code plan is only produced if the twin sees the print
    start): double-click `ikiz_baslat.bat` or run `python realtime_websocket.py`.
 3. Optional: open `http://<pc-ip>:8080` on a phone, or start the Unity project and choose *Live*.
-4. Offline evaluation: `python degerlendir.py --set ayar` (or `sinav`, `--zincir` to carry state).
+4. Offline evaluation: `python degerlendir.py --set ayar --canli` (or `sinav`; `--zincir` instead of
+   `--canli` to carry state from log to log).
 
 The twin never sends G-code to the printer. The only possible command is the pause in `aktif` mode
 (off by default).

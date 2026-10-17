@@ -1,0 +1,80 @@
+dosya,set,not,sha256_16,eklenme
+benchmark/2026-09-21_0108_http_180tutma_soguma.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,6478f17e5c7e643e,2026-10-09
+benchmark/2026-09-21_0110_http_220tutma_soguma.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,ed2bd9593f205f06,2026-10-09
+benchmark/2026-09-23_1933_http_150plato_245.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,0de4bbb4ba1123f0,2026-10-09
+benchmark/2026-09-24_2150_http_150plato_245.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,61a8791d54d2f5f4,2026-10-09
+benchmark/2026-09-25_1252_pc_245kisa.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,6177a39b597fba90,2026-10-09
+benchmark/2026-09-25_1443_klipper_245tutma_fan_soguma.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,a3528e73327c71e2,2026-10-09
+benchmark/2026-09-25_1848_klipper_245tutma_fan100-50_soguma.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,56f2a458f1ecba1a,2026-10-09
+benchmark/2026-09-25_1927_klipper_245tutma_fan_150tutma_soguma.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,db4e2d99cfff9528,2026-10-09
+benchmark/2026-09-25_2056_klipper_baski245_fan30-50.csv,ayar,cekirdek benchmark (21-25.09): parametre kalibrasyonu,a8b5075b200f8245,2026-10-09
+loglar/baskilar/2809_string_temiz.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,ef233de0e98f52e4,2026-10-09
+loglar/baskilar/2809_aksam_240C.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,950d27096fe8b6fa,2026-10-09
+loglar/baskilar/2909_benchy1.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,0a130bd1bcb40aa9,2026-10-09
+loglar/baskilar/2909_benchy2.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,3e6e636c5f1ebaf2,2026-10-09
+loglar/baskilar/2909_huni.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,34a4d9503e37a998,2026-10-09
+loglar/baskilar/2909_aksam_uzun.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,3c53bd54d4bc26b7,2026-10-09
+loglar/baskilar/2909_nozzle_filament_havada_baski.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,210da161cdf5b5b3,2026-10-09
+loglar/baskilar/3009_stand1.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,2c3bf192f7df0d33,2026-10-09
+loglar/baskilar/3009_stand2.csv,ayar,eylul baskilari: K_FIL/BED_SAG/fan ve siniflandirici ayarinda bakildi,061edc17fd4029d7,2026-10-09
+loglar/baskilar/isimsiz/0810_1750_bitis.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",ee294dcd1aa9df93,2026-10-09
+loglar/baskilar/isimsiz/0810_1804_bitis.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",e02041ff6afff72e,2026-10-09
+loglar/baskilar/isimsiz/0810_1923_bitis.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",00daed0ca27df430,2026-10-09
+loglar/baskilar/0810_benchy_daha_iyi.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",6cd381cd7e023dda,2026-10-09
+loglar/baskilar/0810_duz_baski_x_takildi.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",62cbcda1d8c6c5d8,2026-10-09
+loglar/baskilar/isimsiz/0810_2135_bitis.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",b72962767bfddf0d,2026-10-09
+loglar/baskilar/0810_sonunda_basarili.csv,sinav,"08.10 aksam, filaman kurutulduktan sonra (temiz)",9487f178b5df6190,2026-10-09
+loglar/deneyler/deney7_serbest_ekstruzyon.csv,sinav,09.10 serbest ekstruzyon + 245C tutma,be7c8cf2b6ed7706,2026-10-09
+loglar/baskilar/0910_dunun_aynisi.csv,sinav,09.10 0810_sonunda_basarili ile ayni baski; ilk canli k ogrenme + pos_x,e02895bd13d3fc9f,2026-10-09
+loglar/baskilar/0910_bk1.csv,sinav,09.10 kucuk baski,48d7cf5a7bbefd26,2026-10-09
+loglar/baskilar/0910_havaya_kalkti_durdurdum.csv,sinav,"09.10 son.gcode, 46 dk sonra durduruldu; ilk 3 katman fan kapali, tabla yakinligi etkisi",6ab22c1f9641ecac,2026-10-09
+loglar/deneyler/deney8_tabla_yakinligi.csv,ayar,"09.10 deney 8: 245C tutma, Z 50..0.5, fan 0/25 (fan terimi karari icin kullanildi)",0517969940738b8e,2026-10-09
+loglar/baskilar/1010_baski_iptaller.csv,sinav,"10.10 sabah, iptal edilen baskilar; 11.10 salinim teshisinde bakildi (parametre secilmedi)",10db1817813b0c55,2026-10-11
+loglar/baskilar/1010_bitmeden_durduruldu.csv,sinav,"10.10 uzun baski, bitmeden ~5 dk once durduruldu; ilk katman yapisma patlamalari; 11.10 salinim teshisinde bakildi",b5861625747515d1,2026-10-11
+loglar/baskilar/isimsiz/1110_1144_bitis.csv,sinav,"11.10 kisa/basarisiz baski (yapisma sorunu); salinim gozleminin kaynagi, teshiste bakildi",0974459e7781fa57,2026-10-11
+loglar/baskilar/isimsiz/1110_1345_bitis.csv,sinav,"11.10 baski (complete); salinim teshisinde bakildi",e17638e5cc31cd66,2026-10-11
+loglar/baskilar/isimsiz/1110_1500_bitis.csv,sinav,"11.10 baski (complete); salinim teshisinde bakildi",c3eb51103290afcc,2026-10-11
+loglar/baskilar/isimsiz/1110_1640_bitis.csv,sinav,"11.10 baski 245->240C (complete); salinim gozleminin kaynagi, teshiste bakildi",b45d3752bc2dc408,2026-10-11
+loglar/baskilar/1110_ilk_deneme_filaman_cikmadi.csv,sinav,"11.10 aksam ilk deneme, ilk katmanda durduruldu: tabla kirli, filaman cikmiyordu (kullanici); canli S1 GUC_AZALDI 8.4 dk; ikiz baski basladiktan sonra acildi (plan yok)",4d04e67a48e1bf1c,2026-10-12
+loglar/baskilar/isimsiz/1110_2152_bitis.csv,sinav,"11.10 aksam 95 dk baski (complete, Z 118); ilk canli pos_e + S1 + gozlemci; ilk katmanda gecici -2.3 W cukur; plan yok (ikiz baski basladiktan sonra acildi)",22fc6f0065417ea3,2026-10-12
+loglar/baskilar/1210_tabla_kirli_filaman_cikmiyor.csv,sinav,"12.10 sabah, ilk katmanda durduruldu: tabla kirli/nozzle yakin, filaman tam cikmiyor (kullanici); 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi)",3a6ff9c642305390,2026-10-12
+loglar/baskilar/1210_nozzle_temizleme.csv,sinav,"12.10 iptal + elle nozzle temizligi (kafa Z 87, 50 mm akitma); k 0.939->0.890 burada ogrenildi; 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi)",a8580acdc33a3229,2026-10-12
+loglar/baskilar/isimsiz/1210_1154_bitis.csv,sinav,"12.10 kisa oturum, iptal; k ->0.858; 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi)",1d3a4c82155aaee4,2026-10-12
+loglar/baskilar/1210_parca_kalkti_havaya_basiyor.csv,sinav,"12.10 parca kalkti, havaya basiyor, ikiz fark etmedi (mekanik, isil iz yok); 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi)",5e4e2acfe876047a,2026-10-12
+loglar/baskilar/1210_yine_havaya_basti.csv,sinav,"12.10 yine havaya basti; residual -12C = bozuk k (0.858), havaya baski degil; 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi)",9371c8074e12ea5c,2026-10-12
+loglar/baskilar/1210_bitti_parca_kaymis.csv,sinav,"12.10 87 dk baski complete, parca kaymis (mekanik); 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi)",d988c20af294a0b9,2026-10-12
+loglar/baskilar/isimsiz/1210_1446_bitis.csv,sinav,12.10 baski (complete); 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi),55eecdb705be3f89,2026-10-12
+loglar/baskilar/isimsiz/1210_1556_bitis.csv,sinav,12.10 baski (complete); 12.10; k bozulmasi + alarm referansi teshisinde bakildi (parametre secilmedi),d6ede8f9bb7cf936,2026-10-12
+loglar/baskilar/1210_katana.csv,sinav,"12.10 aksam collapsing-katana 3 sa 22 dk (complete); ikiz baskidan once acik, canli plan var; alarm yok",6be1b6d0b4dd6368,2026-10-12
+loglar/baskilar/1310_gece_ve_bakim.csv,sinav,"12.10 20:00-13.10 11:09: gece baskisi (bakim oncesi) + sonunda BAKIM (toz, PETG kalintisi, heat break macunu, PID) ve 245C testi; teshiste bakildi (HOLD_SETTLE, k kaymasi)",2839388067e026d1,2026-10-13
+loglar/baskilar/isimsiz/1310_1128_bitis.csv,sinav,"13.10 bakim sonrasi ilk oturum, 150C bekleme (P150), durduruldu; teshiste bakildi",955a0670fa4d9683,2026-10-13
+loglar/baskilar/1310_bakim_sonrasi_baski.csv,sinav,"13.10 bakim + fan kaplamasi sonrasi ilk tam baski (fan %25 bastan); teshiste bakildi (k_fil regresyonu 1.56, K_FIL_MAX karari)",ba9b6ea55d7bf129,2026-10-13
+loglar/baskilar/1310_yanlis_gcode_iptal.csv,sinav,"13.10 14:58 yanlis G-code, ilk katmanda iptal; 150C +9C (k 1.045); teshiste bakildi (durum yeniden hesabi)",15e462e5da8649d4,2026-10-13
+loglar/baskilar/1310_1520_yarida_durduruldu.csv,ayar,"13.10 15:20 baski, 23 dk sonra durduruldu (kullanici evden cikti); fansiz ilk katmanlar +10C, sonra fan %25 ve akis 10-13 mm3/s; DONUSUMLU DAGITIMIN ilk ayar logu",a101383d763c390d,2026-10-13
+loglar/baskilar/1410_lantern_bottom.csv,sinav,"14.10 lantern bottom 40 dk (complete), oda soguk (tabla 22C); model donuk; 7 tahmin onceden yazildi (6 tuttu, bosta verisi yok); donusumlu: SINAV",d310e61f33811002,2026-10-14
+loglar/baskilar/1410_havaya_basti_kopma_ortada.csv,ayar,"14.10 12:24 baski, fan %49 sabit akis ~9.5 mm3/s; parca tutunmamis, ~%70 yukseklikte cizgiler sonra koptu ve havaya basti (kopma ani isil olarak gorunmuyor, eksik guc +-0.2 W); 32 dk sonra durduruldu; DONUSUMLU: AYAR",ababa3e4faa07c92,2026-10-14
+loglar/baskilar/1410_1322_a0_ilk_baski.csv,sinav,"14.10 13:22 baski 59 dk (complete), A0 (fansiz k_fil=1.0) ile ILK canli baski; fansiz ilk katman +1.9C (onceki +9); DONUSUMLU: SINAV",bd4d2381d82a3ff2,2026-10-14
+loglar/baskilar/1410_1506_ilk_katman_kalkti_iptal.csv,ayar,"14.10 1506 baski, ilk katmanda parca kalkti (tutunma), ~6 dk ilk katman sonra iptal; ilk z_offset/z_endstop logu (0 / -2.125); onceden tahmin: ilk katman ~+5 C / ~+0.6 W -> gercek +5.5 C / +0.9 W; DONUSUMLU: AYAR",11db2c37dc4d7a3d,2026-10-14
+loglar/baskilar/1410_1521_main_body.csv,sinav,"14.10 15:21 main_body 39 dk (complete); ikiz baski basladiktan sonra acildi (plan yok); fansiz ilk katman +2.0 C / +0.59 W, k 1.034->1.032; alarm yok; DONUSUMLU: SINAV",a388421662474c1c,2026-10-14
+loglar/baskilar/1410_1601_cap_chain_glass_ardisik.csv,ayar,"14.10 16:01-16:37 ardisik uc kisa baski (cap, chain_link, glass; sicak baslangic, 150 tutma yok), canli planli; fansiz +3.3 C / +0.66 W; alarm yok; 1521 logunun devami (bolundu); DONUSUMLU: AYAR",c8b5fd15952a1646,2026-10-14
+loglar/baskilar/1410_1739_main_body.csv,sinav,"14.10 17:39 main_body 57 dk (complete) + 30 dk bosta; canli planli; fansiz bolum ~28 dk +1.0 C / +0.19 W, k 1.030->1.023 (fansiz pencerelerden); alarm yok; DONUSUMLU: SINAV",fefeb34144440d16,2026-10-14
+loglar/baskilar/1410_1929_hollow_candle.csv,ayar,"14.10 19:29 hollow bubble candle 3 sa 37 dk (complete), canli planli, fan %25-45 degisken; ilk 3 katman fansiz +5.5 C / +0.75 W (k 1.023, k_ima ~0.98), fan acilinca k_fil 1.36->1.54->1.36 (fan %40 donemi -5 C), sonra 3 saat +-2 C, eksik guc max 1.7 W; alarm yok; tabla eski kodla canli (yeni kod tutma rms 0.46); DONUSUMLU: AYAR",2f40073abadbcb64,2026-10-15
+loglar/deneyler/deney9_isinma_dinamigi.csv,ayar,"15.10 deney 9 (yazici/deney9_isinma_dinamigi.gcode): fan/tabla/ekstruzyon yok, Z50 havada; yukari 120/150/200/245, asagi 215/170/150, 150->245, 245<->235, serbest soguma; oda ~21 C; tutma k 1.07-1.13 (sicakliktan bagimsiz), KAYIP_ARTTI; yukari adim 5-10 s -3.3 C / asagi +1.6 C (ayna: gecikme), P(T) curudu. Teshiste kullanildi -> AYAR (donusum disi; siradaki baski yine SINAV)",23723aaa97eabc34,2026-10-15
+loglar/baskilar/1510_1105_goofy_bust_filaman_bitti.csv,sinav,"15.10 11:05 GoofyBust (desteklı) 62 dk, k 1.080 ile (deney9 sonrasi, geri alinmadi): 150 tutma ~0, ilk katman etegi ~0; 8.0 dk destek baslayinca eksik guc +2.5 W GUC_AZALDI (kullanici: filaman cikiyordu, sebep belirsiz), fan acilana dek +0.7..2; 61.5 dk FILAMAN BITTI -> eksik guc +4.5 W, GUC_AZALDI 61.86 dk (~20 s), kullanici 62.5 dk durdurdu; DONUSUMLU: SINAV",cbeea9db96e77b72,2026-10-15
+loglar/baskilar/1510_1413_tpu_voronoi_ball.csv,ayar,"15.10 TPU 235C 0.25mm voronoi ball 72 dk, fan %55-73 bastan; ikiz baskidan once acik; eksik guc +-0.5 W, alarm yok; DONUSUMLU: AYAR",9071436945dd1366,2026-10-15
+loglar/baskilar/1510_1530_tpu_duck.csv,sinav,"15.10 TPU duck 110 dk (sicak baslangic, 150 tutma yok); +-1 C, eksik guc +-0.3 W, alarm yok; DONUSUMLU: SINAV",9396a2e2e0f57098,2026-10-15
+loglar/baskilar/1510_1722_tpu_moai.csv,ayar,"15.10 TPU moai 66 dk (sicak baslangic); eksik guc +-0.2 W, alarm yok; DONUSUMLU: AYAR",3f4b40cafe9193f0,2026-10-15
+loglar/baskilar/1510_1828_tpu_fabric.csv,sinav,"15.10 TPU fabric 68 dk, 240C ilk katman + 3 katman FANSIZ: eksik guc +1.2..+1.75 W, residual +10..12 C (k 1.061, k_ima ~0.98; sabahki goofy desteginin benzeri), fan acilinca normal; alarm yok; DONUSUMLU: SINAV",93ac24edf83d050f,2026-10-15
+loglar/baskilar/1510_2009_tpu_gyroid_kup.csv,ayar,"15.10 20:09 TPU kup 73 dk (complete, sorunsuz): duvarsiz/ust-alt yuzeysiz %15 gyroid (%97.5 sparse infill), akis sabit 2.0 mm/s; eksik guc ~4.3 dk (Z ~3 mm) periyotla +0.5 <-> +2.5..3.5 W -> 6 kisa YANLIS GUC_AZALDI (15-65 s); sebep belirsiz: periyot Z ~3.5 mm (gyroid yari periyodu), ama alt/yan temas ve cizgi yonu olcutleri aciklamadi; k_fil 1.41->0.97; DONUSUMLU: AYAR",a4389dd61d24133c,2026-10-15
+loglar/baskilar/1610_1125_tpu_stress_ball_1.csv,sinav,"16.10 TPU stress ball 51 dk, 60 s pencere + malzeme profili ile ilk baski; eksik guc +-0.3 W, 34. dk kisa olay (+1.9 W), alarm yok; DONUSUMLU: SINAV",c3c87d95bb570242,2026-10-16
+loglar/baskilar/1610_1223_tpu_stress_ball_2.csv,ayar,"16.10 TPU stress ball 2, 51 dk; +-0.3 W, 22-32. dk kisa olaylar (p95 1.9 W), alarm yok; DONUSUMLU: AYAR",1b3708f7309d3ac7,2026-10-16
+loglar/baskilar/1610_1314_tpu_antislip_cloth_0.1mm.csv,sinav,"16.10 TPU AntiSlipCloth 0.1 mm katman 42 dk (kullanici: hafif sorunlu, ag/ipliklenme); fansiz ilk 15 dk +0.6..0.9 W (k 1.040->1.022 ogrendi), fan %40'ta -0.6..-0.9 W, residual -5..-6 C, k_fil 1.08->1.28 hala oturmadi; alarm yok; DONUSUMLU: SINAV",a4574c516df6c302,2026-10-16
+loglar/baskilar/1610_1619_tpu_feet.csv,ayar,"16.10 TPU ender3 feet 3 sa 37 dk (complete), 4 nesne; ilk katmanda YALNIZ arka-sag nesnede (x~122 y~122) eksik guc +2.3 W, GUC_AZALDI ~56 s + golge duraklatma (16:26); kullanici kusur gormedi (TPU affedici); diger 3 nesne normal; DONUSUMLU: AYAR",06342f940f6d8ffd,2026-10-16
+loglar/baskilar/1610_2005_tpu_kup_4lu_1.csv,sinav,"16.10 TPU kup (13m42s G-code, ikiz baskidan sonra acildi -> plan yok) ilk katman ilk ~2.5 dk (dis halkalar + sol kenar x~41) eksik guc +2.1..3.0 W, GUC_AZALDI ~110 s, golge duraklatma (20:09:32); kullanici kusur gormedi; DONUSUMLU: SINAV",c218690033d7dff5,2026-10-16
+loglar/baskilar/1610_2047_tpu_kup_2.csv,ayar,"16.10 TPU kup 25m37s (planli), ayni ilk katman yerlesimi; olay YOK (eksik guc -0.5..+0.6 W); DONUSUMLU: AYAR",9d336a75439a659f,2026-10-16
+loglar/baskilar/1710_0958_tpu_kup_a.csv,sinav,"17.10 TPU kup, fan %40, k_fil ust sinirda (1.59-1.60), fanli eksik guc -0.2..-0.5 W, alarm yok; DONUSUMLU: SINAV",3adf3782e43777af,2026-10-17
+loglar/baskilar/1710_1032_tpu_kup_b.csv,ayar,"17.10 TPU kup, fan %40, k_fil ust sinirda (1.59-1.60), fanli eksik guc -0.2..-0.5 W, alarm yok; DONUSUMLU: AYAR",81bf4adcc0b53426,2026-10-17
+loglar/baskilar/1710_1120_tpu_kup_c.csv,sinav,"17.10 TPU kup, fan %40, k_fil ust sinirda (1.59-1.60), fanli eksik guc -0.2..-0.5 W, alarm yok; DONUSUMLU: SINAV",8aaf4aeb920944da,2026-10-17
+loglar/baskilar/1710_1212_tpu_kup_d.csv,ayar,"17.10 TPU kup, fan %40, k_fil ust sinirda (1.59-1.60), fanli eksik guc -0.2..-0.5 W, alarm yok; DONUSUMLU: AYAR",5ad0c7784f31d8bc,2026-10-17
+loglar/baskilar/1710_1252_tpu_kup_e_yarim.csv,sinav,"17.10 TPU kup, fan %40, k_fil ust sinirda (1.59-1.60), fanli eksik guc -0.2..-0.5 W, alarm yok; log baski sirasinda 13:05'te kesildi (ikiz/PC kapandi); DONUSUMLU: SINAV",96817bc81d5d99bc,2026-10-17
+loglar/baskilar/1710_2026_petg_ilk_tpu_sonrasi.csv,ayar,"17.10 20:26 PETG 3 sa (complete), TPU'dan PETG'ye ilk gecis (malzeme profili: PETG kaydi yok, TPU k_fil 1.59 ile basladi); acilista 240 C bostaki 3 tutma penceresi (Z 98, ekstruzyon yok) k'yi 1.012 -> 0.955 cekti, KAYIP_AZALDI 36 dk sonra kabul (k_ref 0.953); fanli baskida k_fil 1.60 sinirda, eksik guc -0.3..-0.56 W, residual -2..-4 C; alarm (GUC) yok; DONUSUMLU: AYAR",e23475f5c7583fe8,2026-10-17

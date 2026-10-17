@@ -1,0 +1,199 @@
+# Karar defteri (decision log)
+
+`realtime_websocket.py` içindeki parametrelerin ve kuralların **geçmişi**: neden bu değer, neler denenip
+reddedildi, hangi karneyle kabul edildi. Kod yorumları yalnızca "ne + neden"i kısaca söyler ve buraya
+`[Kxx]` ile atıf yapar. (Metinler koddan taşındı; tarih ve puanlar o günün değerlendirme setlerine göredir.)
+
+Puan dili: RMSE °C; "ayar" = kalibrasyon seti, "sınav" = yalnız son kontrol seti, "Eylül çekirdek" =
+21–25.09 kalibrasyon logları (`benchmark/*.csv`). Ayrıntılı protokol: README "Evaluation".
+
+---
+
+## K01 — Model sürümü (`MODEL_VERSION`)
+- v3 (2026-09-27): fan eşiği + K_FIL 0.0058 (adım 8).
+- v4 (2026-09-28): tabla voltaj düşümü + K_FIL 0.0054 (adım 10).
+`twin_state.json` farklı sürümden kalmışsa devralınmaz.
+
+## K02 — Tabla açıkken besleme düşümü (`BED_SAG = 0.042`)
+Tabla ısıtıcısı açıkken 24 V besleme düşer, nozzle kartuşunun gücü azalır:
+gerçek güç = pwm · P_MAX · (1 − BED_SAG · tabla_pwm). Adım 10 (2026-09-28): multimetre ile ölçüldü — kartuş
+voltajı tabla kapalı ~23.9 V, tabla %100'de 23.4 V → (23.4/23.9)² = 0.958. Tabla kayıtlı 2 baskıda 150 °C bekleme
+hatası −4.1 → +0.1 °C, ısınma −12.8 → −7.6 °C, ilk katmanlar −3.7 → −1.6 °C. Tabla kaydı yoksa etki 0.
+
+## K03 — Fan eğrisi (`FAN_EXP`, `FAN_F0`, `HA2_FAN`)
+Eşik üstünde fan soğutması ~ ((f−F0)/(1−F0))^FAN_EXP (karekök benzeri: zorlanmış taşınım h ~ hava_hızı^0.5).
+Adım 8 (2026-09-27): deney 6 fan eğrisi (%30–100, 245 °C tutma) + deney 5 (%20, %50) uyumu; eski saf karekök
+(F0 = 0) %20'de soğutmayı 4–5 kat fazla tahmin ediyordu. FAN_F0: 5015 blower bu PWM'in altında kanal direncini
+yenemiyor (%20'de ölçülen soğutma tam hızın 0.08–0.13'ü). HA2_FAN: fan dönemine fit (adım 2c), fanlı/fansız tutma
+güç farkından beklenen ~0.033 ile uyumlu.
+
+## K04 — Filaman ısı katsayısı (`K_FIL = 0.0054`)
+Filamanın aldığı ısı = K_FIL · net besleme hızı · (T1 − T_amb).
+- Adım 10: tabla voltaj düzeltmesiyle tabla kayıtlı baskılara uyum (0.0058, tabla kaynaklı güç kaybının bir kısmını
+  "filaman fazla ısı çekiyor" diye yutuyordu).
+- Adım 8: yeni fan eğrisiyle 8 baskı loguna (25–26.09) ORTAK uyum. Eski 0.0043 tek baskıya eski fan kuralıyla
+  uydurulmuştu; %20–50 fanda fazla hesaplanan fan soğutması eksik filaman yükünü telafi ediyordu.
+- Serbest ekstrüzyonda (deney 1b/5) fandan bağımsız ~0.0057–0.0071 ölçüldü. PETG teorik tam ısınma
+  1.27e-3 · 2.405 · cp, cp 1.6–1.8 J/gK → ~0.0049–0.0055.
+- Bilinen ödün: fan %30–60 baskılarda (25.09) hata 1.7 → 3.5 °C; PETG profilindeki (fan %0/%20) baskılarda 4–7 → 1–2 °C.
+
+## K05 — Kayıp çarpanı `k` öğrenmesi: tutma pencereleri
+245 °C'deki gerçek kayıp günden güne ~±0.5 W değişiyor (hava akımı, oda vb.) ve 245 °C'de 1 W hata ~7.6 °C kalıcı
+sapma demek. Sıcaklık TUTULURKEN enerji dengesinden k yavaşça öğrenilir. Yalnız ≥230 °C (`ADAPT_TMIN`): 150 °C'de
+öğrenilen oran 245 °C'ye uymuyordu (bkz. K11).
+
+## K06 — Baskı sırasında öğrenme (2026-10-09)
+Baskılar ısınır ısınmaz başladığı için tutma penceresi hiç oluşmuyor; k Ekim boyunca 1'de kaldı (blok kaybı ~%7
+azalmıştı: residual +5..9 °C). Baskı sırasında da aynı enerji dengesinden ÇOK YAVAŞ öğrenilir (`PRINT_TAU` = 30 dk:
+arıza — saniye/dakika — k'ya sızmaz, saatler/günler süren kayma emilir).
+
+## K07 — Ortak öğrenme [k, k_fil] Kalman (2026-10-09)
+Tek k, baskıda filamana giden fazla ısıyı da yutuyordu. Ekim'de tutmada doğru k 0.92, baskıda öğrenilen 0.95–0.965;
+baskı k'sı yavaş ilk katmanlara taşınınca +7 °C residual. Eylül baskı pencereleri (ayar seti, 112 × 300 s)
+regresyonu: fazla kayıp akışla ölçekleniyor, fanla değil (fan ×0.91, filaman ×1.21 = 0.0065; serbest ekstrüzyon
+deney 1b/5 de 0.0057–0.0071 ölçmüştü). O yüzden k (blok + fan kaybı) ve k_fil (K_FIL çarpanı) BİRLİKTE, küçük bir
+Kalman filtresiyle öğrenilir:
+
+    ölçüm  y = (verilen − depolanan − heatsink yolu) / süre   [W]
+    model  y = k · (blok + fan kaybı) + k_fil · K_FIL · akış · (T − T_amb)
+
+Tutma pencerelerinde akış 0: sadece k. k'nın hızı eski üstel öğreniciyle aynı kalır (tutma τ 60 s, baskı 1800 s;
+`_kalman` kovaryans tabanı). Saf Kalman ısınmadan hemen sonraki sapmalı ilk pencerelere fazla güvenip kazancı
+daraltıyordu (çekirdek 3.77 → 4.13); k varyansı her pencerede span/τ kazancını verecek değere tabanlanır.
+
+## K08 — k_fil'in anlamı ve sınırları (2026-10-13)
+"BASKIYA GİDEN ISI" çarpanı, yalnız filaman değil: akışla orantılı kayıp = filamanın ısınması (PETG cp'sinden
+K_FIL ~0.0052, k_fil ~1.0) + nozzle'ın düz yüzünden bastığı sıcak plastiğe iletim (baskı hızıyla, yani akışla
+büyür). Bakım sonrası baskı regresyonu (300 s pencereler): k 1.00, k_fil 1.56, artık 0.21 W.
+Sınırlar: 12.10'da 0.8–1.3'e çekilmişti ("filaman fiziksel olsun"); 13.10'da tavana dayanan k_fil'in taşan kısmını
+k'ya ittiği görüldü (baskıda k 0.96 → 1.03; söndürme kuralı kalkınca 150 °C'de +8 °C). 1.6: ayar zincir 3.90 → 3.91
+(nötr), 13.10 zinciri baskı RMSE 6.14 → 3.25, k 1.029 → 1.010. Alt sınır 0.8 (filamanın kendisi ~1.0'ın altına düşmez).
+16.10 notu: k_fil yavaş bir "filaman özelliği" değil; fan hızı, parça geometrisi ve malzemeyle değişiyor (K17).
+
+## K09 — A0: fan durumuna göre baskıya giden ısı (2026-10-14)
+Fan soğutmuyorken (`fan_conductance == 0`: kapalı ya da eşik altı) baskıya giden ısı yalnız filamanın ısınması,
+çarpan 1.0 SABİT; k_fil yalnız fanlı kısımda uygulanır ve oradan öğrenilir. Neden: fanlı baskıda öğrenilen ek kayıp
+fansız ilk katmanlara taşınıyor, ilk katmanlarda +8..+10 °C residual ve +1.5 W eksik güç üretiyordu; bakım sonrası
+kalibrasyon değerleriyle fansız ilk katman zaten doğru (−1.7 °C). Ek kayıp parçadan bağımsız (14.10 havaya baskı:
+parça koptuktan sonra da aynı). Karne: Eylül çekirdek 3.99 → 3.73 (yalnız fanlı tutma 3.21 → 2.16, diğer fazlar
+aynı); yeni ayar logları canlı başlangıçtan 7.92 → 4.18 (fansız +8.1 → −1.0) ve 5.21 → 4.16; sınav zincir 3.13 → 2.91
+(245 fansız bias +1.7 → +0.1), canlı başlangıç 3.55 → 3.50; arıza kütüphanesi aynı.
+
+## K10 — HOLD_SETTLE iki kez reddedildi
+- (2026-10-14, ablasyon) Isınmadan sonra 120 s tutma öğrenmesini atlamak: varıştan sonraki ilk ~60 s'de pencere
+  k'sı +0.06..+0.10 yüksek çıkıyor (fiziksel olarak doğru), ama ayar zincir 4.05 → 4.06 (nötr), sınav 3.06 → 3.31
+  (kötü): yüksek k, modelde eksik olan "baskıda sabit ek kayıp" terimini kazara telafi ediyordu.
+- (2026-10-14 akşam, A0 üstüne aynı 120 s) Eylül TÜMÜ 3.73 → 3.69, ayar zincir 4.70 → 4.71 (nötr), sınav 2.94 → 3.16
+  (tutma245 4.04 → 4.64); bakımın KAYIP_ARTTI alarmı kayboldu, bakım sonrası ilk baskıda k 0.964 kaldı (ilk katman
+  −10.8 °C, yanlış GUC_ARTTI). Bakımdan hemen sonraki yüksek k (~1.05) büyük ölçüde GERÇEKTİ; bir günde ~1.01–1.02'ye
+  indi. Erken pencereler fazla değil, baskılar yavaş öğreniyor.
+
+## K11 — 150 °C ön ısıtmadan öğrenme reddedildi (2026-10-12, ayar zincir)
+TÜMÜ 4.07 → 4.55, alarm 6 → 15; oturum bazında 150 °C tutması 245 °C'yi temsil etmiyor (tabla nozzle'ın altında
+ısınıyor). O tutma bakım göstergesi olarak `gecmis.py`'de (P150_W).
+
+## K12 — k söndürme kuralı kaldırıldı (2026-10-13)
+`K_LOSS_FADE_LOW` (150 °C altında k uygulanmazdı). Öğrenilen k artık her sıcaklıkta aynen uygulanır.
+Geçmiş: ayar zincirde iki kez reddedilmişti (C(T)'siz TÜMÜ 4.07 → 4.07; C(T) ile 3.88 → 3.88). Neden kaldırıldı:
+kuralın "soğumada k yanlış" gerekçesi ölçümle çürüdü. Isıtıcı kapalı soğumada fit edilen kayıp çarpanı (T > 150)
+tutmadaki k'yı izliyor: Eylül baskıları soğuma ~0.99 / tutma ~0.97, 12.10 ~0.93 / 0.85–0.96. Ekim kaybı gerçek, her
+sıcaklıkta geçerli. Sınav zincir (C(T) açık): TÜMÜ 3.46 → 3.21, 150 °C tutma 8.71 → 4.30 (bias +7.45 → +0.87), soğuma
+4.07 → 3.49. Bedeli: ısınma 4.41 → 5.82 (bias −1.75 → −4.81) — açık gözlem (deney 9, K18).
+
+## K13 — Sıcaklığa bağlı ısı kapasitesi C(T) (2026-10-13, KABUL)
+Isıtıcı doygunken (pwm = 1) enerji dengesi: gerçek/model oranı 60–100 °C'de ~1.10, 145 °C'de 1.00, 230–240 °C'de ~0.92
+(soğuk ısınmalar, tabla kapalı). Efektif güç/kapasite oranı sıcaklıkla ~%0.12/K düşüyor: Al'nin cp'si bunun ~1/3'ü,
+kalanı kartuş direnci (sıcaklık katsayısı) ya da termistör ölçeği olabilir. Tek terimle
+C(T) = C · (1 + CAP_T_COEF · (T − CAP_T0)), her düğüm kendi sıcaklığında; kararlı duruma etkisi yok. 4 soğuk ısınmada
+fit, 9 baskı ısınmasında (fit'e girmedi) RMSE 7.23 → 3.76 °C. Karne (ayar zincir, TÜMÜ/ısınma/varış/diğer
+tutmalar/soğuma): 4.07/5.57/5.70/3.65/4.45 → 3.88/3.34/3.18/3.27/4.07, alarmlar aynı. Çekirdek TÜMÜ 3.91 → 3.76.
+Ödün: Eylül diğer tutmalar 0.81 → 2.58.
+
+## K14 — KAYIP alarmının referansı (dara → yavaş filtre → kabul)
+Öğrenme yavaş bir arızayı (çorap düştü, hava akımı, kanal kayması) zamanla "normal" sayıp residual'dan silebilir;
+o yüzden k'nın kendisi de izlenir.
+- "Dara" (2026-10-09): bant 1.0'a değil oturum başında devralınan k'ya göre. Ekim'de hotend kalıcı olarak k = 0.92'ye
+  oturdu: 1.0'a göre bant her oturumda boş alarm çaldırıyordu (deney 8: 12 kez aç-kapa).
+- Yavaş referans (2026-10-12): oturum başı referansı kısa oturumlarda merdiven gibi kayıyordu (12.10 sabahı k
+  0.939 → 0.890 → 0.858 iki kısa oturumda, her adım bandın altında, alarm yok). Saatlik alçak geçiren filtreye geçildi.
+- Kabul (2026-10-13, filtrenin yerine): 13.10 bakımından sonra k 0.88 → 1.0'a çıkıp orada kaldı; 8 saatlik filtre
+  yüzünden alarm bütün baskı boyunca çaldı (ISA-18.2 "nuisance"). Artık: k referanstan bant kadar sapınca alarm çalar;
+  k yeni seviyede `K_ACCEPT_TIME` boyunca (sıcak çalışma) `K_ACCEPT_RANGE` içinde kalırsa yeni seviye KABUL edilir.
+- Histerezis (`K_ALARM_CLEAR = 0.06`): deney 8'de k 0.92 bant kenarında 13 kez aç-kapa.
+- Sınır: kayan referans yavaş bozulmayı adım adım kabul edip yutar → sabit referanslı bakım göstergesi (K20).
+
+## K15 — Eksik güç alarmı (`GUC_*`) ve eşikleri
+Neden sıcaklık değil güç (2026-10-11): PID gerçek sıcaklığı sabit tuttuğu için ısıtıcı gücü gerçek yükün ölçümü
+(kalorimetre); açık çevrim model bilmediği ~0.3–0.6 W'ı 52 s'lik ısıl zaman sabitiyle biriktirip residual'da ±2 °C
+gezinir. Eksik güç bu birikimi yapmaz ve ~15–20 s'de oturur. Kayıplar öğrenilmiş k ve k_fil ile ölçeklenir (k'sız
+halde Ekim'de taban ~+1.2 W kaymıştı). Eşikler (2026-09-26, ~50 dk normal veri 230 °C üstü): 20 s / 2.5 W / 5 s onay.
+Arıza kütüphanesi: filaman akmıyor 6/6 (18–28 s), çorapsız 73 s. Hedef değişiminden ve ısıtıcı doygunluğundan sonra
+30 s bekleme: 27.09 baskı başında yanlış GUC_AZALDI.
+
+## K16 — Akış girdisi: 10 s işaretli ortalama ve `pos_e` farkı
+- Adım 9 (2026-09-27): 2 s → 10 s. Boşluk dolgusu gibi uzun ileri-geri desenlerde 2 s pencere geri kısımları kırpıp
+  akışı ~3 kat fazla sayıyordu (27.09: 10 yanlış alarm, residual +12 °C). 10 s: yanlış alarm 0, RMSE 3.23 → 2.68 °C;
+  bedeli filaman akmama tespitinde +3–5 s. Örnekleri tek tek kırpmak net akışı %12 fazla gösteriyordu.
+- 2026-10-11: `live_extruder_velocity` ~4 Hz'de alınan ANLIK örnek; geri çekmeler ~0.03 s sürdüğü için örnek ya hiç
+  denk gelmiyor ya da −35 mm/s'yi 0.25 s tutuyor (aliasing) → 30 s dilimlerde 0.3–0.45 W hayalet yük, ~200 s'lik
+  salınım. `live_position[3]` (pos_e) KONUM: iki mesaj arası fark gerçek besleme. Skor: ayar 4.27 → 4.13, sınav
+  5.26 → 5.11, sınav arızaları 28 → 16.
+- `EXT_EPS`: Klipper boşta 8.9e-16 gibi kırıntılar veriyor; deney 8'de tüm tutma pencerelerini reddettirmişti.
+
+## K17 — Baskı öğrenme penceresi 300 → 60 s (2026-10-16, KABUL)
+300 s pencerelerin çoğu fan/hedef değişimi ya da kısa olay içerdiği için atılıyordu; k_fil 5 dk'da bir 0.1–0.15'lik
+basamakla, geç oturuyordu. 60 s pencere geçişlerin arasına sığıyor (Ekim ayar: 82 → ~435 geçerli güncelleme).
+Filtrenin zaman sabiti ~√(R/Q): R ~1/pencere, pencere başına Q ~pencere → DEĞİŞMEZ, yavaş arızalar eskisi kadar
+yutulmaz. Q_FIL'i büyütmek (k_fil'i hızlandırmak) REDDEDİLDİ: yapay yavaş arıza testinde (logdaki pwm, fanlı baskıda
+rampa ile X W azaltıldı, 5 enjeksiyon) yutma. Puanlar (Eylül TÜMÜ / ayar canlı baş. TÜMÜ, arıza / sınav TÜMÜ /
+3 W-10 dk, 4 W-30 dk rampa):
+
+| Varyant | Eylül | Ayar, arıza | Sınav | 3 W 10 dk | 4 W 30 dk |
+|---|---|---|---|---|---|
+| 300 s, Q ×1 | 3.73 | 3.95, 15 | 3.60 | 5/5 7.0 dk | 5/5 21.7 dk |
+| **60 s, Q ×1 (seçilen)** | 3.62 | 3.76, 12 | 3.30 | 5/5 8.8 dk | 5/5 24.9 dk |
+| 60 s, Q ×2 | 3.62 | 3.74, 12 | 3.29 | 5/5 9.5 dk | 4/5 |
+| 60 s, Q ×4 | 3.61 | 3.72, 12 | 3.27 | 4/5 | 3/5 |
+| 60 s, Q ×16 | 3.61 | 3.68, 12 | 3.25 | 2/5 | 2/5 |
+| 60 s, Q ×256 | 3.60 | 3.57, 10 | 3.20 | 1/5 | 2/5 |
+
+Eylül fanlı tutma 2.16 → 1.63, kötüleşen faz yok; etiketli arızalar tüm varyantlarda aynı sürede yakalanıyor.
+
+## K18 — Isınma hatası ve deney 9 (2026-10-15)
+Tutma k'sı 120–245 °C arası düz (1.07–1.13) → k(T) yok. Isıtıcı gücünün sıcakken düşmesi çürüdü. Adımlarda ayna
+imzası (yukarı ilk 5–10 s model −3.3 °C önde, aşağı +1.6 geride) = ısıtıcı ile sensör arasında ~0.5–1 s gecikme.
+Termistör gecikmesi (yalnız çıkış) puanlandı: τ 0.5 s Eylül ısınma 2.16 → 1.97 ama soğuma 6.45 → 6.68, TÜMÜ
+3.73 → 3.79 → UYGULANMADI.
+
+## K19 — Duraklatma (gölge mod)
+- 2026-10-16: GUC_AZALDI kesintisiz `PAUSE_AFTER` sürerse duraklat (ilk geri besleme: dijital gölge → ikiz).
+  Örnek az → önce GÖLGE (yalnız kayıt). KAYIP_* asla duraklatmaz.
+- 2026-10-17: 60 → 150 s. Gölge modun ilk günü iki ZARARSIZ ilk katman olayı (TPU feet tek nesne ~56 s, TPU küp ilk
+  katman başı ~110 s; baskılar sağlam) "duraklatırdım" dedi. 150 s en uzun zararsız olaya 40 s pay bırakır; kalıcı
+  gerçek arızalar (filaman durdu 246 s+, topak/havada baskı 286 s+, filaman bitmesi) yine yakalanır.
+
+## K20 — Bakım göstergesi (2026-10-16)
+k'nın tek bilinmeyen olduğu her pencerenin kendi k'si (tutma; fansız baskı) kaydedilir. Açılışta FANSIZ BASKI
+pencerelerinin günlük medyanı SABİT referansla (kalibrasyondaki temiz hotend, 1.00) kıyaslanır; son 3 veri gününde
+aynı yönde ±0.06 dışındaysa bakım önerisi. Geriye dönük (28.09–15.10): Ekim bozulması (heatsink'te kurumuş PETG,
+heat break macunsuz) 0.92/0.92/0.92/0.91 → 11.10'da öneri (bakım 13.10'da yapıldı); Eylül ve bakım sonrası yanlış
+öneri yok. Bakım gününde referansı yenilemek daha kötüydü (bakım sonrası geçici rejim 1.04 → 0.98). Tutma k'sı
+kaydedilir ama kurala girmez (seyrek; deney 9 havada 1.09). Tek bakım olayına dayanır: tavsiye.
+
+## K21 — Malzeme profili ve durum yedeği (2026-10-16)
+k ortak (hotend özelliği). k_fil malzemeye bağlı → malzeme başına saklanır; malzeme G-code başlığından okunur,
+değişince k_fil o malzemenin kaydından ve oturum başı belirsizliğiyle (P0_FIL) başlar. Aynı malzemede nozzle sıcaklığı
+(240/245) ayrılmaz: filaman terimi zaten (T − T_amb) ile ölçekli. Her açılışta `twin_state.json` yedeklenir (son 30).
+
+
+## K22 — Baskı dışı tutma pencereleri (2026-10-18) — REDDEDİLDİ
+Olay (17.10): filaman değişimi sırasında (240 °C, Z 98, elle çekme/itme Klipper'da görünmez) 3 tutma penceresi k'yı
+1.012 → 0.955 çekti; KAYIP 30 dk sonra kabul etti (k_ref 0.953); ardından PETG baskısında k_fil 1.60 sınırda kaldı,
+eksik güç −0.3…−0.56 W. Durum `durum_yedek/twin_state_20261017_202503.json`'dan geri alındı (kullanıcı onayı).
+Tabla gerilim düşüşü (BED_SAG) hipotezi test edilemedi: tabla açık ve kapalı tutma pencereleri farklı dönemlerden
+(bakım öncesi/sonrası), aynı oturumda ikisi birden yok.
+Aday "tutma öğrenmesi yalnız print_state = printing/paused": ayar canlı başlangıç TÜMÜ 3.50 = 3.50, arıza 13 = 13,
+tutma245 4.14 → 4.43 (kötü), fansız baskı eksik güç p95 1.45 → 1.65, etiketler aynı, 250 pencere atıldı; filaman
+değişimi logunda log sonu k 0.980 → 1.000. Deney G-code'ları Klipper'da baskı sayıldığından onları ayırmaz.
+Ayar iyileşmesi yok, bir faz kötü → UYGULANMADI. Sınırlılık: sıcakken yapılan elle işlemler (filaman değişimi,
+temizleme) k'ya öğrenilebilir; nadir, durum yedeğinden geri alınır.

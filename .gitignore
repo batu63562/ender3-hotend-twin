@@ -1,0 +1,42 @@
+# Local settings (copy config.example.toml to config.toml)
+config.toml
+
+# Python
+__pycache__/
+*.pyc
+
+# Unity project: separate repository
+Ender3_Twin/
+
+# CAD source files: third-party, licence not checked
+Ender-3 Parts/
+
+# Live state and runtime output
+twin_state*.json
+twin.lock
+bakim_durumu.json
+bakim_izleme.csv
+twin_gecmis*.csv
+ariza_raporlari.txt
+durum_yedek/
+
+# Logs and generated data (published separately as a sample dataset)
+/*.csv
+loglar/
+Hotend_logs/
+tahminler/
+benchmark/skorlar/
+benchmark/ariza_ornekleri/*
+!benchmark/ariza_ornekleri/etiketler.csv
+
+# Printer files: keep the config and the experiment G-codes only
+yazici/*
+!yazici/printer.cfg
+!yazici/deney*.gcode
+son.gcode
+
+# Unused old code (see eski/BENIOKU.txt)
+eski/
+
+# Personal documents
+*.docx

@@ -1,0 +1,23 @@
+dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
+2026-09-25_2128_klipper_baski245_nozzle_filaman_topagi.csv,331,,nozzle etrafinda filaman topagi (kirli tabla),A|C,ayar
+2026-09-26_1501_klipper_deney1_ekstruder_kayiyor.csv,10,73.0,normal ekstruzyon (E100 F180),-,ayar
+2026-09-26_1501_klipper_deney1_ekstruder_kayiyor.csv,72,,ekstruder mandali acik (filaman akmiyor),B,ayar
+2026-09-26_1511_klipper_deney2_kanal_folyo.csv,0,561.0,kanal ciktilari folyoyla kismen kapali,A,ayar
+2026-09-26_1529_klipper_deney3_corapsiz.csv,0,712.0,silikon corap yok,C,ayar
+2026-09-26_1548_klipper_deney4_havada_baski.csv,185,358.0,Z +5 mm havada baski (tikanmasiz),-,ayar
+2026-09-26_1629_klipper_deney1b_ekstruder_kayiyor.csv,171,251.0,tekrar: normal ekstruzyon 1,-,ayar
+2026-09-26_1629_klipper_deney1b_ekstruder_kayiyor.csv,263,342.0,tekrar: mandal acik 1,B,ayar
+2026-09-26_1629_klipper_deney1b_ekstruder_kayiyor.csv,376,455.0,tekrar: normal ekstruzyon 2,-,ayar
+2026-09-26_1629_klipper_deney1b_ekstruder_kayiyor.csv,475,554.0,tekrar: mandal acik 2,B,ayar
+2026-09-26_1629_klipper_deney1b_ekstruder_kayiyor.csv,579,658.0,tekrar: normal ekstruzyon 3,-,ayar
+2026-09-26_1629_klipper_deney1b_ekstruder_kayiyor.csv,676,755.0,tekrar: mandal acik 3,B,ayar
+2026-09-30_1336_klipper_stand1_akis_siniri_kisa_kesinti.csv,600,1100.0,stand1 normal baski (olaydan once),-,ayar
+2026-09-30_1336_klipper_stand1_akis_siniri_kisa_kesinti.csv,1200,1290.0,stand1 ~1.5 dk akis kesintisi (ince katman),B,ayar
+2026-09-30_1610_klipper_stand2_akis_siniri_filaman_durdu.csv,600,1100.0,stand2 normal baski (olaydan once),-,ayar
+2026-09-30_1610_klipper_stand2_akis_siniri_filaman_durdu.csv,1200,,stand2 filaman durdu (havaya baski),B,ayar
+2026-10-11_1933_klipper_ilk_katman_filaman_cikmadi.csv,355,,ilk katman: tabla kirli filaman cikmiyor (kullanici; baslangic=ilk ekstruzyon),B,sinav
+2026-10-12_1120_klipper_ilk_katman_tabla_kirli_filaman_cikmiyor.csv,412,,"ilk katman: tabla kirli/nozzle yakin, filaman tam cikmiyor (kullanici; baslangic=ilk ekstruzyon)",B,sinav
+2026-10-15_1105_klipper_filaman_bitti.csv,3691,3750,"baski ortasinda filaman bitti (makara bos; kullanici durdurdu 62.5 dk)",B,sinav
+2026-10-15_2009_klipper_gyroid_kup_ariza_yok.csv,1170,1240,"TPU duvarsiz gyroid kup, periyodik eksik guc tumsegi (baski sorunsuz; yanlis GUC_AZALDI)",-,ayar
+2026-10-16_1619_klipper_tpu_feet_ariza_yok.csv,327,453,"TPU feet ilk katman tek nesnede isi azalmasi, baski saglam (golge duraklatma tetiklendi)",-,ayar
+2026-10-16_2005_klipper_tpu_kup_4lu_1_ariza_yok.csv,119,265,"TPU kup ilk katman basi isi azalmasi, baski saglam (golge duraklatma tetiklendi)",-,sinav

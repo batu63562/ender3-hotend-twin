@@ -35,6 +35,9 @@ yazici/*
 !yazici/deney*.gcode
 son.gcode
 
+# Release assets staged for upload (sample data zips)
+release/
+
 # Unused old code (see eski/BENIOKU.txt)
 eski/
 

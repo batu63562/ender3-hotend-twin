@@ -1,0 +1,5 @@
+# Copy this file to config.toml and edit it. config.toml is not tracked by git.
+
+# Moonraker address: IP or hostname as you open Mainsail/Fluidd in the browser.
+# Add the port if Moonraker is not behind the web server, e.g. "192.168.1.50:7125".
+printer_host = "192.168.1.50"

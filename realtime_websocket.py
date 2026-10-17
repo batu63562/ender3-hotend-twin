@@ -5,6 +5,7 @@ import csv
 import math
 import os
 import shutil
+import tomllib
 from collections import deque
 
 import websockets
@@ -18,8 +19,21 @@ STATE_FILE = os.path.join(HERE, "twin_state.json")
 STATE_MAX_AGE = 1800   # 30 dakika - bunun ustunde dosya "bayat" sayilir
 STATE_MAX_T1_DIFF = 5.0  # C - kayitli T1 ile simdiki T1 bundan fazla farkliysa devralma
 
-PRINTER_IP = "192.168.0.25"
-WS_URL = f"ws://{PRINTER_IP}/websocket"
+# Yazicinin adresi config.toml'dan (config.example.toml'dan kopyalanir; git'e girmez). Dosya yoksa da import
+# edilebilir: degerlendir.py ve plan araclari yaziciya baglanmaz, adres yalniz canli ikizde gerekir (main).
+CONFIG_FILE = os.path.join(HERE, "config.toml")
+
+
+def load_config():
+    if not os.path.exists(CONFIG_FILE):
+        return {}
+    with open(CONFIG_FILE, "rb") as f:
+        return tomllib.load(f)
+
+
+CONFIG = load_config()
+PRINTER_HOST = str(CONFIG.get("printer_host", "")).strip()
+WS_URL = f"ws://{PRINTER_HOST}/websocket"
 
 # Hotend modeli, 3 dugumlu RC agi:
 #   [isitici kartus T3] --R31--> [termistor civari blok T1] --R_HB--> [nozzle/heat break ustu T2]
@@ -237,7 +251,7 @@ REPORT_FILE = os.path.join(HERE, "ariza_raporlari.txt")
 # G-code plani (gcode_tahmin.py, yol haritasi 4.3): baski baslayinca dosya ve guncel printer.cfg
 # Moonraker'dan indirilir, ikizin plani arka planda uretilir -> PLAN_DIR (Unity Print modulu okur).
 # Klipper'dan sadece GIRDI okunur (hangi dosya, ne zaman basladi); katman zamani, akis, guc ikizin tahmini.
-HTTP_URL = f"http://{PRINTER_IP}"
+HTTP_URL = f"http://{PRINTER_HOST}"
 PLAN_DIR = os.path.join(HERE, "tahminler")
 GCODE_DIR = os.path.join(HERE, "yazici", "canli")        # indirilen G-code ve printer.cfg
 CFG_FALLBACK = os.path.join(HERE, "yazici", "printer.cfg")  # Pi'ye ulasilamazsa yerel kopya
@@ -1063,7 +1077,7 @@ async def web_server(live):
     try:
         import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect((PRINTER_IP, 80))          # paket gondermez; sadece hangi ag arayuzunun kullanildigini bulur
+        s.connect((PRINTER_HOST, 80))        # paket gondermez; sadece hangi ag arayuzunun kullanildigini bulur
         ip = s.getsockname()[0]; s.close()
     except OSError:
         ip = "<bilgisayar-IP>"
@@ -1072,6 +1086,11 @@ async def web_server(live):
 
 
 async def main():
+    if not PRINTER_HOST:
+        print("\n!! Printer address not set.\n"
+              "   Copy config.example.toml to config.toml and set printer_host to your\n"
+              "   Moonraker address (IP or hostname), then start again.\n")
+        return
     lock = single_instance_lock()
     if lock is None:
         print("\n!! Baska bir ikiz zaten calisiyor (ayni CSV'ye iki kopya yazardi).\n"

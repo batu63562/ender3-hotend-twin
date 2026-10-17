@@ -254,10 +254,10 @@ visible as a slow `k` decline from 1.00 to 0.89 over two weeks, then restored by
 
 ## Running it
 
-Requirements: Python 3.11+, `websockets`; `numpy`, `pandas`, `scipy` for the plan, classifier and
-evaluation tools. Klipper + Moonraker reachable on the network.
+Requirements: Python 3.11+, `pip install -r requirements.txt` (`websockets`; `numpy`, `pandas` for the
+plan, classifier and evaluation tools). Klipper + Moonraker reachable on the network.
 
-1. Set `PRINTER_IP` at the top of `realtime_websocket.py`.
+1. Copy `config.example.toml` to `config.toml` and set `printer_host` (not needed for offline evaluation).
 2. Start the twin **before** starting a print (the G-code plan is only produced if the twin sees the print
    start): double-click `ikiz_baslat.bat` or run `python realtime_websocket.py`.
 3. Optional: open `http://<pc-ip>:8080` on a phone, or start the Unity project and choose *Live*.

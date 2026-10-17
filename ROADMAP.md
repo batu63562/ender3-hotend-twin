@@ -32,9 +32,10 @@ twin (observation only) and the Unity replay/live view. Validated on one Ender 3
 235–245 °C. See [Limitations](README.md#limitations).
 
 Release tasks:
-- [ ] Printer address in a config file / command-line argument instead of `PRINTER_IP` in the code.
+- [x] Printer address in `config.toml` (`printer_host`) instead of in the code.
       New public names (config keys, arguments, file names) are English from the start.
-- [ ] `LICENSE`, `requirements.txt`, `.gitignore` (live logs, learned state, caches).
+- [x] `requirements.txt`, `.gitignore` (live logs, learned state, caches).
+- [x] `LICENSE` (MIT).
 - [ ] A default `twin_state.json` for a fresh start.
 - [ ] A small curated sample dataset (calibration runs, a few prints, labelled faults) published as a
       release asset, so the twin can be replayed without a printer.

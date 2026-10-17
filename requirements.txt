@@ -1,0 +1,6 @@
+# Python 3.11+ (tested with 3.14)
+# Live twin: websockets. Plan, evaluation, classifier, history: numpy, pandas.
+# Lower bounds are the tested major versions (websockets 17.1, numpy 2.5.3, pandas 3.0.5).
+websockets>=17.0
+numpy>=2.0
+pandas>=3.0

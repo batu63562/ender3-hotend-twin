@@ -1202,12 +1202,13 @@ async def main():
                                     "motion_report": ["live_extruder_velocity", "live_velocity", "live_position"],
                                     # print state and file: INPUT of the twin's G-code plan (the plan is not read from Klipper)
                                     "print_stats": ["state", "filename"],
-                                    # extrusion mode (M82/M83): Klipper does not reset it between prints, initial condition of the plan
-                                    "gcode_move": ["absolute_extrude"],
-                                    # Z offset (logging only, 2026-10-14): the heat the first layer needs varies 0.4-0.9 W
-                                    # from print to print; squish/nozzle-bed gap is a candidate. homing_origin[2] = babystep
-                                    # (SET_GCODE_OFFSET Z); position_endstop = saved Z zero (only sent when connecting)
-                                    "gcode_move": ["homing_origin"],
+                                    # absolute_extrude: extrusion mode (M82/M83); Klipper does not reset it between prints,
+                                    # initial condition of the plan. homing_origin: Z offset (logging only, 2026-10-14): the
+                                    # heat the first layer needs varies 0.4-0.9 W from print to print; squish/nozzle-bed gap
+                                    # is a candidate. homing_origin[2] = babystep (SET_GCODE_OFFSET Z). One key: a second
+                                    # "gcode_move" entry silently replaced the first, absolute_extrude was never subscribed.
+                                    "gcode_move": ["absolute_extrude", "homing_origin"],
+                                    # position_endstop = saved Z zero (only sent when connecting)
                                     "configfile": ["settings"],
                                 }
                             },

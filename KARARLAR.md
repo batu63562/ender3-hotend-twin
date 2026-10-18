@@ -220,3 +220,14 @@ plan, takım yolu, arıza sınıflandırıcı ve kapalı döngü çıktıları b
 Adım 2 (aynı gün): Python yorumları ve docstring'leri İngilizce. Docstring'ler çıkarılınca AST adım 1 ile birebir aynı
 (kod tek karakter değişmedi); Eylül skoru ve etiketli arıza çıktısı aynı. Konsol/telefon mesajları Türkçe kalır (v0.5),
 tanımlayıcılar v0.3 refactor'uyla.
+
+
+## K25 — Abonelikte çift `gcode_move` anahtarı (2026-10-18, HATA DÜZELTMESİ)
+14.10'da Z ofseti kaydı için `"gcode_move": ["homing_origin"]` ikinci bir anahtar olarak eklenmiş; Python sözlüğünde
+son anahtar kazandığı için `absolute_extrude` (planın başlangıç ekstrüzyon modu, 14.10) hiç abone edilmedi ve plan
+her baskıda mutlak modu varsaydı (`gmove.get("absolute_extrude", True)`). Etkilenen aralık: z_offset sütununun ilk
+göründüğü 14.10 ~15:06'dan START_GCODE'daki M82'nin etkin olduğu ana kadar (15.10, Klipper yeniden başlatma); o
+aralıkta oturumun ilk baskısı olmayan ve önceki baskı M83'te bıraktıysa plan prime çizgisinde 14 mm eksik filaman
+saydı (Unity takım yolu ilerlemesi 14 mm kayar). Bugün etkisiz: Pi'deki printer.cfg'de M82 var, planlayıcı makrodaki
+M82'yi işliyor. Önemi v0.4: makrosunda M82 olmayan yazıcılarda mod yine Klipper'dan okunmalı. Model ve alarmlar
+etkilenmez (plan girdisi). Düzeltme: iki alan tek listede; canlı ikizle henüz doğrulanmadı.

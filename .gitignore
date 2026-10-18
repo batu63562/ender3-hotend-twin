@@ -5,8 +5,9 @@ config.toml
 __pycache__/
 *.pyc
 
-# Unity project: separate repository
+# Unity project and the public showcase: separate repositories
 Ender3_Twin/
+showcase/
 
 # CAD source files: third-party, licence not checked
 Ender-3 Parts/

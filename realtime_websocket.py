@@ -263,8 +263,9 @@ DOWNLOAD_TIMEOUT = 30.0
 
 # Phone monitoring: the script serves a small page on the home network (http://<computer-IP>:WEB_PORT).
 # Read only (does not touch the twin's computation); sends nothing to the internet. If the port cannot be opened,
-# monitoring continues without the page. Set WEB_PORT = None to disable.
-WEB_PORT = 8080
+# monitoring continues without the page. `web_port` in config.toml (0 = off); on a Klipper Pi 8080 is often the
+# webcam (crowsnest), so the Pi install uses another port.
+WEB_PORT = int(CONFIG.get("web_port", 8080)) or None
 WEB_HISTORY = 900.0      # s - chart length on the page (15 min, at most 1 point per second)
 
 # Connection: the websockets library pings every PING_INTERVAL and treats the connection as lost if no answer comes
@@ -1646,6 +1647,13 @@ async def main():
 
 
 if __name__ == "__main__":
+    import signal
+
+    def _stop(*_):
+        raise KeyboardInterrupt   # systemd stop (SIGTERM) ends like Ctrl+C: state saved, session summarized
+
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, _stop)
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

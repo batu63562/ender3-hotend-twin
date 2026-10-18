@@ -289,6 +289,18 @@ plan, classifier and evaluation tools). Klipper + Moonraker reachable on the net
 4. Offline evaluation: `python evaluate.py --set calibration --live-start` (or `test`; `--chain` instead of
    `--live-start` to carry state from log to log).
 
+**On the Klipper Raspberry Pi (recommended for continuous use).** A PC that goes to sleep stops the twin
+mid-print; on the Pi it runs as a systemd service next to Klipper, at lower CPU/I/O priority. From this folder
+on the PC (needs SSH access to the Pi):
+
+```
+.\deploy.ps1 -PiUser <pi user> -WithState -Samba
+```
+
+`-WithState` carries the learned state over once (stop the PC twin first), `-Samba` shares the twin's folder
+read-only so the Unity viewer can read it (`\\<pi>\ender3-twin` as its data folder). The phone page moves to
+port 8090 (8080 is usually the webcam). Logs: `journalctl -u ender3-twin -f`.
+
 The twin never sends G-code to the printer. The only possible command is the pause in `aktif` mode
 (off by default).
 

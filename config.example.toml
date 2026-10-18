@@ -3,3 +3,6 @@
 # Moonraker address: IP or hostname as you open Mainsail/Fluidd in the browser.
 # Add the port if Moonraker is not behind the web server, e.g. "192.168.1.50:7125".
 printer_host = "192.168.1.50"
+
+# Port of the phone status page (http://<this computer>:<port>). 0 turns it off.
+# web_port = 8080

@@ -1,0 +1,21 @@
+[Unit]
+Description=Ender 3 hotend digital twin
+After=network-online.target moonraker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@APP_DIR@
+ExecStart=@APP_DIR@/venv/bin/python -u @APP_DIR@/realtime_websocket.py
+Restart=on-failure
+RestartSec=10
+# Klipper's host process is timing-sensitive: the twin (and the G-code plan it computes at print start)
+# runs at lower CPU and I/O priority so it never delays Klipper.
+Nice=10
+IOSchedulingClass=idle
+# SIGTERM ends it like Ctrl+C (state saved, session summarized); give the summary time to finish.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

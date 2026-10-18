@@ -346,3 +346,16 @@ Test: sahte Moonraker (14.10 cap/chain/glass logunu websocket'ten 60× hızla ye
 3 baskı → 3 dosya, her biri tek `printing → complete`; satır kaybı yok (8665 / kaynak 8666, fark abonelik cevabı);
 `code_version` her dosyanın ilk satırında; ikinci arşiv saniye ekli; 3 oturum özeti; parçalar `evaluate.py` ile
 oynatılıyor. Model sınıfları (Twin, KLossLearner, EnergyMonitor, FaultMonitor, model_step) AST'de aynı, Eylül 3.62.
+
+
+## K30 — İkiz Raspberry Pi'de servis (2026-10-19, v0.2 gün 2, MODEL DIŞI) — KURULUM BETİKLERİ, PI'DE DENENMEDİ
+Neden: PC uyuyunca baskı ortasında ikiz kesiliyordu (17.10 13:05). Kurulum: PC'de `deploy.ps1` (scp ile kod + istenirse
+öğrenilmiş durum, sonra Pi'de `pi/install.sh`): Python 3.11+ kontrolü, venv, websockets (zorunlu) + numpy/pandas (plan,
+sınıflandırıcı, özet için; kurulamazsa ikiz yine çalışır), `config.toml` = `127.0.0.1:7125` (Moonraker doğrudan) ve
+telefon sayfası 8090 (8080 genelde crowsnest webcam), systemd servisi `Nice=10`, `IOSchedulingClass=idle` (Klipper'ın
+zamanlaması öncelikli; baskı başındaki plan hesabı da bu öncelikte), `Restart=on-failure`. İsteğe bağlı salt-okunur
+Samba paylaşımı (Unity veri klasörü `\\<pi>\ender3-twin`). Kod: `web_port` config anahtarı (0 = kapalı); SIGTERM
+(systemctl stop) Ctrl+C gibi biter (durum kaydı + oturum özeti). Unity: `LiveCsvTail` boyutu açılan dosyadan okur
+(Windows ağ paylaşımında FileInfo.Length ~10 s önbellekte kalabiliyor), "script çalışıyor" eşiği paylaşımda 15 s.
+`.gitattributes`: .sh ve .service LF. Pi'de doğrulanacak: kurulum, Klipper "Timer too close" yok, baskı başı plan
+süresi, Unity'nin paylaşımdan canlı akıcılığı.

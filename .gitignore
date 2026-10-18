@@ -41,5 +41,6 @@ release/
 # Unused old code (see eski/BENIOKU.txt)
 eski/
 
-# Personal documents
+# Personal documents and local assistant notes
 *.docx
+CLAUDE.md

@@ -21,6 +21,19 @@ terminology; the first feedback path (pausing the print) exists in shadow mode.
 > is in [`KARARLAR.md`](KARARLAR.md) (Turkish); code comments refer to it as `[Kxx]`.
 > Planned versions: [`ROADMAP.md`](ROADMAP.md).
 
+### Try it without a printer
+
+1. Download `ender3-twin-viewer-windows-v0.1.zip` from the [latest release](../../releases/latest) and
+   unzip it anywhere.
+2. Run `Ender 3 Digital Twin.exe`. The start menu lists three real recordings from the `sample_data`
+   folder next to it.
+3. Open **demo1 filament runout PETG**, press **N** to jump to the alarm: the spool ran empty at ~61.5 min,
+   the twin raises `GUC_AZALDI` ("low heat demand") about 20 s later, and the G-code toolpath shows where
+   the print was. Mouse: drag to orbit, right-drag to pan, wheel to zoom.
+
+To replay the same logs through the Python twin instead (Windows/macOS/Linux), see
+[Running it](#running-it) and the evaluation-data release asset.
+
 ---
 
 ## Contents
@@ -216,7 +229,7 @@ the window (`[K17]`). It is the same dilemma as numerical diffusion in CFD.
 | `closed_loop.py` | Closed-loop (PID) simulation used by the plan and for validation. |
 | `fault_classifier.py` | Post-alarm physical category (see above). |
 | `session_history.py` | Per-session summary history (`twin_gecmis.csv`). |
-| `Ender3_Twin/` | Unity 6 project: 3D printer from CAD, replay/live timeline, alarm map on the G-code toolpath. |
+| Viewer (Unity 6) | 3D printer from CAD, replay/live timeline, alarm map on the G-code toolpath. Released as a Windows build; its source is not public yet. It only reads the CSV/plan files (contract: `UNITY_ARAYUZ.md`). |
 
 ---
 
@@ -246,8 +259,8 @@ onsets). Each number is the `TUMU` row under *KLIPPER ZAMANLI LOGLAR* of the com
 | Set | Logs | Command | RMSE | Alarms |
 |---|---|---|---|---|
 | September calibration runs | 9 | `python evaluate.py` | 3.62 | 0 |
-| Calibration set (`ayar`) | 34 | `python evaluate.py --set calibration --live-start` | 3.46 | 12 |
-| Test set (`sınav`) | 45 | `python evaluate.py --set test --live-start` | 3.34 | 14 |
+| Calibration set (`ayar`) | 37 | `python evaluate.py --set calibration --live-start` | 3.48 | 12 |
+| Test set (`sınav`) | 48 | `python evaluate.py --set test --live-start` | 3.28 | 14 |
 
 `--live-start` starts each log from the `k` and `k_fil` the live twin had when it was recorded,
 as it really ran. Without it every log starts from `k = 1`, which is wrong for the October logs (the real
@@ -269,7 +282,9 @@ plan, classifier and evaluation tools). Klipper + Moonraker reachable on the net
 1. Copy `config.example.toml` to `config.toml` and set `printer_host` (not needed for offline evaluation).
 2. Start the twin **before** starting a print (the G-code plan is only produced if the twin sees the print
    start): double-click `start_twin.bat` or run `python realtime_websocket.py`.
-3. Optional: open `http://<pc-ip>:8080` on a phone, or start the Unity project and choose *Live*.
+3. Optional: open `http://<pc-ip>:8080` on a phone. The released Windows viewer replays what is in its
+   `sample_data` folder: copy your own `realtime_log_ws_*.csv` and `tahminler/` files there to view them.
+   Following a live session from the released viewer is planned (v0.5).
 4. Offline evaluation: `python evaluate.py --set calibration --live-start` (or `test`; `--chain` instead of
    `--live-start` to carry state from log to log).
 

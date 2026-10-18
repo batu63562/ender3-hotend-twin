@@ -37,7 +37,6 @@ Release tasks:
       New public names (config keys, arguments, file names) are English from the start.
 - [x] `requirements.txt`, `.gitignore` (live logs, learned state, caches).
 - [x] `LICENSE` (MIT).
-- [ ] A default `twin_state.json` for a fresh start.
 - [x] A small curated sample dataset published as a release asset, so the twin can be replayed without a
       printer: three demo recordings with plans and toolpaths (`ender3-twin-sample-data-v0.1.zip`), and
       every log behind the scores (`ender3-twin-eval-data-v0.1.zip`, reproduces `evaluate.py` exactly).

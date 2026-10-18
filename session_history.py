@@ -1,33 +1,34 @@
 """
-Oturumlar arasi trend kaydi (yavas biriken arizalar icin).
+Session-to-session trend record (for slowly accumulating faults).
 
-Tek bir oturumda gorunmeyen, haftalar icinde biriken degisimler: nozzle dislerinden sizinti
-birikmesi (kayip azalir), kartus yaslanmasi (direnc artar, guc duser -> kayip artmis gibi
-gorunur), corap yipranmasi (kayip artar), parca fani tozlanmasi (fan sogutmasi azalir).
+Changes that do not show within one session but build up over weeks: leakage residue around the nozzle
+threads (loss decreases), cartridge ageing (resistance rises, power drops -> looks like more loss),
+sock wear (loss increases), part fan getting dusty (fan cooling decreases).
 
-Her oturumun sonunda canli script oturum CSV'sinden bir ozet satiri cikarir ve GECMIS_FILE'a
-ekler. Olcutler SADECE 245C civarinda, ekstruzyonsuz, sicakligin sabit tutuldugu donemlerden
-enerji dengesiyle hesaplanir (ariza_siniflandir.signals ile ayni sinyal). Hepsi 2026-09-25'te
-kalibre edilen modele goredir (0 = kalibrasyon gunuyle ayni):
-    P_fan0_W            fan kapaliyken 245C'yi tutmak icin ortalama isitici gucu
-    blok_kaybi_pct      fan kapali tutmada blok kaybi modele gore % fark (+ = daha fazla kayip)
-    fan_sogutma_pct     fanli tutmada fan sogutmasi modele gore % fark (normalde ~ -8%)
-    baski_kaybi_pct     baskida (ekstruzyon + fan) toplam hava kaybi % fark; filaman yuku K_FIL ile
-    P150_W, kayip150_pct  baski basindaki 150C on isitma beklemesinde (START_GCODE: tabla isinirken nozzle 150C,
-                        X0 Y0, ekstruzyonsuz) isiticiya giden gercek guc ve modele (k=1) gore % fark. Her baskida
-                        kendiliginden olusan, baskiya dokunmayan bakim gostergesi: heatsink tozu, heat break temasi,
-                        fan sorunlari gibi yavas bozulmalar burada gorunur (2026-10-13: bakim oncesi 7.4-8.4 W,
-                        sonrasi 9.7 W). k ogrenmek icin uygun degil (tabla nozzle'in altinda isiniyor), trend icin uygun.
-Yeterli veri yoksa (< MIN_HOLD s) o olcut bos kalir. Arizali oturumlar DISLANMAZ: yavas bir ariza
-esigi gecip alarm verdiginde de trendde gorunmeli. Ariza kodlari ayri sutunda.
+At the end of each session the live script extracts one summary row from the session CSV and appends it
+to GECMIS_FILE. The measures are computed by energy balance ONLY from periods around 245 C without
+extrusion and with the temperature held constant (the same signal as fault_classifier.signals). All are
+relative to the model calibrated on 2026-09-25 (0 = same as the calibration day):
+    P_fan0_W            average heater power to hold 245 C with the fan off
+    blok_kaybi_pct      block loss in fan-off holds, % difference from the model (+ = more loss)
+    fan_sogutma_pct     fan cooling in fan-on holds, % difference from the model (normally ~ -8%)
+    baski_kaybi_pct     total loss to air while printing (extrusion + fan), % difference; filament load via K_FIL
+    P150_W, kayip150_pct  real heater power during the 150 C preheat wait at print start (START_GCODE: nozzle at
+                        150 C while the bed heats, X0 Y0, no extrusion) and % difference from the model (k=1).
+                        Happens by itself in every print and does not touch the print: a maintenance indicator
+                        where slow degradation shows (heatsink dust, heat-break contact, fan problems;
+                        2026-10-13: 7.4-8.4 W before maintenance, 9.7 W after). Not suitable for learning k
+                        (the bed heats below the nozzle), suitable for a trend.
+Without enough data (< MIN_HOLD s) that measure stays empty. Faulty sessions are NOT excluded: a slow
+fault should still show in the trend once it crosses the threshold and alarms. Fault codes in a separate column.
 
-Oda sicakligi olculmuyor (T_AMB = 25C sabit): oda 23C ise 245C'deki kayip ~%1 fazla gorunur.
-Gunluk dogal oynama blok kaybinda ~+-%5.
+Room temperature is not measured (T_AMB = 25 C fixed): at 23 C the loss at 245 C looks ~1 % higher.
+Natural day-to-day spread of the block loss is ~+-5 %.
 
-Kullanim:
-    python gecmis.py                      # trend tablosu ve uyarilar
-    python gecmis.py --doldur             # eski loglardan gecmisi (yeniden) olustur
-    python gecmis.py --ekle LOG.csv       # tek bir logu ekle
+Usage:
+    python session_history.py                      # trend table and warnings
+    python session_history.py --backfill           # rebuild the history from old logs
+    python session_history.py --add LOG.csv        # add one log
 """
 import argparse
 import glob
@@ -39,19 +40,19 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GECMIS_FILE = os.path.join(HERE, "twin_gecmis.csv")
-MIN_HOLD = 60.0        # s - bir olcut icin gereken en az gecerli tutma suresi
+MIN_HOLD = 60.0        # s - minimum valid hold time for a measure
 T_HOLD = (240.0, 250.0)
-DRIFT_WARN = 5.0       # % - son oturum onceki oturumlarin medyanindan bu kadar farkliysa uyar
-SLOPE_WARN = 2.0       # %/hafta - blok kaybi egimi bunu asarsa uyar (en az 5 oturum, 3 gun)
+DRIFT_WARN = 5.0       # % - warn if the last session differs this much from the median of the earlier ones
+SLOPE_WARN = 2.0       # %/week - warn if the block loss slope exceeds this (at least 5 sessions, 3 days)
 COLUMNS = ["oturum", "dosya", "sure_dk", "model", "tutma245_s", "P_fan0_W", "blok_kaybi_pct",
            "fan_sogutma_pct", "baski_kaybi_pct", "P150_W", "kayip150_pct", "k_son", "arizalar", "not"]
 T150 = 150.0
-HOLD150_MIN = 90.0     # s - 150C beklemesi en az bu kadar surmeli; son 60 s kullanilir (varis gecisi disarida)
+HOLD150_MIN = 90.0     # s - the 150 C wait must last at least this; the last 60 s are used (arrival excluded)
 
 
 def hold150(raw, m):
-    """150C on isitma beklemesinin son 60 s'sindeki gercek isitici gucu (W) ve modele (k=1) gore % fark.
-    Bekleme yoksa (None, None)."""
+    """Real heater power (W) in the last 60 s of the 150 C preheat wait and % difference from the model (k=1).
+    (None, None) if there is no wait."""
     if "target" not in raw or "time" not in raw:
         return None, None
     tg = pd.to_numeric(raw.target, errors="coerce").ffill()
@@ -75,12 +76,12 @@ def hold150(raw, m):
 
 
 def summarize(path, m, note=""):
-    """Bir oturum logundan ozet satiri (dict)."""
+    """Summary row (dict) from one session log."""
     import evaluate as d
     import fault_classifier as a
     raw = pd.read_csv(path)
     if len(raw) < 20 or raw.T1_real.isna().all():
-        return None                                  # bos/cok kisa oturum: ozet yok
+        return None                                  # empty/very short session: no summary
     tt = pd.to_numeric(raw.time, errors="coerce")
     row = dict(oturum=datetime.fromtimestamp(float(tt.iloc[0])).strftime("%Y-%m-%d %H:%M"),
                dosya=os.path.basename(path), sure_dk=round((tt.max() - tt.iloc[0]) / 60, 1),
@@ -89,8 +90,8 @@ def summarize(path, m, note=""):
     try:
         df = d.prepare_log(raw.copy())
         sm, t, _ = a.signals(df, m)
-    except Exception as e:  # noqa: BLE001 - 245C olcutleri hesaplanamazsa ozetin geri kalani yine yazilsin
-        # (2026-10-13: 15 saatlik, gece kapali kalan oturumda signals bos dizi ile coktu, ozet hic yazilmamisti)
+    except Exception as e:  # noqa: BLE001 - if the 245 C measures fail, the rest of the summary is still written
+        # (2026-10-13: a 15 h session left on overnight crashed signals with an empty array; no summary was written)
         row["not_"] = (note + "; " if note else "") + f"245C olcutleri yok ({type(e).__name__})"
         return _finish(row, raw)
     G = a.GRID_DT
@@ -107,9 +108,9 @@ def summarize(path, m, note=""):
         row["blok_kaybi_pct"] = round(100 * x0, 1)
     if fanon.sum() * G >= MIN_HOLD:
         if x0 is not None and a.fan_varies(sm[noext]):
-            x, y, _ = a.fit_two_term(sm.gap[noext].values, sm[noext])   # blok ve fan birlikte
+            x, y, _ = a.fit_two_term(sm.gap[noext].values, sm[noext])   # block and fan together
         else:
-            x = x0 if x0 is not None else 0.0      # fan kapali veri yoksa blok modeldeki gibi sayilir
+            x = x0 if x0 is not None else 0.0      # without fan-off data the block counts as in the model
             y = -(sm.gap[fanon].mean() + x * sm.L_blok[fanon].mean()) / sm.L_fan[fanon].mean()
         row["fan_sogutma_pct"] = round(100 * y, 1)
     if printing.sum() * G >= 2 * MIN_HOLD:
@@ -119,7 +120,7 @@ def summarize(path, m, note=""):
 
 
 def _finish(row, raw):
-    """Ortak sutunlar: son k, ariza kodlari, not."""
+    """Common columns: last k, fault codes, note."""
     if "k_loss" in raw:
         row["k_son"] = round(float(raw.k_loss.iloc[-1]), 3)
     if "ariza" in raw:
@@ -134,13 +135,13 @@ def append(row):
     if not new:
         with open(GECMIS_FILE, encoding="utf-8") as f:
             header = f.readline().strip().split(",")
-        if header != COLUMNS:          # eski sutun duzeni (yeni sutun eklendi): once dosyayi yeni duzene cevir
+        if header != COLUMNS:          # old column layout (a column was added): convert the file first
             pd.read_csv(GECMIS_FILE).reindex(columns=COLUMNS).to_csv(GECMIS_FILE, index=False)
     pd.DataFrame([row]).reindex(columns=COLUMNS).to_csv(GECMIS_FILE, mode="a", header=new, index=False)
 
 
 def backfill(m):
-    """Benchmark + ariza ornekleri loglarindan gecmisi bastan olusturur (zaman sirasiyla)."""
+    """Rebuilds the history from the benchmark + fault example logs (in time order)."""
     paths = glob.glob(os.path.join(HERE, "benchmark", "*.csv")) + \
             glob.glob(os.path.join(HERE, "benchmark", "ariza_ornekleri", "*.csv"))
     paths = [p for p in paths if not p.endswith(("etiketler.csv", "setler.csv"))]
@@ -168,7 +169,7 @@ def report():
         print(g[show].fillna("").to_string(index=False))
     print(f"\n(0 = kalibrasyon gunu; blok kaybinda gunluk dogal oynama ~+-5%, fan sogutmasi normalde ~-8%)")
 
-    # kasitli ariza deneyleri (folyo, corapsiz ...) istatistige girmez; gercek arizalar girer
+    # deliberate fault experiments (foil, no sock ...) stay out of the statistics; real faults are included
     deney = g["not"].fillna("").str.contains("deney")
     if deney.any():
         print(f"(trend istatistigi {deney.sum()} kasitli deney oturumunu disarida birakir)")

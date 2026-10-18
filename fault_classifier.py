@@ -1,40 +1,40 @@
 """
-Ariza siniflandirma (CEVRIMDISI - canli scripte dokunmaz).
+Fault classification (OFFLINE - does not touch the live script).
 
-Canli ikiz arizayi "yon" olarak bulur (SICAKLIK_YUKSEK_FAN vb.). Bu arac bir ariza olayini
-logdan alip HANGI FIZIKSEL TERIMIN bozuldugunu arar:
+The live twin finds a fault as a "direction" (e.g. GUC_AZALDI). This tool takes one fault event from the
+log and looks for WHICH PHYSICAL TERM broke:
 
-    A  fan yolu        kanal tikali / dondu, fan yavasladi      -> sapma fan kaybiyla olceklenir
-    B  filaman akmiyor tikanma, filaman bitti, disli kaziyor    -> sapma filaman yukuyle olceklenir
-    C  yalitim/cevre   corap dustu, cereyan, topak, kutu isindi -> sapma tum hava kaybiyla olceklenir
-    D  termistor       fiziksel olarak imkansiz okuma hizi
-    E  isitici         isitici %100'de ama sicaklik dusuyor
+    A  fan path         duct blocked / turned, fan slowed          -> deviation scales with the fan loss
+    B  no filament flow clog, filament ran out, gear grinding      -> deviation scales with the filament load
+    C  insulation/env.  sock fell off, draft, blob, enclosure warm -> deviation scales with all air losses
+    D  thermistor       physically impossible reading rate
+    E  heater           heater at 100 % but the temperature falls
 
-Yontem - enerji dengesi (sicaklik tutulurken PID gucu kayiplari karsilar):
-    eksik_guc = modelin bekledigi kayip - (olculen guc - depolanan enerji hizi)
-    (+ = beklenenden AZ isi gidiyor, - = beklenenden FAZLA isi gidiyor)
-Bu enerji sinyali "anlamli bir sapma var mi" kapisi ve fan degisen pencerelerdeki ayristirma
-icin kullanilir. Tek terimli hipotezler ise IKIZ GERI OYNATMASIYLA test edilir: ikiz olay
-anindaki durumdan her hipotezle ayri ayri yeniden oynatilir (isil gecikme modelin icinde),
-gunluk kayip carpani ve mumkunse filaman katsayisi olaydan onceki referanstan yerinde olculur
-(bkz. replay_hypotheses). Hipotezler:
-    A: sapma = a * fan_kaybi            (a = kaybolan fan sogutmasi orani; <0 fazladan sogutma)
-    B: sapma = b * filaman_yuku         (b = akmayan filaman orani)
-    C: sapma = c * (blok_kaybi + fan)   (c = tum hava kaybindaki oransal degisim)
-Oran fiziksel sinirlar icindeyse ve uyum iyiyse hipotez "uyumlu". Iki hipotez veride ayni
-sekli veriyorsa (ornegin fan hic degismediyse A ile C) ikisi birden raporlanir: veri o
-ayrimi yapamiyor demektir.
+Method - energy balance (while the temperature is held, the PID power covers the losses):
+    eksik_guc (missing power) = loss expected by the model - (measured power - rate of stored energy)
+    (+ = LESS heat leaving than expected, - = MORE heat leaving than expected)
+This energy signal is used as the "is there a meaningful deviation" gate and for the split in windows
+where the fan changes. Single-term hypotheses are tested by TWIN REPLAY instead: the twin is replayed from
+its state at the event separately for each hypothesis (the thermal lag is inside the model); the day's loss
+factor and, when possible, the filament coefficient are measured in place from the reference before the
+event (see replay_hypotheses). Hypotheses:
+    A: deviation = a * fan_loss              (a = fraction of fan cooling lost; <0 extra cooling)
+    B: deviation = b * filament_load         (b = fraction of filament not flowing)
+    C: deviation = c * (block_loss + fan)    (c = relative change of all air losses)
+A hypothesis is "consistent" if its ratio is within physical bounds and the fit is good. If two hypotheses
+have the same shape in the data (e.g. A and C when the fan never changed) both are reported: the data
+cannot make that distinction.
 
-Fan pencerede degistiyse (ve ekstruzyon yoksa) A/C ayrimi dogrudan yapilir: sapma blok ve fan
-terimlerine AYRI ayri bolunur,
-    sapma = -(x * blok_kaybi + y * fan_kaybi)
-x (blok kaybi degisimi) normal bandin disindaysa C, x normal ve y (fan sogutmasi degisimi)
-disindaysa A. Bantlar benchmark'taki normal fanli loglardan (X_BAND, Y_BAND).
+If the fan changed in the window (and there is no extrusion), A/C are separated directly: the deviation is
+split into SEPARATE block and fan terms,
+    deviation = -(x * block_loss + y * fan_loss)
+C if x (block loss change) is outside its normal band; A if x is normal and y (fan cooling change) is
+outside its band. Bands from normal fan-on benchmark logs (X_BAND, Y_BAND).
 
-Kullanim:
-    python ariza_siniflandir.py LOG.csv                  # ikizin buldugu olaylari siniflandir
-    python ariza_siniflandir.py LOG.csv --pencere 330 480  # elle verilen pencereyi (s) siniflandir
-    python ariza_siniflandir.py --etiketler              # benchmark/ariza_ornekleri/etiketler.csv
+Usage:
+    python fault_classifier.py LOG.csv                    # classify the events the twin found
+    python fault_classifier.py LOG.csv --window 330 480   # classify a given window (s)
+    python fault_classifier.py --labels                   # benchmark/ariza_ornekleri/etiketler.csv
 """
 import argparse
 import os
@@ -47,38 +47,38 @@ import evaluate as d
 HERE = os.path.dirname(os.path.abspath(__file__))
 LABEL_FILE = os.path.join(HERE, "benchmark", "ariza_ornekleri", "etiketler.csv")
 
-GRID_DT = 0.5          # s - loglar bu aralikta esit ornekleniyor
-SMOOTH = 20.0          # s - guc/kayip sinyalleri bu pencerede ortalanir (PID gurultusu + gecikme)
-QUASI_RATE = 0.3       # C/s - bundan hizli degisimde enerji dengesi guvenilmez (rampa)
-T_VALID = 150.0        # C - bunun altinda analiz yapilmaz
-REF_LEN = 180.0        # s - olaydan onceki referans penceresi
-REF_MIN = 30.0         # s - referansta en az bu kadar gecerli veri olmali
-ANALYSIS_LEN = 300.0   # s - olay basindan itibaren en fazla bu kadari incelenir
-MIN_SHIFT = 1.2        # W - sapma (ortalama ya da bir hipotezin acikladigi kisim) bundan kucukse
-                       #     "anlamli guc farki yok". Normal benchmark pencerelerinde |ortalama|
-                       #     en fazla 0.91 W, %95'i 0.67 W.
-MIN_TERM = 0.3         # W - terimin ortalamasi bundan kucukse o hipotez test edilemez
-                       #     (ornegin fan kapaliyken A, ekstruzyon yokken B)
-RMS_TIE = 1.25         # en iyi uyumun rms'inin bu kati icindeki hipotezler de "uyumlu"
+GRID_DT = 0.5          # s - logs are resampled evenly at this interval
+SMOOTH = 20.0          # s - power/loss signals are averaged over this window (PID noise + lag)
+QUASI_RATE = 0.3       # C/s - the energy balance is unreliable for faster changes (ramps)
+T_VALID = 150.0        # C - no analysis below this
+REF_LEN = 180.0        # s - reference window before the event
+REF_MIN = 30.0         # s - the reference needs at least this much valid data
+ANALYSIS_LEN = 300.0   # s - at most this much is examined from the event start
+MIN_SHIFT = 1.2        # W - if the deviation (mean, or the part a hypothesis explains) is below this:
+                       #     "no meaningful power difference". In normal benchmark windows |mean|
+                       #     is at most 0.91 W, 95 % below 0.67 W.
+MIN_TERM = 0.3         # W - a hypothesis cannot be tested if its term's mean is below this
+                       #     (e.g. A with the fan off, B without extrusion)
+RMS_TIE = 1.25         # hypotheses within this multiple of the best fit's rms are also "consistent"
 BOUNDS = {"A": (-1.5, 1.15), "B": (-0.3, 1.15), "C": (-0.6, 0.6)}
-RES_RATE_MAX = 8.0     # C/s - D: okuma modelden bu hizda ayrisiyorsa fiziksel degil (sicrama).
-                       #     Normal loglarda residual en fazla 2.9 C/s (klipper), 5.8 C/s (eski http)
-                       #     degisiyor. Okumanin kendi hizi kullanilamaz: soguk isinmada 10 C/s normal.
-SAT_PWM = 0.95         # E: isitici doygun sayilir
-FAN_SPREAD = 2.0       # W - fan kaybi pencerede en az bu kadar degisiyorsa (ornegin fan 0 -> %50,
-                       #     245C'de 4.4 W) blok ve fan terimi ayri ayri cozulur
-# iki terimli ayristirmada normal bantlar (benchmark'taki fanli 3 log, 19 pencere, 2026-09-25):
-# blok |x| <= %2.4, fan y -%18..0 (ortalama -%8: model fan sogutmasini ~%8 fazla tahmin ediyor).
-# Tek gunluk veri -> genis tutuldu; blok bandi canli k alarmiyla (K_ALARM_BAND) ayni.
+RES_RATE_MAX = 8.0     # C/s - D: a reading separating from the model this fast is not physical (jump).
+                       #     In normal logs the residual changes at most 2.9 C/s (klipper), 5.8 C/s (old http).
+                       #     The reading's own rate cannot be used: 10 C/s is normal in a cold heat-up.
+SAT_PWM = 0.95         # E: heater counts as saturated
+FAN_SPREAD = 2.0       # W - if the fan loss changes at least this much in the window (e.g. fan 0 -> 50 %,
+                       #     4.4 W at 245 C) the block and fan terms are solved separately
+# normal bands for the two-term split (3 fan-on benchmark logs, 19 windows, 2026-09-25):
+# block |x| <= 2.4 %, fan y -18..0 % (mean -8 %: the model overestimates fan cooling by ~8 %).
+# One day of data -> kept wide; the block band equals the live k alarm (K_ALARM_BAND).
 X_BAND = 0.08
 Y_BAND = (-0.22, 0.12)
 
 
 # ---------------------------------------------------------------------------
-# Sinyaller
+# Signals
 # ---------------------------------------------------------------------------
 def bed_scale(df, m):
-    """Her satir icin kartus guc carpani 1 - BED_SAG * tabla_pwm (tabla kaydi yoksa 1)."""
+    """Cartridge power factor 1 - BED_SAG * bed_pwm for every row (1 without bed data)."""
     if "bed_pwm" not in df:
         return np.ones(len(df))
     bp = pd.to_numeric(df.bed_pwm, errors="coerce").ffill().fillna(0.0).values
@@ -86,27 +86,27 @@ def bed_scale(df, m):
 
 
 def signals(df, m):
-    """Logu esit zaman izgarasina cevirip enerji dengesi terimlerini hesaplar."""
+    """Resamples the log onto an even time grid and computes the energy balance terms."""
     t = (df.t - df.t.iloc[0]).values
     hasT = df.has_T.values
     g = np.arange(0.0, t[-1], GRID_DT)
-    idx = np.searchsorted(t, g, side="right") - 1          # sifirinci dereceden tutma
+    idx = np.searchsorted(t, g, side="right") - 1          # zero-order hold
     pwm, fan, ext = df.pwm.values[idx], df.fan_state.values[idx], df.extrude_velocity.values[idx]
     T = np.interp(g, t[hasT], df.T1_real.values[hasT])
 
     s = pd.DataFrame({"t": g, "T": T, "pwm": pwm, "fan": fan})
-    n2 = max(1, int(round(m.EXT_AVG_WINDOW / GRID_DT)))     # ikizle ayni net akis ortalamasi
+    n2 = max(1, int(round(m.EXT_AVG_WINDOW / GRID_DT)))     # same net flow average as the twin
     s["flow"] = np.clip(pd.Series(ext).rolling(n2, min_periods=1).mean().values, 0, None)
-    s["P"] = pwm * m.P_MAX * bed_scale(df, m)[idx]     # tabla acikken kartus gucu azalir (ikizle ayni)
-    # T2 (nozzle tarafi) ve T3 (kartus) olculmuyor: modelin kendi denklemleriyle, GERCEK T1 ve
-    # olculen guc surulerek hesaplanir. Bunlarin depoladigi isi dengeye girmezse fan acilirken
-    # (T2 isi birakir) ve isinma sonrasi (T3 isi birakir) ~2 W sahte sapma cikiyordu.
-    fanc = np.array([m.fan_conductance(f) for f in fan])     # modelin kendi fan kurali (esik dahil)
+    s["P"] = pwm * m.P_MAX * bed_scale(df, m)[idx]     # cartridge power drops while the bed is on (as in the twin)
+    # T2 (nozzle side) and T3 (cartridge) are not measured: computed with the model's own equations, driven by
+    # the REAL T1 and the measured power. Without the heat they store in the balance, there was a ~2 W fake
+    # deviation when the fan switched on (T2 releases heat) and after heat-up (T3 releases heat).
+    fanc = np.array([m.fan_conductance(f) for f in fan])     # the model's own fan rule (threshold included)
     T1s, T2s, T3s = m.initial_state(T[0], pwm[0], fan[0])
     T2 = np.empty(len(g)); T3 = np.empty(len(g))
     for i in range(len(g)):
         T2[i], T3[i] = T2s, T3s
-        # T1 bu adimda sabit sayilir -> her iki dugum icin tam ustel cozum (kosulsuz kararli)
+        # T1 is taken constant over the step -> exact exponential solution for both nodes (unconditionally stable)
         G2 = 1 / m.R_HB + m.HA2 + fanc[i]
         T2_inf = (T[i] / m.R_HB + (m.HA2 + fanc[i]) * m.T_AMB) / G2
         T2s = T2_inf + (T2s - T2_inf) * np.exp(-GRID_DT * G2 / m.C2)
@@ -122,38 +122,39 @@ def signals(df, m):
     sm = s.rolling(n, center=True, min_periods=n // 2).mean()
     sm["t"] = g
     sm["dTdt"] = np.gradient(sm["T"].values, g)
-    # E kurali icin hizli turev (2 s): kesik kesik guc kaybi 20 s ortalamada kayboluyordu
+    # fast derivative (2 s) for rule E: an intermittent power loss disappeared in the 20 s average
     n_fast = max(1, int(round(2.0 / GRID_DT)))
     sm["dTdt_fast"] = np.gradient(pd.Series(T).rolling(n_fast, center=True, min_periods=1).mean().values, g)
-    # son 3 s'deki en dusuk pwm: PID tutma sirasinda tek ornekli %100 sivrilikleri normal (fan
-    # acilinca vb.); ariza ise KESINTISIZ doygunluk demek
+    # lowest pwm over the last 3 s: single-sample 100 % spikes are normal for the PID during a hold (fan
+    # switching on etc.); a fault means UNINTERRUPTED saturation
     sm["pwm_min3"] = pd.Series(pwm).rolling(max(1, int(round(3.0 / GRID_DT))), min_periods=1).min().values
-    # son 15 s'deki en yuksek pwm: isinma sonunda PID gucu kesince kartusta biriken isi birkac
-    # saniye daha sicakligi yukseltir (normal). 15 s tamamen kapaliysa o isi bitmistir (R31*C3 ~2.5 s).
+    # highest pwm over the last 15 s: when the PID cuts power at the end of a heat-up, heat stored in the
+    # cartridge raises the temperature for a few more seconds (normal). After 15 s fully off that heat is gone
+    # (R31*C3 ~2.5 s).
     sm["pwm_max15"] = pd.Series(pwm).rolling(max(1, int(round(15.0 / GRID_DT))), min_periods=1).max().values
     sm["gap"] = (sm.L_blok + sm.L_hs + sm.L_fan + sm.L_fil) - (sm.P - sm.store)
-    # veri boslugu yakinindaki noktalar gecersiz
+    # points near a data gap are invalid
     near_gap = np.zeros(len(g), bool)
     for i in np.where(np.diff(t) > m.GAP_THRESHOLD)[0]:
         near_gap |= (g > t[i] - SMOOTH) & (g < t[i + 1] + SMOOTH)
     sm["valid"] = (sm["T"] > T_VALID) & (sm.dTdt.abs() < QUASI_RATE) & ~near_gap & sm.gap.notna()
-    # ham sinyaller (D/E kurallari icin, yumusatilmamis)
+    # raw signals (for rules D/E, not smoothed)
     sm["T_raw"], sm["pwm_raw"] = T, pwm
     return sm, t, hasT
 
 
 # ---------------------------------------------------------------------------
-# Siniflandirma
+# Classification
 # ---------------------------------------------------------------------------
 def fan_varies(seg):
-    """Fan kaybi pencerede yeterince degisiyor mu (blok ve fan terimi ayri ayri cozulebilir mi)."""
+    """Does the fan loss change enough in the window (can the block and fan terms be solved separately)."""
     lf = seg.L_fan.values
     return np.percentile(lf, 90) - np.percentile(lf, 10) >= FAN_SPREAD
 
 
 def fit_two_term(dg, seg):
-    """sapma = -(x * blok_kaybi + y * fan_kaybi):  x = blok kaybindaki, y = fan sogutmasindaki
-    oransal degisim (+ = gercekte DAHA FAZLA kayip). Donus: x, y, uyum rms (W)."""
+    """deviation = -(x * block_loss + y * fan_loss):  x = relative change in block loss, y = in fan cooling
+    (+ = MORE loss in reality). Returns: x, y, fit rms (W)."""
     X = -np.column_stack([seg.L_blok.values, seg.L_fan.values])
     (x, y), *_ = np.linalg.lstsq(X, dg, rcond=None)
     rms = float(np.sqrt(np.mean((dg - X @ [x, y]) ** 2)))
@@ -161,7 +162,7 @@ def fit_two_term(dg, seg):
 
 
 def fit_hypotheses(dg, terms):
-    """dg: referansa gore sapma (W). terms: {hipotez: regresor dizisi}. Tek parametreli LS."""
+    """dg: deviation from the reference (W). terms: {hypothesis: regressor array}. One-parameter LS."""
     out = {}
     for h, x in terms.items():
         if np.mean(np.abs(x)) < MIN_TERM:
@@ -177,28 +178,28 @@ def fit_hypotheses(dg, terms):
 
 
 # ---------------------------------------------------------------------------
-# Ikiz geri oynatmasiyla hipotez testi
+# Hypothesis test by twin replay
 # ---------------------------------------------------------------------------
-# Enerji penceresi (20 s ortalama) PID ve isil gecikmeyi kaba yakalar: kisa bir ekstruzyonda
-# guc farki ekstruzyon bittikten sonra da suruyor, filaman testi yaniliyordu (deney 1).
-# Burada ikiz, olay anindaki durumdan baslayip olculen guc/fan/akisla her hipotez icin ayri
-# ayri yeniden oynatilir; gecikme modelin icinde oldugu icin kendiliginden hesaba katilir.
-# Filaman yuku baglama gore degisiyor (havaya serbest ekstruzyon, baskidaki K_FIL'in 1.33 kati
-# isi cekti - deney 1). O yuzden referans doneminde hem ekstruzyonlu hem ekstruzyonsuz kisim
-# varsa filaman katsayisi da yerinde olculur ve B orani ona gore verilir.
-REPLAY_EPS = 0.05      # Gauss-Newton sonlu fark adimi (carpan)
-REPLAY_TIE_C = 0.3     # C - en iyi uyuma bu kadar yakin hipotezler de "uyumlu"
-REF_EXT_MIN = 20.0     # s - referansta en az bu kadar ekstruzyonlu VE ekstruzyonsuz sure varsa
-                       #     filaman katsayisi yerinde olculur
-K_FIL_PRIOR = 0.15     # K_FIL yerinde olculemezse oransal belirsizligi: baskida kalibre edildi (tek
-                       # baski, tek malzeme); serbest ekstruzyonda 1.33 kati olculdu (baska baglam)
-B_MAX = 1.05           # filaman testi: belirsizlik (2 sigma) hesaba katildiktan sonra bile akmayan
-                       # filaman orani bunu asiyorsa B elenir (filaman yukunden fazlasi kaybolamaz)
+# The energy window (20 s average) captures the PID and thermal lag only roughly: after a short extrusion the
+# power difference lasted beyond the end of the extrusion and the filament test was fooled (experiment 1).
+# Here the twin is replayed from its state at the event with the measured power/fan/flow, separately for each
+# hypothesis; the lag is inside the model, so it is accounted for automatically.
+# The filament load depends on context (free extrusion into the air drew 1.33 times the in-print K_FIL heat -
+# experiment 1). So if the reference period has both extruding and non-extruding parts, the filament
+# coefficient is also measured in place and the B ratio is given relative to it.
+REPLAY_EPS = 0.05      # Gauss-Newton finite-difference step (factor)
+REPLAY_TIE_C = 0.3     # C - hypotheses this close to the best fit are also "consistent"
+REF_EXT_MIN = 20.0     # s - if the reference has at least this much extruding AND non-extruding time,
+                       #     the filament coefficient is measured in place
+K_FIL_PRIOR = 0.15     # relative uncertainty of K_FIL when it cannot be measured in place: calibrated in a print
+                       # (one print, one material); measured 1.33 times in free extrusion (another context)
+B_MAX = 1.05           # filament test: B is rejected if, even after the uncertainty (2 sigma), the fraction of
+                       # filament not flowing exceeds this (no more than the filament load can disappear)
 
 
 def replay_inputs(df, m):
-    """Twin ile ayni girdi sirasi: aralik (t[i-1], t[i]] onceki mesajin pwm/fan'i ve son 2 s'nin
-    isaretli ortalama akisiyla (0'in alti kirpilir) ilerletilir."""
+    """Same input order as Twin: interval (t[i-1], t[i]] advances with the previous message's pwm/fan and the
+    signed average flow of the last 2 s (clipped below 0)."""
     t = (df.t - df.t.iloc[0]).values
     ext = df.extrude_velocity.values
     ext_sm = np.zeros(len(t))
@@ -213,9 +214,9 @@ def replay_inputs(df, m):
                 fan=df.fan_state.values, ext_sm=ext_sm)
 
 
-WARMUP = 30.0          # s - geri oynatma baslangictan bu kadar once baslar (T2/T3 otursun), sonra
-                       #     ucu de gercek T1'e kaydirilir. PID gucu 5 s'de %37-65 oynadigi icin
-                       #     T3'u o anki guce gore kurmak ~15C hatali baslangic ve sahte gecis veriyordu.
+WARMUP = 30.0          # s - the replay starts this much before the start (so T2/T3 settle), then all three are
+                       #     shifted to the real T1. The PID power swings 37-65 % within 5 s, so setting T3 from
+                       #     the power at that moment gave a ~15 C wrong start and a fake transient.
 
 
 def _real_T1(R, i):
@@ -224,10 +225,10 @@ def _real_T1(R, i):
 
 
 def _sim(ctx, i0, i1, kn, kf, kfil, base=None):
-    """Satir i0'dan i1'e ikizi carpanlarla oynat (kn: blok kaybi, kf: fan sogutmasi, kfil: filaman).
-    Baslangic: WARMUP saniye once 'base' carpanlariyla (verilmezse ayni carpanlar) oynatilir, i0'da
-    uc dugum birlikte gercek T1'e kaydirilir (ic sicaklik farklari = isi akislari korunur).
-    Donus: (i0, i1] araligindaki sicaklik olcumlerinde gercek - ikiz."""
+    """Replay the twin from row i0 to i1 with factors (kn: block loss, kf: fan cooling, kfil: filament).
+    Start: replayed WARMUP seconds earlier with the 'base' factors (same factors if not given); at i0 the
+    three nodes are shifted together to the real T1 (internal temperature differences = heat flows are kept).
+    Returns: real - twin at the temperature measurements in (i0, i1]."""
     m, R = ctx["m"], ctx["rp"]
     t, T, hasT, pwm, fan, ext = R["t"], R["T"], R["hasT"], R["pwm"], R["fan"], R["ext_sm"]
     iw = int(np.searchsorted(t, t[i0] - WARMUP))
@@ -243,14 +244,14 @@ def _sim(ctx, i0, i1, kn, kf, kfil, base=None):
     bn, bf, bfil = base if base is not None else (kn, kf, kfil)
     out = []
     for i in range(iw + 1, i1 + 1):
-        if i == i0 + 1:                      # olay basi: gercek sicakliga kaydir
+        if i == i0 + 1:                      # event start: shift to the real temperature
             off = _real_T1(R, i0) - T1
             T1, T2, T3 = T1 + off, T2 + off, T3 + off
         on = i > i0
         cn, cf, cfil = (kn, kf, kfil) if on else (bn, bf, bfil)
         dt = t[i] - t[i - 1]
         u, fc, q = pwm[i - 1], cf * m.fan_conductance(fan[i - 1]), ext[i]
-        n = max(1, int(np.ceil(dt / 0.25))); h = dt / n     # model kararlilik siniri ~2.7 s
+        n = max(1, int(np.ceil(dt / 0.25))); h = dt / n     # model stability limit ~2.7 s
         for _ in range(n):
             a = f(T1, T2, T3, u, fc, q, cn, cfil)
             b = f(T1 + h/2*a[0], T2 + h/2*a[1], T3 + h/2*a[2], u, fc, q, cn, cfil)
@@ -264,8 +265,8 @@ def _sim(ctx, i0, i1, kn, kf, kfil, base=None):
 
 
 def _fit(ctx, i0, i1, to_mult, p0, base=None, cov=False):
-    """Gauss-Newton (2 tur): to_mult(p) -> (kn, kf, kfil). Donus: p, residual rms (C)[, kovaryans].
-    Kovaryans: residual ornekleri 0.25 s aralikli ve cok ilintili; bagimsiz ornek ~ her 10 s'de bir."""
+    """Gauss-Newton (2 iterations): to_mult(p) -> (kn, kf, kfil). Returns: p, residual rms (C)[, covariance].
+    Covariance: residual samples are 0.25 s apart and strongly correlated; ~one independent sample per 10 s."""
     p = np.array(p0, float)
     for _ in range(2):
         r = _sim(ctx, i0, i1, *to_mult(p), base=base)
@@ -281,8 +282,8 @@ def _fit(ctx, i0, i1, to_mult, p0, base=None, cov=False):
 
 
 def replay_baseline(ctx, t_start):
-    """Referans doneminden gunluk kayip carpani (kb) ve mumkunse filaman katsayisi (kfil).
-    Donus: kb, kfil, kfil'in oransal belirsizligi (1 sigma), not."""
+    """The day's loss factor (kb) and, when possible, the filament coefficient (kfil) from the reference period.
+    Returns: kb, kfil, relative uncertainty of kfil (1 sigma), note."""
     R = ctx["rp"]; t = R["t"]
     i0 = int(np.searchsorted(t, max(t_start - REF_LEN, 0.0)))
     i1 = int(np.searchsorted(t, t_start))
@@ -305,8 +306,8 @@ def replay_baseline(ctx, t_start):
 
 
 def replay_hypotheses(ctx, t_start, t_end, seg):
-    """A/B/C hipotezlerini ikiz geri oynatmasiyla test eder. Oranlar enerji yontemiyle ayni anlamda:
-    a = kaybolan fan sogutmasi, b = akmayan filaman, c = hava kayiplarindaki azalma (hepsi oransal)."""
+    """Tests the A/B/C hypotheses by twin replay. Ratios mean the same as in the energy method:
+    a = fan cooling lost, b = filament not flowing, c = decrease of the air losses (all relative)."""
     R = ctx["rp"]; t = R["t"]
     kb, kf0, sig, note = replay_baseline(ctx, t_start)
     i0 = int(np.searchsorted(t, t_start)); i1 = int(np.searchsorted(t, t_end, side="right")) - 1
@@ -322,7 +323,7 @@ def replay_hypotheses(ctx, t_start, t_end, seg):
             continue
         (p,), rms = _fit(ctx, i0, i1, maps[h], [0.0], base=(kb, kb, kf0))
         if h == "B":
-            # filaman katsayisi belirsiz: gercek yuk 2 sigma buyukse gereken oran o kadar kuculur
+            # filament coefficient is uncertain: if the real load is 2 sigma larger, the required ratio shrinks by that much
             p_min = p / (1 + 2 * sig) if p > 0 else p * (1 + 2 * sig)
             ok = BOUNDS["B"][0] <= p_min <= B_MAX
             why = (f"filaman yukunun {p:.2f} kati kaybolmali; K_FIL belirsizligi (+-{sig*100:.0f}%, 2 sigma) "
@@ -338,16 +339,16 @@ def replay_hypotheses(ctx, t_start, t_end, seg):
 
 
 def rule_checks(sm, w, ctx):
-    """D (termistor) ve E (isitici) kurallari, ham veri uzerinde."""
+    """Rules D (thermistor) and E (heater), on raw data."""
     notes = []
     t0, t1 = sm.t[w].min(), sm.t[w].max()
-    # D: residual'in ~1 s'deki degisimi (okuma modelden fiziksel olmayan hizda ayrisiyor mu)
+    # D: change of the residual over ~1 s (does the reading separate from the model at a non-physical rate)
     t, sel = ctx["t"], ctx["hasT"] & ~ctx["synced"]
     tt, rr = t[sel], ctx["res"][sel]
     win = (tt >= t0) & (tt <= t1)
     tt, rr = tt[win], rr[win]
     if len(tt) > 2:
-        j = np.clip(np.searchsorted(tt, tt + 1.0), 0, len(tt) - 1)   # ~1 s sonraki olcum
+        j = np.clip(np.searchsorted(tt, tt + 1.0), 0, len(tt) - 1)   # measurement ~1 s later
         span = tt[j] - tt
         ok = (span >= 0.5) & (span < 3.0)
         rate = np.where(ok, (rr[j] - rr) / np.where(ok, span, 1), 0)
@@ -355,15 +356,16 @@ def rule_checks(sm, w, ctx):
         if rmax > RES_RATE_MAX:
             notes.append(("D", f"okuma modelden {rmax:.1f} C/s hizla ayrisiyor (normalde < 3 C/s): "
                                "termistor/konnektor sicramasi"))
-    # E: isitici doygun ve sicaklik dusuyor (>= 10 s)
+    # E: heater saturated and temperature falling (>= 10 s)
     seg = sm[w]
-    # PID 3 s'dir kesintisiz %100 verirken sicaklik dusuyor: normal calismada olmaz (isinmada %100'de
-    # sicaklik YUKSELIR). Toplam sure sayilir, kesik kesik (gevsek krimp) olanlar da yakalanir.
+    # PID gives an uninterrupted 100 % for 3 s while the temperature falls: does not happen in normal operation
+    # (at 100 % during heat-up the temperature RISES). Total time is counted, so intermittent cases (loose crimp)
+    # are caught too.
     sat_fall = (seg.pwm_min3 >= SAT_PWM) & (seg.dTdt_fast < -0.5) & (seg["T"] > 100)
     if sat_fall.sum() * GRID_DT >= 5:
         notes.append(("E", f"isitici %{SAT_PWM*100:.0f}+ iken sicaklik toplam {sat_fall.sum()*GRID_DT:.0f} s "
                            "dusuyor: kartusa guc gelmiyor (kopuk/gevsek kablo ya da krimp, bozuk kartus)"))
-    # isitici kapaliyken sicaklik yukseliyor
+    # temperature rising while the heater is off
     heat_off_rise = (seg.pwm_max15 <= 0.02) & (seg.dTdt_fast > 0.3) & (seg["T"] > 40)
     if heat_off_rise.sum() * GRID_DT >= 10:
         notes.append(("E", "isitici kapaliyken sicaklik yukseliyor: MOSFET kontrolsuz ya da termistor hatali"))
@@ -371,7 +373,7 @@ def rule_checks(sm, w, ctx):
 
 
 def prepare(df, m):
-    """Bir log icin gereken her sey bir kez hesaplanir: enerji sinyalleri + ikizin tekrari."""
+    """Everything needed for one log is computed once: energy signals + the twin's replay."""
     sm, t, hasT = signals(df, m)
     events = []
     _, res, _, _, synced = d.replay(df, m, events)
@@ -380,11 +382,11 @@ def prepare(df, m):
 
 
 def classify_window(ctx, t_start, t_end):
-    """[t_start, t_end] (log basindan saniye) penceresini siniflandir. Donus: sonuc sozlugu."""
+    """Classify the window [t_start, t_end] (seconds from log start). Returns: result dict."""
     sm = ctx["sm"]
     rep = {"pencere": (t_start, t_end), "kategori": [], "notlar": [], "hipotezler": {}}
 
-    # referans: olaydan onceki gecerli veri
+    # reference: valid data before the event
     ref = sm.valid & (sm.t >= t_start - REF_LEN) & (sm.t < t_start - SMOOTH / 2)
     if ref.sum() * GRID_DT >= REF_MIN:
         g0 = float(sm.gap[ref].mean()); noise = float(sm.gap[ref].std())
@@ -400,7 +402,7 @@ def classify_window(ctx, t_start, t_end):
     for cat, txt in rep["kurallar"]:
         rep["kategori"].append(cat); rep["notlar"].append(f"[{cat}] {txt}")
     if rep["kurallar"]:
-        rep["birincil"] = rep["kurallar"][0][0]     # dogrudan kural (D/E) enerji analizinden once gelir
+        rep["birincil"] = rep["kurallar"][0][0]     # a direct rule (D/E) takes precedence over the energy analysis
 
     if w.sum() * GRID_DT < 15:
         rep["notlar"].append(f"pencerede sicaklik tutulan gecerli veri {w.sum()*GRID_DT:.0f} s: enerji analizi yapilamadi")
@@ -419,8 +421,8 @@ def classify_window(ctx, t_start, t_end):
     hyp = fit_hypotheses(dg, terms)
     rep["hipotezler"] = hyp
     feas = {h: r for h, r in hyp.items() if r["uygun"]}
-    # anlamlilik: ortalama sapma ya da bir hipotezin acikladigi kisim (kisa ekstruzyon olayi
-    # pencerede seyrelse de filaman terimiyle birlikte oynadigi icin buradan yakalanir)
+    # significance: mean deviation or the part a hypothesis explains (a short extrusion event is diluted in the
+    # window but moves together with the filament term, so it is caught here)
     explained = max([abs(r["oran"]) * np.sqrt(np.mean(terms[h] ** 2)) for h, r in feas.items()], default=0.0)
     if abs(dg.mean()) < MIN_SHIFT and explained < MIN_SHIFT:
         rep["notlar"].append(f"anlamli guc farki yok (sapma ve aciklanan kisim < {MIN_SHIFT} W): isi dengesi normal")
@@ -429,7 +431,7 @@ def classify_window(ctx, t_start, t_end):
             rep["kategori"] = ["-"]
         return rep
     if fan_varies(seg) and seg.L_fil.mean() < MIN_TERM:
-        # fan pencerede degisti: blok ve fan terimi ayri ayri cozulur, A/C ayrimi veriden yapilir
+        # the fan changed in the window: block and fan terms solved separately, A/C decided from the data
         x, y, rms = fit_two_term(dg, seg)
         rep["ayristirma"] = dict(x=x, y=y, rms=rms)
         rep["notlar"].append(f"fan degisti ({seg.fan.min()*100:.0f}-{seg.fan.max()*100:.0f}%): blok ve fan ayri cozuldu -> "
@@ -452,7 +454,7 @@ def classify_window(ctx, t_start, t_end):
         if not rep.get("birincil"):
             rep["birincil"] = cat
     else:
-        # tek terimli hipotezler ikiz geri oynatmasiyla (enerji penceresi yukarida sadece anlamlilik icin)
+        # single-term hypotheses by twin replay (the energy window above is only for significance)
         hyp, note, _ = replay_hypotheses(ctx, t_start, t_end, seg)
         rep["hipotezler"] = hyp; rep["hipotez_birim"] = "C"
         rep["notlar"].append(note)
@@ -462,13 +464,13 @@ def classify_window(ctx, t_start, t_end):
             tie = max(best * RMS_TIE, best + REPLAY_TIE_C)
             chosen = sorted(h for h, r in feas.items() if r["rms"] <= tie)
             ranked = sorted(chosen, key=lambda h: feas[h]["rms"])
-            # fan sabitken A ile C fiziksel olarak ayni sekli verir; aradaki rms farki modelin ic
-            # yapisindan (kayip T1'den mi T2'den mi) gelir, veriden degil -> ikisi birlikte kalir
+            # with a constant fan A and C give physically the same shape; the rms difference between them comes
+            # from the model's internal structure (loss from T1 or T2), not from the data -> both are kept
             ac_tied = "A" in feas and "C" in feas and ranked[0] in ("A", "C")
             if ac_tied:
                 chosen = sorted(set(chosen) | {"A", "C"})
             rep["kategori"] += chosen
-            # en iyi iki uyum pratikte ayniysa "en olasi" denmez
+            # if the two best fits are practically equal, no "most likely" is named
             if not rep.get("birincil") and not ac_tied and (
                     len(ranked) == 1 or feas[ranked[1]]["rms"] - feas[ranked[0]]["rms"] > 0.1):
                 rep["birincil"] = ranked[0]
@@ -480,7 +482,7 @@ def classify_window(ctx, t_start, t_end):
             rep["kategori"].append("?")
             rep["notlar"].append("hicbir tek terim sapmayi fiziksel sinirlar icinde aciklamiyor (birlesik ariza?)")
 
-    # baslangic hizi: sapmanin %10 -> %90'a cikis suresi
+    # onset speed: time for the deviation to rise from 10 % to 90 %
     s = pd.Series(sm.gap.values - g0, index=sm.t).loc[t_start - 60: t_end]
     tgt = dg.mean()
     if abs(tgt) >= MIN_SHIFT and len(s):
@@ -540,11 +542,11 @@ def print_report(rep, title):
 
 
 # ---------------------------------------------------------------------------
-# Olaylar
+# Events
 # ---------------------------------------------------------------------------
 def fault_events(ctx, merge=60.0):
-    """Ikizin (canli scriptle ayni kod) onayladigi arizalar, yakin olanlar birlestirilir.
-    Donus: [(baslangic_s, bitis_s, kodlar)] log basina gore."""
+    """Faults confirmed by the twin (same code as the live script), close ones merged.
+    Returns: [(start_s, end_s, codes)] relative to the log start."""
     df = ctx["df"]
     t0 = df.t.iloc[0]; t_last = df.t.iloc[-1] - t0
     ev = sorted((a - t0, (b - t0) if b is not None else t_last, c) for c, a, b in ctx["events"])
@@ -558,7 +560,7 @@ def fault_events(ctx, merge=60.0):
 
 
 def find_onset(sm, t_conf, g0_guess_end):
-    """Onaylanma anindan geriye: sapmanin yukselmeye basladigi an (onaydan once en fazla 120 s)."""
+    """Backwards from the confirmation: the moment the deviation started rising (at most 120 s before)."""
     ref = sm.valid & (sm.t >= g0_guess_end - REF_LEN) & (sm.t < g0_guess_end)
     g0 = sm.gap[ref].mean() if ref.sum() * GRID_DT >= REF_MIN else 0.0
     after = sm.valid & (sm.t >= t_conf) & (sm.t < t_conf + 60)
@@ -593,8 +595,8 @@ def classify_log(path, m=None, window=None):
 
 
 def classify_live(rows, m, t_confirm):
-    """Canli scriptten: rows = bellekteki son satirlar (CSV ile ayni alanlar), m = calisan model
-    modulu, t_confirm = arizanin onaylandigi an (model saati). Donus: (kategori satiri, tam rapor)."""
+    """From the live script: rows = last rows in memory (same fields as the CSV), m = running model
+    module, t_confirm = moment the fault was confirmed (model clock). Returns: (category line, full report)."""
     df = d.prepare_log(pd.DataFrame(rows))
     ctx = prepare(df, m)
     t0 = df.t.iloc[0]
@@ -609,9 +611,9 @@ def classify_live(rows, m, t_confirm):
 
 
 def evaluate_labels():
-    """etiketler.csv: dosya, baslangic_s, bitis_s, gozlenen, beklenen (ornek 'A|C'), set.
-    set: 'ayar' = esikler bu orneklere bakilarak ayarlandi (skor iyimser), 'sinav' = 2026-10-09'dan
-    sonra eklenen, hicbir esik ayarinda kullanilmayan ornekler. Karar sinav skoruna gore verilir."""
+    """etiketler.csv: dosya, baslangic_s, bitis_s, gozlenen, beklenen (e.g. 'A|C'), set.
+    set: 'ayar' = thresholds were tuned looking at these examples (optimistic score), 'sinav' = examples added
+    after 2026-10-09, never used for any threshold. Decisions are made on the test score."""
     lab = pd.read_csv(LABEL_FILE)
     m = d.load_model()
     rows = []

@@ -1,36 +1,36 @@
 """
-Benchmark degerlendirmesi.
+Benchmark evaluation.
 
-realtime_websocket.py'deki modeli benchmark/ klasorundeki loglar uzerinde CANLI SCRIPT
-GIBI tekrar oynatir (ayni model_step / alarm mantigi / k_loss ogrenmesi, ayni dongu
-mantigi) ve her log icin faz bazli skor tablosu basar.
+Replays the model in realtime_websocket.py over the logs in benchmark/ EXACTLY LIKE THE LIVE SCRIPT
+(same model_step / alarm logic / k_loss learning, same loop logic) and prints a phase-by-phase
+score table for each log.
 
-Fazlar sadece GERCEK veriden (pwm, fan, T1_real) belirlenir, modelden bagimsizdir:
-    isinma      isitici %100 (son 3 s ortalama pwm >= 0.95)
-    varis       isinma bittikten sonraki ilk 30 s (asma / oturma)
-    tutma245    245C civari tutma (T>235, son 30 s'de T araligi < 3C), fan kapali
-    tutma245fan ayni, fan acik
-    tutma_diger diger sicakliklarda tutma (150, 180, 220 ...)
-    soguma      isitici 15 s'dir kapali, T >= 35C
-    bosta       isitici 15 s'dir kapali, T < 35C
-    gecis       geri kalan her sey (hedef degisimi vb.)
+Phases are determined from REAL data only (pwm, fan, T1_real), independent of the model:
+    isinma      heat-up: heater at 100 % (pwm >= 0.95 averaged over the last 3 s)
+    varis       arrival: the first 30 s after a heat-up ends (overshoot / settling)
+    tutma245    hold around 245 C (T > 235, T range < 3 C over the last 30 s), fan off
+    tutma245fan the same, fan on
+    tutma_diger holds at other temperatures (150, 180, 220 ...)
+    soguma      cool-down: heater off for 15 s, T >= 35 C
+    bosta       idle: heater off for 15 s, T < 35 C
+    gecis       everything else (target changes etc.)
 
-Residual isareti canli script ile ayni: residual = T1_real - T1_model
-(+ = gercek modelden sicak, - = model gercekten sicak).
+Residual sign is the same as in the live script: residual = T1_real - T1_model
+(+ = reality hotter than the model, - = model hotter than reality).
 
-Kullanim:
-    python degerlendir.py                          # skor tablosu
-    python degerlendir.py --kaydet baseline        # benchmark/skorlar/baseline.csv
-    python degerlendir.py --karsilastir baseline   # kayitli skora gore fark
-    python degerlendir.py --set sinav              # benchmark/setler.csv'deki sinav loglari
-    python degerlendir.py --set sinav --canli      # her log kaydedildigi andaki k ile (README skorlari)
+Usage:
+    python evaluate.py                                  # score table (September runs)
+    python evaluate.py --save baseline                  # benchmark/skorlar/baseline.csv
+    python evaluate.py --compare baseline               # difference from a saved score
+    python evaluate.py --set test                       # the test logs in benchmark/setler.csv
+    python evaluate.py --set test --live-start          # each log with the k it had when recorded (README)
 
-Setler (benchmark/setler.csv): 'ayar' = parametre/esik ayarlarken bakilan loglar, 'sinav' =
-hicbir ayarda kullanilmayan, sadece puan tablosu icin dondurulmus loglar (2026-10-09'dan
-itibaren). Kural: bir model degisikligi sinav loglarina bakilarak ayarlanmaz; yeni baskilar
-sinav setine eklenir. Sinav dosyasi degismisse (parmak izi tutmuyorsa) uyari verilir.
-Baska bir scriptten (parametre denemesi):
-    from degerlendir import evaluate, print_scorecard
+Sets (benchmark/setler.csv): 'ayar' (calibration) = logs looked at while tuning parameters/thresholds,
+'sinav' (test) = logs never used for tuning, frozen for the score table only (since 2026-10-09).
+Rule: a model change is never tuned by looking at the test logs; new prints alternate between the sets.
+A warning is printed if a test file has changed (fingerprint mismatch).
+From another script (parameter trial):
+    from evaluate import evaluate, print_scorecard
     print_scorecard(evaluate(overrides={"HA1": 0.04}))
 """
 import argparse
@@ -51,14 +51,14 @@ PHASES = ["bosta", "isinma", "varis", "tutma245", "tutma245fan", "tutma_diger", 
 
 
 # ---------------------------------------------------------------------------
-# Log okuma ve faz etiketleme
+# Reading logs and labelling phases
 # ---------------------------------------------------------------------------
 def read_log(path):
     return prepare_log(pd.read_csv(path))
 
 
 def prepare_log(df):
-    """CSV'den ya da canli scriptin bellekteki satirlarindan gelen tabloyu hazirlar."""
+    """Prepares the table coming from a CSV or from the live script's in-memory rows."""
     if "eventtime" in df:
         df["eventtime"] = pd.to_numeric(df.eventtime, errors="coerce")
     klipper = "eventtime" in df and df.eventtime.notna().all()
@@ -67,15 +67,15 @@ def prepare_log(df):
     df["extrude_velocity"] = df.extrude_velocity.fillna(0.0)
     df["fan_state"] = df.fan_state.fillna(0.0)
     df["pwm"] = df.pwm.fillna(0.0)
-    # yeni loglar her mesaji kaydeder; T_yeni=1 olan satirlarda yeni sicaklik var.
-    # eski loglarda her satir bir sicaklik mesajiydi.
+    # new logs record every message; rows with T_yeni=1 carry a new temperature.
+    # in old logs every row was a temperature message.
     df["has_T"] = (df.T_yeni == 1) if "T_yeni" in df else True
     return df.reset_index(drop=True)
 
 
 def mono_time(t):
-    """Klipper yeniden baslarsa eventtime geri gider (10.10 iptaller logu); kayan pencereler icin tekduze
-    zaman: geri adimlar 0 sayilir. Tekduze loglarda t'nin kendisi (sonuc birebir ayni)."""
+    """If Klipper restarts, eventtime goes backwards (10.10 cancellations log); monotonic time for rolling
+    windows: backward steps count as 0. For monotonic logs t itself (identical result)."""
     t = np.asarray(t, dtype=float)
     d = np.diff(t, prepend=t[0])
     if (d >= 0).all():
@@ -84,14 +84,14 @@ def mono_time(t):
 
 
 def label_phases(df):
-    """Her ornege faz etiketi (sadece gercek veriden)."""
+    """Phase label for every sample (from real data only)."""
     tm = mono_time(df.t.values)
     s = df.set_index(pd.to_datetime(tm, unit="s"))
     pwm_mean3 = s.pwm.rolling("3s").mean().values
     pwm_max15 = s.pwm.rolling("15s").max().values
     T_range30 = (s.T1_real.rolling("30s").max() - s.T1_real.rolling("30s").min()).values
-    # en son GERCEK isinma ani (3 s boyunca %100). Tek ornekli pwm=1 sivrilikleri tutma
-    # sirasinda PID'de normal; onlari isinma saymamak icin tekil pwm>=0.99 kullanilmaz.
+    # the latest REAL heat-up moment (100 % for 3 s). Single-sample pwm=1 spikes are normal for the PID
+    # during a hold; a single pwm>=0.99 is not used so that they do not count as heat-up.
     heat_t = pd.Series(tm).where(pd.Series(pwm_mean3 >= 0.95)).ffill().values
     since_sat = tm - np.nan_to_num(heat_t, nan=-1e12)
 
@@ -110,33 +110,33 @@ def label_phases(df):
 
 
 # ---------------------------------------------------------------------------
-# Canli calismanin tekrari: canli script ile AYNI Twin sinifi kullanilir
+# Replaying the live run: the SAME Twin class as the live script is used
 # ---------------------------------------------------------------------------
 def replay(df, m, events=None, k0=1.0, kfil0=1.0, state=None, k_ref0=None):
-    """m: realtime_websocket modulu (parametreleri degistirilmis olabilir).
-    events: liste verilirse onaylanmis ariza olaylari (kod, baslangic, bitis|None) eklenir.
-    state: sozluk verilirse sondaki filaman carpani ve kayip alarmi referansi yazilir (state["kfil"],
-    state["k_ref"], satir satir state["k_refs"]); zincirleme icin. k_ref0: devralinan referans (None: k0).
-    Satir 0 canli scriptteki ilk mesaj: model burada taze baslar (kayitli durum yok).
-    Loglanan pwm/fan/ekstruzyon, o mesajdan SONRA gecerli degerlerdir; Twin bunlari bir sonraki
-    araliga uygular - canli calismayla ayni sira."""
+    """m: the realtime_websocket module (its parameters may be overridden).
+    events: if a list is given, confirmed fault events (code, start, end|None) are appended.
+    state: if a dict is given, the final filament factor and loss-alarm reference are written (state["kfil"],
+    state["k_ref"], row by row state["k_refs"]); for chaining. k_ref0: inherited reference (None: k0).
+    Row 0 is the first message of the live script: the model starts fresh here (no saved state).
+    The logged pwm/fan/extrusion are the values valid AFTER that message; the Twin applies them to the
+    next interval - the same order as the live run."""
     t, T, has_T = df.t.values, df.T1_real.values, df.has_T.values
     pwm, fan, ext = df.pwm.values, df.fan_state.values, df.extrude_velocity.values
     n = len(df)
     T1m = np.empty(n); res = np.zeros(n); anom = np.zeros(n, bool); ks = np.ones(n); synced = np.zeros(n, bool)
     refs = np.ones(n)
 
-    # k0: canli scriptin onceki oturumdan devraldigi kayip carpani (varsayilan: taze baslangic)
+    # k0: the loss factor the live script inherited from the previous session (default: fresh start)
     twin = m.Twin(*m.initial_state(T[0], pwm[0], fan[0]), pwm[0], fan[0], ext[0], k=k0, kfil=kfil0, k_ref=k_ref0)
-    # hedef sicaklik (2026-09-28'den itibaren loglaniyor) sadece erken uyariyi etkiler
+    # target temperature (logged since 2026-09-28) only affects the early warning
     tg = pd.to_numeric(df.target, errors="coerce").values if "target" in df else np.full(n, np.nan)
-    # tabla isitici gucu (2026-09-28'den itibaren loglaniyor): nozzle kartusunun besleme voltaji
+    # bed heater power (logged since 2026-09-28): supply voltage of the nozzle cartridge
     bp = pd.to_numeric(df.bed_pwm, errors="coerce").values if "bed_pwm" in df else np.full(n, np.nan)
-    # ekstruder konumu (2026-09-29'dan itibaren loglaniyor): canli scriptteki gibi son bilinen deger;
-    # akis bundan hesaplanir, yoksa anlik hiz
+    # extruder position (logged since 2026-09-29): last known value as in the live script;
+    # flow is computed from it, otherwise from the instantaneous speed
     pe = pd.to_numeric(df.pos_e, errors="coerce").ffill().values if "pos_e" in df else np.full(n, np.nan)
-    # malzeme (2026-10-16'dan itibaren loglaniyor): canli ikiz baski basinda G-code'dan malzemeyi okuyup k_fil'i o
-    # malzemenin kayitli degerine gecirir (Twin.set_material); kayitli deger logdaki o satirin k_fil'i
+    # material (logged since 2026-10-16): at print start the live twin reads the material from the G-code and
+    # switches k_fil to that material's saved value (Twin.set_material); the saved value is that row's k_fil
     mz = df["malzeme"].fillna("").astype(str).values if "malzeme" in df else None
     kfl = pd.to_numeric(df["k_fil"], errors="coerce").values if "k_fil" in df else np.full(n, np.nan)
     if mz is not None:
@@ -175,8 +175,8 @@ def short_name(path):
 
 
 def set_paths(name):
-    """benchmark/setler.csv'den bir setin log yollari ('hepsi' = tumu). Sinav dosyalarinin
-    parmak izi kontrol edilir: dondurulmus bir log sonradan degistiyse uyari basilir."""
+    """Log paths of one set in benchmark/setler.csv ('hepsi' = all). Test files are fingerprinted:
+    a warning is printed if a frozen log has changed since."""
     import hashlib
     s = pd.read_csv(SET_FILE)
     if name != "hepsi":
@@ -199,11 +199,11 @@ def set_paths(name):
 
 
 # ---------------------------------------------------------------------------
-# Skorlama
+# Scoring
 # ---------------------------------------------------------------------------
 def live_start(df):
-    """Logun kaydedildigi andaki ogrenilmis durum: ilk satirin k_loss / k_fil'i (sutun yoksa 1.0).
-    KAYIP referansi loglanmiyor; k'ye esit alinir (oturum basinda alarm yok)."""
+    """Learned state when the log was recorded: k_loss / k_fil of the first row (1.0 without the column).
+    The loss-alarm reference is not logged; it is taken equal to k (no alarm at session start)."""
     def first(col):
         v = pd.to_numeric(df[col], errors="coerce").dropna() if col in df else pd.Series(dtype=float)
         return float(v.iloc[0]) if len(v) else 1.0
@@ -212,10 +212,10 @@ def live_start(df):
 
 
 def evaluate(overrides=None, paths=None, chain=False, live=False):
-    """Uzun formatta skor DataFrame'i: log, clock, faz, n, sure_s, rmse, bias, max, anomali.
-    chain=True: loglar verilen sirayla ardisik oturumlar sayilir, her biri oncekinin son k'sini
-    devralir (canli scriptteki hatirlama); live=True: her log kaydedildigi andaki k/k_fil ile baslar
-    ("canli baslangic"; kabul kapisi ve README skorlari); ikisi de False: her log k=1 ile taze baslar."""
+    """Score DataFrame in long format: log, clock, faz, n, sure_s, rmse, bias, max, anomali.
+    chain=True: the logs are consecutive sessions in the given order, each inherits the previous one's final k
+    (the live script's memory); live=True: each log starts with the k/k_fil it had when recorded
+    ("live start"; acceptance gate and README scores); both False: each log starts fresh with k=1."""
     m = load_model(overrides)
     paths = paths or sorted(p for p in glob.glob(os.path.join(BENCH_DIR, "*.csv")) if p != SET_FILE)
     rows = []
@@ -227,14 +227,14 @@ def evaluate(overrides=None, paths=None, chain=False, live=False):
             live_start(df) if live else (1.0, 1.0, 1.0)
         _, res, anom, ks, synced = replay(df, m, events, k0=k_start, kfil0=kfil_start, state=st, k_ref0=ref_start)
         k_carry, kfil_carry, ref_carry = float(ks[-1]), st["kfil"], st["k_ref"]
-        kanom = abs(ks - st["k_refs"]) > m.K_ALARM_BAND   # ogrenilen kayip yavas referanstan bandin disinda
-        fault_start = np.zeros(len(df), bool)          # onaylanmis arizanin basladigi satirlar
+        kanom = abs(ks - st["k_refs"]) > m.K_ALARM_BAND   # learned loss outside the band around the slow reference
+        fault_start = np.zeros(len(df), bool)          # rows where a confirmed fault started
         for _, t0, _ in events:
-            hit = np.flatnonzero(df.t.values == t0)    # olay ani bir mesaj zamani (saat geri gitse de dogru satir)
+            hit = np.flatnonzero(df.t.values == t0)    # event time is a message time (right row even if the clock went back)
             fault_start[hit[0] if len(hit) else min(np.searchsorted(df.t.values, t0), len(df) - 1)] = True
         ph = label_phases(df)
         dt = np.r_[0.0, np.diff(mono_time(df.t.values))]
-        valid = ~synced & df.has_T.values        # hata sadece yeni sicaklik gelen satirlarda
+        valid = ~synced & df.has_T.values        # error only on rows with a new temperature
         valid[0] = False
         for phase in PHASES + ["TUMU"]:
             in_phase = (ph == phase) if phase != "TUMU" else np.ones(len(df), bool)
@@ -251,7 +251,7 @@ def evaluate(overrides=None, paths=None, chain=False, live=False):
 
 
 def pooled(sc, clock=None):
-    """Loglar birlesik, faz bazli (RMSE'ler ornek sayisiyla agirlikli birlesir)."""
+    """Logs pooled, per phase (RMSEs combined weighted by sample count)."""
     s = sc if clock is None else sc[sc.clock == clock]
     out = []
     for phase in PHASES + ["TUMU"]:
@@ -302,7 +302,7 @@ def print_comparison(sc, ref, ref_name):
             print(f"  birlesik ({title}): " + "  ".join(f"{r.faz} {r.rmse - r.rmse_ref:+.2f}" for r in j.itertuples()))
 
 
-# Komut satirindaki set adlari -> setler.csv'deki degerler (veri sozlesmesi Turkce kalir)
+# Set names on the command line -> values in setler.csv (the data contract stays Turkish)
 SET_NAMES = {"calibration": "ayar", "test": "sinav", "all": "hepsi"}
 
 

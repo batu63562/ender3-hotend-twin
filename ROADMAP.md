@@ -90,9 +90,9 @@ in thermal resistances they do not know. The printer measures itself, like Klipp
 Materials: a material table (density, heat capacity, typical temperature) and a default `k_fil` for a
 material with no history. Per-material `k_fil` storage already exists.
 
-English code pass, done together with this refactor since it touches the same code: identifiers and
-comments are translated to English. It must be behaviour-neutral, so replaying the logs gives exactly the
-same scores before and after. CSV columns and alarm codes stay as they are (data contract).
+English identifiers, done together with this refactor since it touches the same code (public names and
+comments were already translated before v0.1). It must be behaviour-neutral, so replaying the logs gives
+exactly the same scores before and after. CSV columns and alarm codes stay as they are (data contract).
 
 **Done when:** the Ender 3 runs from a profile + calibration file and reproduces the v0.2 scores exactly.
 

@@ -217,3 +217,6 @@ değerler Türkçe kalır), `--canli` → `--live-start`, `--zincir` → `--chai
 → `--compare`, `--etiketler` → `--labels`, `--pencere` → `--window`, `--yol` → `--toolpath`, `--goreli-e` →
 `--relative-e`, `--doldur` → `--backfill`, `--ekle` → `--add`. Davranış aynı: eski kodla (`pre-english` etiketi) skorlar,
 plan, takım yolu, arıza sınıflandırıcı ve kapalı döngü çıktıları birebir karşılaştırıldı.
+Adım 2 (aynı gün): Python yorumları ve docstring'leri İngilizce. Docstring'ler çıkarılınca AST adım 1 ile birebir aynı
+(kod tek karakter değişmedi); Eylül skoru ve etiketli arıza çıktısı aynı. Konsol/telefon mesajları Türkçe kalır (v0.5),
+tanımlayıcılar v0.3 refactor'uyla.

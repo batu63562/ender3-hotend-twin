@@ -1,27 +1,27 @@
 """
-Kapali dongu simulasyonu: ikizin icine Klipper'in PID'si konur, isitici gucu GIRDI olmaktan cikar,
-ikiz tarafindan TAHMIN edilir. Baski oncesi tahminin (G-code -> sicaklik/guc) cekirdegi.
+Closed-loop simulation: Klipper's PID is put inside the twin, so the heater power is no longer an INPUT but
+PREDICTED by the twin. The core of the pre-print prediction (G-code -> temperature/power).
 
-Golge (canli ikiz):   gercek pwm -> [hotend modeli] -> T_model   (residual = T_gercek - T_model)
-Kapali dongu (bu):    hedef -> [Klipper PID] -> pwm_tahmin -> [hotend modeli] -> T_tahmin
-                                    ^-------------- T_tahmin (geri besleme) ----'
-                      filaman akisi ve fan modele bozucu etki olarak girer.
+Shadow (live twin):   real pwm -> [hotend model] -> T_model   (residual = T_real - T_model)
+Closed loop (this):   target -> [Klipper PID] -> pwm_pred -> [hotend model] -> T_pred
+                                    ^-------------- T_pred (feedback) ----------'
+                      filament flow and fan enter the model as disturbances.
 
-Sinav (G-code gerekmez): bir logdaki hedef sicaklik, fan, filaman akisi ve tabla gucu bu donguye
-verilir; ikizin tahmin ettigi isitici gucu ve sicaklik, logdaki GERCEK pwm ve sicaklikla karsilastirilir.
-Ikiz gucu de dogru tahmin ediyorsa yaziciyi gercekten "taklit ediyor" demektir.
+Test (no G-code needed): a log's target temperature, fan, filament flow and bed power are fed to this loop;
+the heater power and temperature the twin predicts are compared with the REAL pwm and temperature in the
+log. If the twin also predicts the power correctly, it really "imitates" the printer.
 
-PID: klippy/extras/heaters.py ControlPID (klasik konum formu) birebir:
+PID: an exact copy of klippy/extras/heaters.py ControlPID (classic positional form):
     Kp, Ki, Kd = pid_kp/255, pid_ki/255, pid_kd/255
-    turev: min_deriv_time (= smooth_time, varsayilan 1 s) ile yumusatilir
-    integral [0, max_power/Ki] araliginda tutulur; cikis doyduysa integral guncellenmez (anti-windup)
-    hedef <= 0 iken isitici kapali.
-Sicaklik okuma ve PID guncellemesi her REPORT_TIME (0.3 s) - Klipper'daki ADC raporlama araligi.
+    derivative: smoothed with min_deriv_time (= smooth_time, default 1 s)
+    integral clamped to [0, max_power/Ki]; not updated while the output is saturated (anti-windup)
+    heater off while target <= 0.
+Temperature readings and PID updates every REPORT_TIME (0.3 s) - Klipper's ADC report interval.
 
-Kullanim:
-    python kapali_dongu.py --set ayar        # benchmark/setler.csv (PID 26.09'da degisti: 28.09 oncesi atlanir)
-    python kapali_dongu.py --set sinav
-    python kapali_dongu.py LOG.csv
+Usage:
+    python closed_loop.py --set calibration   # benchmark/setler.csv (PID changed 26.09: logs before 28.09 skipped)
+    python closed_loop.py --set test
+    python closed_loop.py LOG.csv
 """
 import argparse
 import os
@@ -31,26 +31,26 @@ import pandas as pd
 
 import evaluate as d
 
-# printer.cfg SAVE_CONFIG blogu (2026-09-26 PID ayari, kullanicidan 2026-10-09)
+# printer.cfg SAVE_CONFIG block (PID tuning of 2026-09-26, from the user 2026-10-09)
 PID_KP, PID_KI, PID_KD = 40.262, 12.201, 33.216
 PID_PARAM_BASE = 255.0
-SMOOTH_TIME = 1.0          # [extruder] smooth_time (printer.cfg'de yok -> Klipper varsayilani)
+SMOOTH_TIME = 1.0          # [extruder] smooth_time (not in printer.cfg -> Klipper default)
 MAX_POWER = 1.0
-REPORT_TIME = 0.3          # s - Klipper ADC sicaklik raporu / PID guncelleme araligi
-PID_SINCE = pd.Timestamp("2026-09-28").timestamp()   # bu PID'nin kesin gecerli oldugu ilk gun
-AVG = 10.0                 # s - guc karsilastirmasi bu ortalamayla (PID'nin anlik dalgasi degil, enerji)
+REPORT_TIME = 0.3          # s - Klipper ADC temperature report / PID update interval
+PID_SINCE = pd.Timestamp("2026-09-28").timestamp()   # first day this PID was certainly in use
+AVG = 10.0                 # s - power is compared with this average (energy, not the PID's instant ripple)
 
 
 class KlipperPID:
-    """klippy/extras/heaters.py ControlPID'nin birebir kopyasi."""
+    """Exact copy of klippy/extras/heaters.py ControlPID."""
 
-    PID_SETTLE_DELTA, PID_SETTLE_SLOPE = 1.0, 0.1    # M109/M190 bekleme kosulu (heaters.py)
+    PID_SETTLE_DELTA, PID_SETTLE_SLOPE = 1.0, 0.1    # M109/M190 wait condition (heaters.py)
 
     def __init__(self, T0, pwm0=0.0, target0=0.0, gains=(PID_KP, PID_KI, PID_KD)):
         self.Kp, self.Ki, self.Kd = (g / PID_PARAM_BASE for g in gains)
         self.integ_max = MAX_POWER / self.Ki
         self.prev_T, self.prev_t, self.prev_deriv = T0, None, 0.0
-        # log ortasindan basliyorsa integral, o anki gercek guce denk gelecek sekilde kurulur
+        # when starting mid-log, the integral is set so that it matches the real power at that moment
         err = target0 - T0
         self.prev_integ = min(self.integ_max, max(0.0, (pwm0 - self.Kp * err) / self.Ki)) if target0 > 0 else 0.0
 
@@ -71,32 +71,32 @@ class KlipperPID:
         return out if target > 0 else 0.0
 
     def busy(self, smoothed_T, target):
-        """Klipper ControlPID.check_busy: M109/M190 bu False olana kadar bekler."""
+        """Klipper ControlPID.check_busy: M109/M190 wait until this is False."""
         return abs(target - smoothed_T) > self.PID_SETTLE_DELTA or abs(self.prev_deriv) > self.PID_SETTLE_SLOPE
 
 
 def inputs(df):
-    """Logdan REPORT_TIME izgarasinda girdiler (sifirinci dereceden tutma): hedef, fan, net akis, tabla."""
+    """Inputs from the log on the REPORT_TIME grid (zero-order hold): target, fan, net flow, bed."""
     t = df.t.values
     grid = np.arange(t[0], t[-1], REPORT_TIME)
     idx = np.clip(np.searchsorted(t, grid, side="right") - 1, 0, len(t) - 1)
     tg = pd.to_numeric(df.target, errors="coerce").ffill().fillna(0.0).values
     bp = pd.to_numeric(df.bed_pwm, errors="coerce").ffill().fillna(0.0).values if "bed_pwm" in df else np.zeros(len(df))
-    # ikizle ayni net akis: son 10 s'deki isaretli hizin zaman ortalamasi, 0'in alti kirpilir
+    # same net flow as the twin: time average of the signed speed over the last 10 s, clipped below 0
     ev = pd.Series(df.extrude_velocity.values, index=pd.to_datetime(t, unit="s"))
     ext = np.maximum(ev.rolling(f"{d.rw.EXT_AVG_WINDOW:.0f}s").mean().values, 0.0)
     return grid, tg[idx], df.fan_state.values[idx], ext[idx], bp[idx], idx
 
 
 def simulate(df, m, k=1.0, kfil=1.0):
-    """Kapali dongu: donus (izgara, T_tahmin, pwm_tahmin, logdaki satir indeksi)."""
+    """Closed loop: returns (grid, T_pred, pwm_pred, row index in the log)."""
     grid, tg, fan, ext, bp, idx = inputs(df)
     T0 = float(df.T1_real.iloc[0])
     T1, T2, T3 = m.initial_state(T0, float(df.pwm.iloc[0]), float(df.fan_state.iloc[0]))
     pid = KlipperPID(T0, float(df.pwm.iloc[0]), float(tg[0]))
     Ts, Ps = np.empty(len(grid)), np.empty(len(grid))
     for i, t in enumerate(grid):
-        pwm = pid.update(t, T1, tg[i])          # termistor = modelin T1 dugumu
+        pwm = pid.update(t, T1, tg[i])          # thermistor = the model's T1 node
         Ts[i], Ps[i] = T1, pwm
         scale = 1.0 - m.BED_SAG * bp[i]
         T1, T2, T3 = m.model_step(T1, T2, T3, pwm * scale, fan[i], ext[i], REPORT_TIME, k, k_fil=kfil)
@@ -104,7 +104,7 @@ def simulate(df, m, k=1.0, kfil=1.0):
 
 
 def score(df, grid, Ts, Ps, idx):
-    """Gercekle karsilastirma: baski bolumunde guc (W, 10 s ortalama) ve sicaklik; isinma suresi."""
+    """Comparison with reality: power (W, 10 s average) and temperature while printing; heat-up time."""
     P_real = pd.to_numeric(df.pwm, errors="coerce").ffill().values[idx] * d.rw.P_MAX
     T_real = df.T1_real.ffill().values[idx]
     tg = pd.to_numeric(df.target, errors="coerce").ffill().fillna(0.0).values[idx]
@@ -120,7 +120,7 @@ def score(df, grid, Ts, Ps, idx):
                    T_rmse=np.sqrt(np.mean((Ts[hold] - T_real[hold]) ** 2)),
                    doyum_gercek=np.mean(P_real[hold] >= 0.99 * d.rw.P_MAX) * 100,
                    doyum_tahmin=np.mean(Ps[hold] >= 0.99) * 100)
-    # isinma: hedefin 230 ustune ciktigi andan hedef-2C'ye ulasma suresi (gercek ve tahmin)
+    # heat-up: time from the target rising above 230 to reaching target - 2 C (real and predicted)
     up = np.flatnonzero((tg[1:] >= 230) & (tg[:-1] < 230))
     if len(up):
         i0 = up[0] + 1
@@ -140,8 +140,8 @@ def run(paths, chain_k=True):
         df = d.read_log(p)
         if df.time.iloc[0] < PID_SINCE:
             continue
-        # k, k_fil: canli ikizin bu baskidan ONCE bilecegi deger = onceki logun sonunda ogrenilen (golge
-        # tekrarindan). Bu logun kendi olcumlerinden ogrenilen k kullanilmaz (sizinti olurdu).
+        # k, k_fil: what the live twin would know BEFORE this print = learned at the end of the previous log
+        # (from the shadow replay). The k learned from this log's own measurements is not used (that would leak).
         k_use, kfil_use = (k_prev, kfil_prev) if chain_k else (1.0, 1.0)
         grid, Ts, Ps, idx = simulate(df, m, k_use, kfil_use)
         r = dict(log=d.short_name(p), k=k_use, **score(df, grid, Ts, Ps, idx))

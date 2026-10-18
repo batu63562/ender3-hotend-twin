@@ -10,17 +10,17 @@ from collections import deque
 
 import websockets
 
-import bed_model   # tabla ikizi (ayri model dosyasi; bu dosyadaki nozzle modeline dokunmaz)
+import bed_model   # bed twin (separate model file; does not touch the nozzle model in this file)
 
-# Tum dosyalar script'in klasorune yazilir (VS Code hangi klasorden calistirirsa calistirsin)
+# All files are written to the script's folder (whichever folder VS Code runs it from)
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_FILE = os.path.join(HERE, "realtime_log_ws.csv")
 STATE_FILE = os.path.join(HERE, "twin_state.json")
-STATE_MAX_AGE = 1800   # 30 dakika - bunun ustunde dosya "bayat" sayilir
-STATE_MAX_T1_DIFF = 5.0  # C - kayitli T1 ile simdiki T1 bundan fazla farkliysa devralma
+STATE_MAX_AGE = 1800   # 30 minutes - an older file counts as "stale"
+STATE_MAX_T1_DIFF = 5.0  # C - do not inherit if the saved T1 differs from the current T1 by more than this
 
-# Yazicinin adresi config.toml'dan (config.example.toml'dan kopyalanir; git'e girmez). Dosya yoksa da import
-# edilebilir: degerlendir.py ve plan araclari yaziciya baglanmaz, adres yalniz canli ikizde gerekir (main).
+# Printer address from config.toml (copied from config.example.toml; not in git). The module can be imported
+# without it: evaluate.py and the plan tools do not connect to the printer, only the live twin needs it (main).
 CONFIG_FILE = os.path.join(HERE, "config.toml")
 
 
@@ -35,93 +35,94 @@ CONFIG = load_config()
 PRINTER_HOST = str(CONFIG.get("printer_host", "")).strip()
 WS_URL = f"ws://{PRINTER_HOST}/websocket"
 
-# Hotend modeli, 3 dugumlu RC agi:
-#   [isitici kartus T3] --R31--> [termistor civari blok T1] --R_HB--> [nozzle/heat break ustu T2]
-# T1 havaya kaybeder (tasinim + isinim, k ile olceklenir) ve baskiya isi verir (filaman + temas, k_fil);
-# T2 heat break uzerinden heatsink'e (HA2) ve parca fanina (HA2_FAN, k ile olceklenir) kaybeder.
-# Parametreler Eylul kalibrasyon loglarina fiziksel sinirlarla fit edildi (benchmark/). Heatsink fani
-# Klipper'dan okunmuyor; hep calistigi icin etkisi HA2 icinde.
-MODEL_VERSION = "3dugum-gecikenkutle-v4"   # twin_state.json farkli surumden kalmissa devralinmaz [K01]
-T_AMB = 25      # oda sicakligi (C); sabit varsayim - gercek oda 21-25 C, fark k'ya yansir
+# Hotend model, 3-node RC network:
+#   [heater cartridge T3] --R31--> [block near thermistor T1] --R_HB--> [nozzle/heat-break top T2]
+# T1 loses to air (convection + radiation, scaled by k) and gives heat to the print (filament + contact, k_fil);
+# T2 loses through the heat break to the heatsink (HA2) and to the part fan (HA2_FAN, scaled by k).
+# Parameters fitted to the September calibration logs within physical bounds (benchmark/). The heatsink fan
+# is not read from Klipper; it always runs, so its effect is inside HA2.
+MODEL_VERSION = "3dugum-gecikenkutle-v4"   # twin_state.json from another version is not inherited [K01]
+T_AMB = 25      # room temperature (C); fixed assumption - the real room is 21-25 C, the difference goes into k
 T_AMB_K = T_AMB + 273.15
-P_MAX = 40      # W - isitici kartusun tam gucu
-BED_SAG = 0.042  # tabla acikken 24 V hat duser: gercek guc = pwm * P_MAX * (1 - BED_SAG * tabla_pwm) [K02]
+P_MAX = 40      # W - full power of the heater cartridge
+BED_SAG = 0.042  # the 24 V rail sags while the bed is on: real power = pwm * P_MAX * (1 - BED_SAG * bed_pwm) [K02]
 
-C3 = 0.8303     # J/K - isitici kartus
-R31 = 3.0       # K/W - kartus -> blok (245C tutmada kartus ~55C daha sicak)
-C1 = 2.0        # J/K - termistor civari blok
-HA1 = 0.03624   # W/K - bloktan havaya tasinim
+C3 = 0.8303     # J/K - heater cartridge
+R31 = 3.0       # K/W - cartridge -> block (in a 245 C hold the cartridge is ~55 C hotter)
+C1 = 2.0        # J/K - block near the thermistor
+HA1 = 0.03624   # W/K - convection from the block to air
 CRAD = 1.5259e-10
-R_HB = 1.805    # K/W - blok -> geri kalan sicak metal
-C2 = 4.034      # J/K - geri kalan sicak metal (nozzle, blogun uzak tarafi, heat break ustu)
-HA2 = 0.004435  # W/K - geri kalan metalden disari (heat break -> heatsink) kayip
-HA2_FAN = 0.0293  # W/K - parca sogutma fani tam hizda T2'den ek iletkenlik [K03]
-FAN_EXP = 0.508   # fan sogutmasi ~ ((f-F0)/(1-F0))**FAN_EXP (zorlanmis tasinim h ~ hava hizi^0.5) [K03]
-FAN_F0 = 0.191    # fan esigi: 5015 blower bu PWM'in altinda kanal direncini yenemiyor, sogutma ~0 [K03]
-K_FIL = 0.0054   # W/(K*mm/s) - filamanin aldigi isi = K_FIL * net besleme hizi * (T1 - T_amb) (PETG cp'si) [K04]
+R_HB = 1.805    # K/W - block -> rest of the hot metal
+C2 = 4.034      # J/K - rest of the hot metal (nozzle, far side of the block, top of the heat break)
+HA2 = 0.004435  # W/K - loss from the rest of the metal outwards (heat break -> heatsink)
+HA2_FAN = 0.0293  # W/K - extra conductance from T2 by the part cooling fan at full speed [K03]
+FAN_EXP = 0.508   # fan cooling ~ ((f-F0)/(1-F0))**FAN_EXP (forced convection h ~ air speed^0.5) [K03]
+FAN_F0 = 0.191    # fan threshold: below this PWM the 5015 blower cannot overcome the duct resistance, cooling ~0 [K03]
+K_FIL = 0.0054   # W/(K*mm/s) - heat taken by the filament = K_FIL * net feed rate * (T1 - T_amb) (PETG cp) [K04]
 
-MAX_SUBSTEP = 0.3      # s - RK4 alt adimi ust siniri
-RK4_STABILITY = 2.5    # RK4 gercek eksende |lambda*h| < 2.78 ister; pay birakildi
+MAX_SUBSTEP = 0.3      # s - upper limit of the RK4 substep
+RK4_STABILITY = 2.5    # RK4 needs |lambda*h| < 2.78 on the real axis; margin left
 
-# Ogrenme (KLossLearner): k (havaya kayip carpani) ve k_fil (fanli baskida baskiya giden isi carpani), olculen
-# guc ile modelin kaybi arasindaki enerji dengesinden, pencere pencere ve kucuk bir Kalman filtresiyle:
-#   olcum  y = (verilen - depolanan - heatsink yolu) / sure   [W]
-#   model  y = k * (blok + fan kaybi) + k_fil * K_FIL * akis * (T - T_amb)
-# Iki tur pencere: TUTMA (ekstruzyon yok, yalniz k) ve BASKI (k + k_fil). Fan sogutmuyorken baskiya giden isi
-# yalniz filamanin isinmasi (carpan 1.0 sabit, "A0"). Gecmis ve karneler: [K05]-[K09], [K17].
-ADAPT_TMIN = 230.0     # C - yalniz baski sicakligi bolgesinde ogren [K11]
-ADAPT_TAU = 60.0       # s - ogrenme zaman sabiti
-ADAPT_WINDOW = 20.0    # s - enerji dengesi bu uzunlukta pencerelerde toplanir
-ADAPT_T_RANGE = 3.0    # C - pencere boyunca T araligi bundan kucukse "sabit tutma" sayilir
-K_LOSS_MIN, K_LOSS_MAX = 0.85, 1.15   # k'nin fiziksel siniri
-PRINT_WINDOW = 60.0       # s - baski penceresi; kisa pencere gecislerin arasina sigar [K17]
-PRINT_TAU = 1800.0        # s - baskida k'nin zaman sabiti: arizalar (saniye-dakika) k'ya sizmaz [K06]
-PRINT_T_RANGE = 5.0       # C - pencere boyunca izin verilen T araligi
-PRINT_VALID_FRAC = 0.8    # pencerenin en az bu kadari gecerli eksik-guc olcumu (isinma/hedef degisimi yok)
-# Kalman: Q_FIL k_fil'in ne hizla degisebilecegi (surec gurultusu), R_* pencere olcum gurultusu. k'nin surec
-# gurultusu yok; hizini kovaryans tabani (span/tau) belirler [K07]. Q_FIL'i buyutmek yavas arizalari yutar [K17].
-Q_FIL = 0.05 ** 2 / 3600.0    # 1/s - k_fil saatte ~0.05 degisebilir
-R_HOLD = 0.3 ** 2             # W^2 - 20 s tutma penceresinin olcum gurultusu
-R_PRINT = 0.4 ** 2 * 300.0 / PRINT_WINDOW   # W^2 - 300 s pencerede artik ~0.4 W; gurultu ~1/sure
-P0_FIL = 0.15 ** 2            # k_fil'in oturum (ya da malzeme degisimi) basi belirsizligi
-K_FIL_MIN, K_FIL_MAX = 0.8, 1.6   # k_fil = filaman isinmasi (1.0) + nozzle'dan baskiya temasla iletim [K08]
-K_STATE_MAX_AGE = 7 * 86400.0   # s - k oturumlar arasi saklanir; bundan eskisi devralinmaz
-EXT_EPS = 1e-6   # mm/s - Klipper bosta 1e-15 mertebesi kirinti verir; bundan kucuk hiz sifir [K16]
-# Reddedilen/kaldirilan kurallar: varistan sonra tutma ogrenmesini bekletmek [K10], 150 C on isitmadan ogrenmek [K11],
-# k'yi 150 C altinda sondurmek [K12].
-# Sicakliga bagli isi kapasitesi: C(T) = C * (1 + CAP_T_COEF * (T - CAP_T0)), her dugum kendi sicakliginda;
-# kararli duruma etkisi yok, isinma dinamigini duzeltir [K13]. 0: kapali (sabit C).
+# Learning (KLossLearner): k (loss-to-air factor) and k_fil (heat-into-the-print factor in fan-on printing), from the
+# energy balance between the measured power and the model's loss, window by window, with a small Kalman filter:
+#   measurement  y = (supplied - stored - heatsink path) / duration   [W]
+#   model        y = k * (block + fan loss) + k_fil * K_FIL * flow * (T - T_amb)
+# Two kinds of window: HOLD (no extrusion, k only) and PRINT (k + k_fil). While the fan is not cooling, the heat
+# into the print is filament heating only (factor fixed at 1.0, "A0"). History and scorecards: [K05]-[K09], [K17].
+ADAPT_TMIN = 230.0     # C - learn only in the printing temperature range [K11]
+ADAPT_TAU = 60.0       # s - learning time constant
+ADAPT_WINDOW = 20.0    # s - the energy balance is collected over windows of this length
+ADAPT_T_RANGE = 3.0    # C - a window counts as a "steady hold" if its T range is below this
+K_LOSS_MIN, K_LOSS_MAX = 0.85, 1.15   # physical bounds of k
+PRINT_WINDOW = 60.0       # s - print window; a short window fits between transitions [K17]
+PRINT_TAU = 1800.0        # s - time constant of k while printing: faults (seconds-minutes) do not leak into k [K06]
+PRINT_T_RANGE = 5.0       # C - allowed T range over the window
+PRINT_VALID_FRAC = 0.8    # at least this fraction of the window has a valid missing-power value (no heat-up/target change)
+# Kalman: Q_FIL how fast k_fil may change (process noise), R_* window measurement noise. k has no process noise;
+# its speed is set by a covariance floor (span/tau) [K07]. A larger Q_FIL swallows slow faults [K17].
+Q_FIL = 0.05 ** 2 / 3600.0    # 1/s - k_fil may change ~0.05 per hour
+R_HOLD = 0.3 ** 2             # W^2 - measurement noise of a 20 s hold window
+R_PRINT = 0.4 ** 2 * 300.0 / PRINT_WINDOW   # W^2 - ~0.4 W residual in a 300 s window; noise ~1/duration
+P0_FIL = 0.15 ** 2            # k_fil uncertainty at session start (or material change)
+K_FIL_MIN, K_FIL_MAX = 0.8, 1.6   # k_fil = filament heating (1.0) + contact conduction from the nozzle into the print [K08]
+K_STATE_MAX_AGE = 7 * 86400.0   # s - k is kept between sessions; older than this is not inherited
+EXT_EPS = 1e-6   # mm/s - Klipper reports ~1e-15 crumbs when idle; speeds below this are zero [K16]
+# Rejected/removed rules: delaying hold learning after arrival [K10], learning from the 150 C preheat [K11],
+# fading k out below 150 C [K12].
+# Temperature-dependent heat capacity: C(T) = C * (1 + CAP_T_COEF * (T - CAP_T0)), each node at its own temperature;
+# no effect on steady state, fixes the heat-up dynamics [K13]. 0: off (constant C).
 CAP_T_COEF = 0.0012  # 1/K
-CAP_T0 = 140.0      # C - C(T) = C bu sicaklikta
+CAP_T0 = 140.0      # C - C(T) = C at this temperature
 
 def cap_scale(T):
-    """Isi kapasitesinin T'deki carpani (bkz. CAP_T_COEF)."""
+    """Heat capacity factor at T (see CAP_T_COEF)."""
     return max(0.5, 1.0 + CAP_T_COEF * (T - CAP_T0))
 
 
 def cap_energy(T):
-    """cap_scale'in T'ye gore integrali (J/K basina): C * cap_energy(T) dugumun ic enerjisi (sabit haric)."""
+    """Integral of cap_scale over T (per J/K): C * cap_energy(T) is the node's internal energy (up to a constant)."""
     return T + 0.5 * CAP_T_COEF * (T - CAP_T0) ** 2
 
 
 def stored_energy(T_from, T_to):
-    """Uc dugum birlikte T_from'dan T_to'ya gecerken depolanan enerji (J); C(T) dahil."""
+    """Energy stored when the three nodes go together from T_from to T_to (J); C(T) included."""
     return (C1 + C2 + C3) * (cap_energy(T_to) - cap_energy(T_from))
 
-# Kayma alarmi (KAYIP_*): ogrenme yavas bir arizayi (corap dustu, kanal kaydi) "normal" sayip residual'dan
-# silebilir; o yuzden k'nin kendisi izlenir. Referans = son KABUL edilen k seviyesi (oturumlar arasi saklanir):
-# k referanstan K_ALARM_BAND kadar sapinca alarm; k yeni seviyede K_ACCEPT_TIME boyunca (sicak calisma)
-# K_ACCEPT_RANGE icinde kalirsa yeni seviye kabul edilir, alarm kapanir ve olay rapora yazilir [K14].
-# Bu kayan referans yavas bozulmayi adim adim kabul eder; onu sabit referansli bakim gostergesi yakalar [K20].
+# Drift alarm (KAYIP_*): learning could take a slow fault (sock fell off, duct shifted) as "normal" and remove it
+# from the residual; so k itself is watched. Reference = last ACCEPTED k level (kept between sessions):
+# alarm when k deviates from the reference by K_ALARM_BAND; if k stays within K_ACCEPT_RANGE at the new level for
+# K_ACCEPT_TIME (hot operation), the new level is accepted, the alarm closes and the event is reported [K14].
+# This moving reference accepts slow degradation step by step; the fixed-reference maintenance indicator catches it [K20].
 K_ALARM_BAND = 0.08
-K_ALARM_CLEAR = 0.06        # alarm ancak sapma bunun altina inince kapanir (deney 8: k 0.92 bant kenarinda 13 kez ac-kapa)
-K_ACCEPT_TIME = 30 * 60.0   # s - bant disinda VE sabit kalinan sicak (T1 > ADAPT_TMIN) sure
-K_ACCEPT_RANGE = 0.02       # k bu aralikta kaliyorsa "sabit" sayilir
+K_ALARM_CLEAR = 0.06        # the alarm closes only when the deviation drops below this (experiment 8: k 0.92 at the band edge toggled 13 times)
+K_ACCEPT_TIME = 30 * 60.0   # s - hot (T1 > ADAPT_TMIN) time spent outside the band AND steady
+K_ACCEPT_RANGE = 0.02       # k counts as "steady" while it stays within this range
 
-# Ariza tespiti (2026-10-12'den itibaren IKI alarm): hizli arizalar GUC_* (eksik guc, asagida), yavas kayma KAYIP_*
-# (ogrenilen k'nin oturum basina gore sapmasi). Sicaklik residual alarmi (SICAKLIK_*) kaldirildi: acik cevrim model
-# residual'da +-2C gezinir (bkz. ENERGY_*), anomali karari guc dengesinde. Bir durum ancak onay suresi KESINTISIZ
-# surerse ariza sayilir (tek ornekli sivrilikler alarm uretmesin), FAULT_CLEAR saniye gorulmezse biter.
+# Fault detection (TWO alarms since 2026-10-12): fast faults GUC_* (missing power, below), slow drift KAYIP_*
+# (learned k vs. its reference). The temperature residual alarm (SICAKLIK_*) was removed: the open-loop model wanders
+# +-2 C in the residual (see ENERGY_*), the anomaly decision is on the power balance. A condition counts as a fault
+# only if it lasts the confirmation time WITHOUT interruption (single-sample spikes must not alarm); it ends after
+# FAULT_CLEAR seconds unseen.
 FAULT_CONFIRM = 3.0
 FAULT_CLEAR = 10.0
 FAULT_TEXT = {
@@ -133,16 +134,16 @@ FAULT_TEXT = {
                     "ya da hotend yalitimi degismis olabilir",
 }
 
-# Eksik guc (RESMI hizli-ariza alarmi, GUC_*): son ENERGY_WINDOW saniyede modelin bekledigi kayip ile gercekte giden
-# isi (olculen guc - depolanan enerji) arasindaki fark (W). + = beklenenden AZ isi gidiyor.
-# Neden sicaklik degil guc: PID gercek sicakligi sabit tuttugu icin isitici gucu gercek yukun olcumu (kalorimetre);
-# acik cevrim sicaklik residual'i kucuk guc hatalarini ~15 C/W ile buyutup biriktirir [K15].
+# Missing power (OFFICIAL fast-fault alarm, GUC_*): difference (W) between the loss the model expects over the last
+# ENERGY_WINDOW seconds and the heat that really left (measured power - stored energy). + = LESS heat leaving than expected.
+# Why power, not temperature: the PID keeps the real temperature constant, so the heater power measures the real load
+# (a calorimeter); the open-loop temperature residual amplifies and accumulates small power errors at ~15 C/W [K15].
 ENERGY_WINDOW = 20.0      # s
 ENERGY_THRESHOLD = 2.5    # W
-ENERGY_CONFIRM = 5.0      # s - kesintisiz
-ENERGY_TMIN = 230.0       # C - sadece baski sicakligi bolgesinde (model orada en iyi kalibre)
-ENERGY_T_RANGE = 3.0      # C - pencerede T araligi bundan kucukse "tutma"
-ENERGY_SETTLE = 30.0      # s - isinma (isitici 3 s ort. >= %95) bittikten sonra bekleme
+ENERGY_CONFIRM = 5.0      # s - uninterrupted
+ENERGY_TMIN = 230.0       # C - only in the printing temperature range (where the model is calibrated best)
+ENERGY_T_RANGE = 3.0      # C - a "hold" if the T range in the window is below this
+ENERGY_SETTLE = 30.0      # s - wait after a heat-up (heater 3 s avg. >= 95 %) ends
 ENERGY_TEXT = {
     "GUC_AZALDI": "beklenenden AZ isi gidiyor: filaman akmiyor/tikanma, fan havasi nozzle'a ulasmiyor "
                   "ya da nozzle etrafinda topak olabilir",
@@ -151,33 +152,33 @@ ENERGY_TEXT = {
 }
 FAULT_TEXT.update(ENERGY_TEXT)
 
-# Duraklatma (ikizin yaziciya tek geri beslemesi): GUC_AZALDI PAUSE_AFTER s kesintisiz surerse ve baski
-# yazdiriliyorsa. GOLGE modda yalniz "duraklatirdim" kaydi (CSV duraklat, ariza_raporlari.txt); aktif modda Moonraker'a
-# pause. Zararsiz olaylar <= 110 s, kalici gercek arizalar >= 246 s surdu [K19]. KAYIP_* asla duraklatmaz.
+# Pause (the twin's only feedback to the printer): if GUC_AZALDI lasts PAUSE_AFTER s without interruption and the
+# print is printing. SHADOW mode only logs "would pause" (CSV duraklat, ariza_raporlari.txt); active mode sends a
+# pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19]. KAYIP_* never pauses.
 PAUSE_AFTER = 150.0       # s
-PAUSE_MODE = "golge"      # "golge" (yalniz kayit) | "aktif" (Moonraker'a pause) | "kapali"
+PAUSE_MODE = "golge"      # "golge" (shadow: log only) | "aktif" (active: pause via Moonraker) | "kapali" (off)
 
-# Malzeme ve yedek: k ortak (hotend ozelligi); k_fil malzeme basina saklanir. Malzeme G-code basligindan
-# ("; filament_type = ") okunur, degisince k_fil o malzemenin kaydindan yeniden ogrenilir (Twin.set_material).
-# Her acilista twin_state.json'in tarihli kopyasi alinir, en yeni STATE_BACKUPS tanesi tutulur [K21].
+# Material and backup: k is shared (a hotend property); k_fil is stored per material. The material is read from
+# the G-code header ("; filament_type = "); on a change k_fil is re-learned from that material's record
+# (Twin.set_material). At every start a dated copy of twin_state.json is taken, the newest STATE_BACKUPS are kept [K21].
 STATE_BACKUP_DIR = os.path.join(HERE, "durum_yedek")
 STATE_BACKUPS = 30
 
-# Bakim gostergesi (model DISI tavsiye; tahmine ve alarma dokunmaz): k'nin tek bilinmeyen oldugu her pencerenin
-# kendi k'si MAINT_FILE'a yazilir. Acilista fansiz baski pencerelerinin gunluk medyani SABIT temiz referansla
-# (MAINT_REF, kalibrasyon) kiyaslanir; son MAINT_DAYS veri gununde ayni yonde MAINT_BAND disindaysa bakim onerisi.
-# Referans yalniz donanim degisince elle degistirilir [K20].
+# Maintenance indicator (advice OUTSIDE the model; does not touch prediction or alarms): the own k of every window
+# in which k is the only unknown is written to MAINT_FILE. At start-up the daily median of fan-off print windows is
+# compared with a FIXED clean reference (MAINT_REF, calibration); advice if the last MAINT_DAYS data days are all
+# outside MAINT_BAND in the same direction. The reference is changed by hand only when the hardware changes [K20].
 MAINT_FILE = os.path.join(HERE, "bakim_izleme.csv")
-MAINT_STATUS_FILE = os.path.join(HERE, "bakim_durumu.json")   # acilistaki sonuc: Unity okur (kurali yeniden hesaplamaz)
+MAINT_STATUS_FILE = os.path.join(HERE, "bakim_durumu.json")   # start-up result: read by Unity (it does not recompute the rule)
 MAINT_REF = 1.00
 MAINT_BAND = 0.06
 MAINT_DAYS = 3
-MAINT_LOOKBACK = 21          # gun - kural yalniz bu kadar yeni veriye bakar
-MAINT_MIN_WINDOWS = 2        # gun basina en az bu kadar fansiz baski penceresi
+MAINT_LOOKBACK = 21          # days - the rule only looks at data this recent
+MAINT_MIN_WINDOWS = 2        # at least this many fan-off print windows per day
 
 
 def maint_record(rows):
-    """[(duvar_zamani, tur, k)] -> MAINT_FILE'a ekle."""
+    """[(wall_time, kind, k)] -> append to MAINT_FILE."""
     if not rows:
         return
     new = not os.path.exists(MAINT_FILE)
@@ -193,8 +194,8 @@ def maint_record(rows):
 
 
 def maint_check():
-    """Bakim onerisi metni ya da None (bkz. MAINT_*). Sonuc (oneri yoksa da) MAINT_STATUS_FILE'a yazilir:
-    Unity acilis menusunde gosterir, kurali kendisi hesaplamaz (tek dogruluk kaynagi burasi)."""
+    """Maintenance advice text or None (see MAINT_*). The result (also when there is no advice) is written to
+    MAINT_STATUS_FILE: Unity shows it in the start menu and does not compute the rule itself (single source of truth)."""
     status = {"time": round(time.time(), 1), "enough": False, "advice": False, "direction": "",
               "reference": MAINT_REF, "band": MAINT_BAND, "days": [], "text": ""}
     try:
@@ -240,65 +241,65 @@ def maint_check():
         print(f"[bakim durumu yazilamadi: {e}]")
     return text
 
-# Ariza siniflandirma (ariza_siniflandir.py): ariza onaylaninca olayin fiziksel kategorisi
-# (A fan yolu / B filaman akmiyor / C yalitim-cevre / D termistor / E isitici) arka planda
-# hesaplanir. Kategori icin olaydan sonra veri gerekir; onaydan bu kadar saniye sonra calisir
-# (ikincisi olay surerken guncelleme). Tespit mantigina ve Twin'e dokunmaz.
+# Fault classification (fault_classifier.py): when a fault is confirmed, the event's physical category
+# (A fan path / B no filament flow / C insulation-environment / D thermistor / E heater) is computed in the
+# background. The category needs data after the event; it runs this many seconds after the confirmation
+# (the second one is an update while the event lasts). Does not touch the detection logic or the Twin.
 CLASSIFY_DELAYS = (60.0, 180.0)
-CLASSIFY_BUFFER = 600.0          # s - bellekte tutulan son satirlar (referans + olay penceresi)
+CLASSIFY_BUFFER = 600.0          # s - latest rows kept in memory (reference + event window)
 REPORT_FILE = os.path.join(HERE, "ariza_raporlari.txt")
 
-# G-code plani (gcode_tahmin.py, yol haritasi 4.3): baski baslayinca dosya ve guncel printer.cfg
-# Moonraker'dan indirilir, ikizin plani arka planda uretilir -> PLAN_DIR (Unity Print modulu okur).
-# Klipper'dan sadece GIRDI okunur (hangi dosya, ne zaman basladi); katman zamani, akis, guc ikizin tahmini.
+# G-code plan (gcode_plan.py, roadmap 4.3): when a print starts, the file and the current printer.cfg are
+# downloaded from Moonraker and the twin's plan is produced in the background -> PLAN_DIR (read by the Unity Print module).
+# Only INPUTS are read from Klipper (which file, when it started); layer time, flow, power are the twin's prediction.
 HTTP_URL = f"http://{PRINTER_HOST}"
 PLAN_DIR = os.path.join(HERE, "tahminler")
-GCODE_DIR = os.path.join(HERE, "yazici", "canli")        # indirilen G-code ve printer.cfg
-CFG_FALLBACK = os.path.join(HERE, "yazici", "printer.cfg")  # Pi'ye ulasilamazsa yerel kopya
+GCODE_DIR = os.path.join(HERE, "yazici", "canli")        # downloaded G-code and printer.cfg
+CFG_FALLBACK = os.path.join(HERE, "yazici", "printer.cfg")  # local copy if the Pi cannot be reached
 DOWNLOAD_TIMEOUT = 30.0
 
-# Telefondan izleme: script ev aginda kucuk bir sayfa yayinlar (http://<bilgisayar-IP>:WEB_PORT).
-# Sadece okur (ikizin hesabina dokunmaz); internete bir sey gondermez. Port acilamazsa izleme
-# sayfasiz devam eder. Kapatmak icin WEB_PORT = None.
+# Phone monitoring: the script serves a small page on the home network (http://<computer-IP>:WEB_PORT).
+# Read only (does not touch the twin's computation); sends nothing to the internet. If the port cannot be opened,
+# monitoring continues without the page. Set WEB_PORT = None to disable.
 WEB_PORT = 8080
-WEB_HISTORY = 900.0      # s - sayfadaki grafik suresi (15 dk, saniyede en fazla 1 nokta)
+WEB_HISTORY = 900.0      # s - chart length on the page (15 min, at most 1 point per second)
 
-# Baglanti: websockets kutuphanesi PING_INTERVAL'da bir yoklar, PING_TIMEOUT icinde cevap gelmezse
-# baglantiyi kopmus sayar. Varsayilan 20 s; ag tikanmasinda (2026-09-26 baskilari, video akisi
-# sirasinda 8-16 s mesaj gelmedi) script kapaniyordu -> daha sabirli + otomatik yeniden baglanma.
+# Connection: the websockets library pings every PING_INTERVAL and treats the connection as lost if no answer comes
+# within PING_TIMEOUT. The default is 20 s; under network congestion (2026-09-26 prints, no messages for 8-16 s
+# during a video stream) the script was closing -> more patient + automatic reconnect.
 PING_INTERVAL = 20.0
 PING_TIMEOUT = 60.0
 RECONNECT_DELAY = 5.0
 
-STATE_SAVE_INTERVAL = 5.0   # s - twin_state.json en fazla bu siklikta yazilir (her mesajda degil)
-FLUSH_INTERVAL = 1.0        # s - CSV diske en fazla bu siklikta zorlanir
+STATE_SAVE_INTERVAL = 5.0   # s - twin_state.json is written at most this often (not on every message)
+FLUSH_INTERVAL = 1.0        # s - the CSV is forced to disk at most this often
 
-GAP_THRESHOLD = 10.0        # saniye - bunun ustundeki bosluklarda gercege senkronize ol
-# Akis girdisi: ekstruder KONUMUNUN (pos_e) iki mesaj arasindaki farki (anlik hiz ornegi geri cekmeleri yanlis
-# ornekliyordu); son EXT_AVG_WINDOW saniyede ISARETLI ortalanir (geri cekme + geri itme birbirini goturur), sonra
-# 0'in alti kirpilir. pos_e yoksa (eski loglar) anlik hiz kullanilir [K16].
+GAP_THRESHOLD = 10.0        # seconds - re-sync to reality after longer gaps
+# Flow input: the difference of the extruder POSITION (pos_e) between two messages (the instantaneous speed sample
+# was sampling retractions wrongly); SIGNED average over the last EXT_AVG_WINDOW seconds (retract + unretract cancel),
+# then clipped below 0. Without pos_e (old logs) the instantaneous speed is used [K16].
 EXT_AVG_WINDOW = 10.0       # s
-POS_E_MAX_RATE = 60.0       # mm/s - bundan hizli pos_e sicramasi (Klipper yeniden baslatma vb.) yok sayilir
+POS_E_MAX_RATE = 60.0       # mm/s - pos_e jumps faster than this (Klipper restart etc.) are ignored
 
 
 def initial_state(T1, pwm, fan):
-    """Sifirdan baslarken T2/T3 tahmini.
-    Isitici calisiyorsa (pwm > 0) sicaklik tutuluyor varsayilir: T3, R31 uzerinden tum kaybi
-    tasiyacak kadar sicak (245C'de ~55C ustte), T2 kararli degerinde. Hepsini T1'e esit
-    baslatmak sicak baslangicta ilk saniyelerde ~8C sahte cukur uretiyordu.
-    Isitici kapaliysa (bosta / soguma) hepsi T1'e esit."""
+    """T2/T3 estimate when starting from scratch.
+    If the heater is on (pwm > 0) the temperature is assumed to be held: T3 hot enough to carry the whole loss
+    through R31 (~55 C above at 245 C), T2 at its steady value. Starting all equal to T1 produced a ~8 C fake
+    dip in the first seconds of a hot start.
+    If the heater is off (idle / cool-down) all equal T1."""
     if not pwm or pwm <= 0:
         return T1, T1, T1
     fan = fan or 0.0
     dT2 = steady_T2_rise(T1, fan)
     T2 = T_AMB + dT2
-    # kararli durumda R31'den gecen isi = toplam kayip (blok yuzeyi + T2 uzerinden)
+    # in steady state the heat through R31 = total loss (block surface + via T2)
     T3 = T1 + R31 * (natural_loss(T1) + (HA2 + fan_conductance(fan)) * dT2)
     return T1, T2, T3
 
 
 def load_state(current_T1, pwm=0.0, fan=0.0):
-    """T1 HER ZAMAN gercek olcumden baslar. Sadece T2/T3 onceki calismadan devralinir."""
+    """T1 ALWAYS starts from the real measurement. Only T2/T3 are inherited from the previous run."""
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE) as f:
             saved = json.load(f)
@@ -308,7 +309,7 @@ def load_state(current_T1, pwm=0.0, fan=0.0):
         elif age >= STATE_MAX_AGE:
             print(f"[Kayitli durum {age:.0f}s eski - sifirdan baslaniyor]")
         elif abs(saved["T1"] - current_T1) > STATE_MAX_T1_DIFF:
-            # nozzle o arada soguduysa/isindiysa kayitli T3 (isitici cekirdek) artik gecersiz
+            # if the nozzle cooled/heated in between, the saved T3 (heater core) is no longer valid
             print(f"[Kayitli T1={saved['T1']:.1f}C, simdiki {current_T1:.1f}C - sifirdan baslaniyor]")
         else:
             print(f"[Onceki T2/T3 durumu bulundu, {age:.0f}s once - devraliniyor]")
@@ -317,8 +318,8 @@ def load_state(current_T1, pwm=0.0, fan=0.0):
 
 
 def load_k():
-    """Onceki oturumlarda ogrenilen (k, k_fil) (ayni model surumu, K_STATE_MAX_AGE'den yeni).
-    k_fil'siz eski kayitta k_fil = 1."""
+    """(k, k_fil) learned in earlier sessions (same model version, newer than K_STATE_MAX_AGE).
+    k_fil = 1 in old records without it."""
     try:
         with open(STATE_FILE) as f:
             saved = json.load(f)
@@ -338,7 +339,7 @@ def load_k():
 
 
 def load_k_ref(k):
-    """Kayip alarminin referansi (son kabul edilen k seviyesi, bkz. K_ACCEPT_TIME); kayit yoksa/eskiyse devralinan k."""
+    """Reference of the loss alarm (last accepted k level, see K_ACCEPT_TIME); the inherited k if missing/stale."""
     try:
         with open(STATE_FILE) as f:
             saved = json.load(f)
@@ -355,7 +356,7 @@ def load_k_ref(k):
 
 
 def load_materials():
-    """(son malzeme, {malzeme: k_fil}) - kayit yoksa (None, {})."""
+    """(last material, {material: k_fil}) - (None, {}) without a record."""
     try:
         with open(STATE_FILE) as f:
             saved = json.load(f)
@@ -370,7 +371,7 @@ def load_materials():
 
 
 def backup_state():
-    """Acilista twin_state.json'in tarihli kopyasi; en yeni STATE_BACKUPS tanesi kalir."""
+    """Dated copy of twin_state.json at start-up; the newest STATE_BACKUPS are kept."""
     if not os.path.exists(STATE_FILE):
         return
     try:
@@ -395,57 +396,57 @@ def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None, materia
     if material is not None or materials:
         mats = dict(materials or {})
         if material is not None and kfil is not None:
-            mats[material] = kfil              # simdiki malzemenin guncel k_fil'i
+            mats[material] = kfil              # current k_fil of the current material
         data["malzeme"], data["malzeme_kfil"] = material, mats
     with open(STATE_FILE, "w") as f:
         json.dump(data, f)
 
 
 def natural_loss(T1):
-    """Termistor civari bloktan havaya kayip (dogal tasinim + isinim), k_loss haric."""
+    """Loss from the block near the thermistor to air (natural convection + radiation), without k_loss."""
     T1_K = T1 + 273.15
     return HA1 * (T1 - T_AMB) + CRAD * (T1_K**4 - T_AMB_K**4)
 
 
 def fan_conductance(fan):
-    """Parca sogutma faninin T2'den havaya ek iletkenligi (W/K), fan hizi 0-1.
-    FAN_F0 altinda blower kanalin direncini yenemiyor, sogutma ~0 (deney 5/6)."""
+    """Extra conductance from T2 to air by the part cooling fan (W/K), fan speed 0-1.
+    Below FAN_F0 the blower cannot overcome the duct resistance, cooling ~0 (experiments 5/6)."""
     return HA2_FAN * max((fan - FAN_F0) / (1.0 - FAN_F0), 0.0) ** FAN_EXP
 
 
 def steady_T2_rise(T1, fan):
-    """Kararli durumda T2 - T_amb. T1'den T2'ye gelen akis (T1 - T2)/R_HB, T2'den cikan
-    akisa (HA2 + fan iletkenligi)*(T2 - T_amb) esitlenip cozulur."""
+    """T2 - T_amb in steady state. Solved by equating the flow from T1 to T2, (T1 - T2)/R_HB, with the flow out
+    of T2, (HA2 + fan conductance)*(T2 - T_amb)."""
     return (T1 - T_AMB) / (1 + R_HB * (HA2 + fan_conductance(fan)))
 
 
 class KLossLearner:
-    """k_loss (havaya kayip carpani) ve k_fil (baskiya giden isi carpani, bkz. K_FIL_MAX) enerji dengesinden ogrenilir.
+    """k_loss (loss-to-air factor) and k_fil (heat-into-the-print factor, see K_FIL_MAX) learned from the energy balance.
 
-    SABIT TUTMA pencereleri (ADAPT_WINDOW, ekstruzyon yok) ve BASKI pencereleri (PRINT_WINDOW) kullanilir:
-        y = (verilen enerji - depolanan enerji - heatsink yolu kaybi) / sure
-    k havaya olan kayiplari (blok yuzeyi + fan) olcekler, heatsink yolunu (HA2) degil; o
-    yuzden o yol ayri cikarilir. T2 olculmedigi icin kararli durum degeri kullanilir.
-    Depolanan enerji uc kutlenin toplamiyla hesaplanir (C1 + C2 + C3, C(T) dahil: stored_energy).
-    Pencere boyunca T araligi kucuk ve T > ADAPT_TMIN degilse pencere atilir. Isiticinin kapanmasi,
-    hedef degisimi, rampa gibi gecislerde T araligi buyudugu icin bunlar otomatik disarida kalir.
-    (Eski ornek-bazli ogrenme, isitici kapaninca birkac saniye pwm=0'i "kayip=0" sanip
-    k'yi 0.96'dan 0.86'ya cekiyordu.)
-    [k, k_fil] Kalman filtresiyle birlikte ogrenilir (bkz. _kalman)."""
+    STEADY HOLD windows (ADAPT_WINDOW, no extrusion) and PRINT windows (PRINT_WINDOW) are used:
+        y = (energy supplied - energy stored - heatsink path loss) / duration
+    k scales the losses to air (block surface + fan), not the heatsink path (HA2); so that path is subtracted
+    separately. T2 is not measured, so its steady value is used.
+    Stored energy is computed over the three masses together (C1 + C2 + C3, C(T) included: stored_energy).
+    A window is discarded unless its T range is small and T > ADAPT_TMIN. Transitions such as the heater switching
+    off, a target change or a ramp widen the T range, so they are excluded automatically.
+    (The old per-sample learner took a few seconds of pwm=0 after the heater switched off as "loss=0" and pulled
+    k from 0.96 to 0.86.)
+    [k, k_fil] are learned together with a Kalman filter (see _kalman)."""
 
     def __init__(self, k=1.0, kfil=1.0):
         self.k, self.kfil = k, kfil
-        self.P = [[0.0, 0.0], [0.0, P0_FIL]]      # [k, k_fil] kovaryansi (k'ninki tabandan gelir)
-        self.t_kal = None                          # son Kalman guncellemesi (surec gurultusu icin)
-        self.windows = []                          # (zaman, tur, pencere k'si) - bakim izleme kaydi, bkz. MAINT_*
+        self.P = [[0.0, 0.0], [0.0, P0_FIL]]      # covariance of [k, k_fil] (k's comes from the floor)
+        self.t_kal = None                          # last Kalman update (for process noise)
+        self.windows = []                          # (time, kind, window's own k) - maintenance log, see MAINT_*
         self.reset()
 
     def _kalman(self, now, y, x1, x2, R, a):
-        """Tek olcumlu Kalman guncellemesi: y = k*x1 + k_fil*x2 (+ gurultu, varyans R).
-        a: k icin en az bu kadar kazanc (eski ustel ogrenicinin span/tau'su). Kalman yalniz kalsa
-        isinmadan hemen sonraki (gecis etkili, sapmali) ilk pencerelere fazla guvenip sonra
-        kazanci daralttigi icin k'yi yavas duzeltiyordu (cekirdek 3.77 -> 4.13); k varyansi
-        her pencerede bu kazanci verecek degere tabanlanir ("kovaryans tabani")."""
+        """Single-measurement Kalman update: y = k*x1 + k_fil*x2 (+ noise, variance R).
+        a: at least this much gain for k (span/tau of the old exponential learner). Kalman alone trusted the first
+        windows right after a heat-up (transient, biased) too much and then narrowed its gain, so it corrected k
+        slowly (core 3.77 -> 4.13); k's variance is floored to the value that gives this gain in every window
+        ("covariance floor")."""
         P = self.P
         if self.t_kal is not None:
             P[1][1] += Q_FIL * max(0.0, now - self.t_kal)
@@ -461,15 +462,15 @@ class KLossLearner:
         self.P = [[P[i][j] - G[i] * Px[j] for j in range(2)] for i in range(2)]
 
     def _learn(self, now, num, E_loss, E_fil, span, tau, R):
-        """num: verilen - depolanan - heatsink yolu (J); E_loss: k ile olceklenen model kaybi (J);
-        E_fil: K_FIL ile hesaplanan filaman isisi (J)."""
+        """num: supplied - stored - heatsink path (J); E_loss: model loss scaled by k (J);
+        E_fil: filament heat computed with K_FIL (J)."""
         self._kalman(now, num / span, E_loss / span, E_fil / span, R, min(1.0, span / tau))
         if E_fil == 0 and E_loss > 0 and len(self.windows) < 10000:
-            # k tek bilinmeyen (tutma ya da fansiz baski): pencerenin kendi k'si, ogreniciden bagimsiz (bakim izleme)
+            # k is the only unknown (hold or fan-off print): the window's own k, independent of the learner (maintenance)
             self.windows.append((now, "tutma" if R == R_HOLD else "fansiz_baski", num / E_loss))
 
     def reset(self):
-        """Pencereyi at (veri boslugu vb.). Ogrenilmis k korunur."""
+        """Discard the window (data gap etc.). The learned k is kept."""
         self.t0 = None
         self.p_t0 = None
 
@@ -481,10 +482,10 @@ class KLossLearner:
         self.p_ok = True
 
     def update_print(self, now, dt, T1_real, pwm, fan, ext_v, energy_ok, blocked):
-        """Baski penceresi (PRINT_WINDOW): tutmadaki enerji dengesine filaman isisi eklenir.
-        energy_ok: erken uyari bu aralikta gecerli bir eksik guc hesapladi (isinma/hedef degisimi yok).
-        blocked: ani guc sapmasi (|eksik guc| > ENERGY_THRESHOLD ya da GUC_* alarmi) - pencere atilir,
-        boylece akis kesintisi gibi arizalar k'ya ogretilmez."""
+        """Print window (PRINT_WINDOW): filament heat is added to the energy balance of the hold.
+        energy_ok: the early warning computed a valid missing power for this interval (no heat-up/target change).
+        blocked: sudden power deviation (|missing power| > ENERGY_THRESHOLD or a GUC_* alarm) - the window is
+        discarded, so faults such as a flow interruption are not taught to k."""
         if self.p_t0 is None:
             self._start_print(now, T1_real)
             return
@@ -492,9 +493,9 @@ class KLossLearner:
         self.p_E_in += pwm * P_MAX * dt
         self.p_E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt
         self.p_E_T2 += HA2 * dT2 * dt
-        if fan_conductance(fan) > 0:       # fanli: k_fil ile olceklenen (ogrenilen)
+        if fan_conductance(fan) > 0:       # fan on: scaled by k_fil (learned)
             self.p_E_fil += K_FIL * ext_v * (T1_real - T_AMB) * dt
-        else:                              # fansiz: yalniz filamanin isinmasi, carpan 1.0 (sabit)
+        else:                              # fan off: filament heating only, factor 1.0 (fixed)
             self.p_E_fil_off += K_FIL * ext_v * (T1_real - T_AMB) * dt
         self.p_T_min, self.p_T_max = min(self.p_T_min, T1_real), max(self.p_T_max, T1_real)
         self.p_valid += dt if energy_ok else 0.0
@@ -505,8 +506,8 @@ class KLossLearner:
             if (self.p_ok and self.p_T_max - self.p_T_min < PRINT_T_RANGE and self.p_E_loss > 0
                     and self.p_valid >= PRINT_VALID_FRAC * span and self.p_ext >= 0.5 * span):
                 stored = stored_energy(self.p_T_first, T1_real)
-                # fansiz kisimdaki baskiya giden isi sabit (K_FIL x 1.0) bilinen terim olarak cikarilir;
-                # k_fil yalniz fanli kisimdan ogrenilir ("A0", [K09])
+                # heat into the print in the fan-off part is a fixed known term (K_FIL x 1.0) and is subtracted;
+                # k_fil is learned only from the fan-on part ("A0", [K09])
                 self._learn(now, self.p_E_in - stored - self.p_E_T2 - self.p_E_fil_off, self.p_E_loss,
                             self.p_E_fil, span, PRINT_TAU, R_PRINT)
             self._start_print(now, T1_real)
@@ -524,8 +525,8 @@ class KLossLearner:
             return self.k
         dT2 = steady_T2_rise(T1_real, fan)
         self.E_in += pwm * P_MAX * dt
-        self.E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt   # k ile olceklenen
-        self.E_T2 += HA2 * dT2 * dt                                        # olceklenmeyen
+        self.E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt   # scaled by k
+        self.E_T2 += HA2 * dT2 * dt                                        # not scaled
         self.T_min, self.T_max = min(self.T_min, T1_real), max(self.T_max, T1_real)
         self.ok = self.ok and ok
         if now - self.t0 >= ADAPT_WINDOW:
@@ -538,29 +539,30 @@ class KLossLearner:
 
 
 def max_stable_substep(fan, extrude_v):
-    """RK4'un kararli kalacagi en buyuk alt adim (ust sinir MAX_SUBSTEP).
+    """Largest substep for which RK4 stays stable (upper limit MAX_SUBSTEP).
 
-    Sistemin en hizli modunun hizi, lineerlestirilmis Jacobian'in Gershgorin sinirindan
-    (satir basina |kosegen| + |kosegen disi| toplami) yukaridan tahmin edilir. Simdiki parametrelerde
-    en hizli zaman sabiti ~1.5 s, kararlilik siniri birkac saniye; 4 Hz mesajlarda (dt ~0.25 s) neredeyse
-    her adim tek RK4 adimi. Alt adimlara bolme yalniz veri bosluklarinda ve parametre degisince koruma."""
-    dL = (HA1 + 4 * CRAD * 600.0**3             # kayip turevi, 600 K'e kadar guvenli taraf
+    The speed of the system's fastest mode is bounded from above by the Gershgorin bound of the linearised
+    Jacobian (sum of |diagonal| + |off-diagonal| per row). With the current parameters the fastest time constant is
+    ~1.5 s and the stability limit a few seconds; with 4 Hz messages (dt ~0.25 s) almost every step is a single
+    RK4 step. Splitting into substeps only protects against data gaps and parameter changes."""
+    dL = (HA1 + 4 * CRAD * 600.0**3             # loss derivative, safe side up to 600 K
           + K_FIL_MAX * K_FIL * max(extrude_v, 0.0))
-    s = cap_scale(0.0) if CAP_T_COEF > 0 else 1.0   # en kucuk kapasite (C(T) acikken soguk dugum)
-    lam = max((2 / R31 + 2 / R_HB + K_LOSS_MAX * dL) / C1,              # T1 satiri
-              (2 / R_HB + HA2 + K_LOSS_MAX * fan_conductance(fan)) / C2,  # T2 satiri
-              2 / (R31 * C3)) / s                                        # T3 satiri
+    s = cap_scale(0.0) if CAP_T_COEF > 0 else 1.0   # smallest capacity (cold node with C(T) on)
+    lam = max((2 / R31 + 2 / R_HB + K_LOSS_MAX * dL) / C1,              # T1 row
+              (2 / R_HB + HA2 + K_LOSS_MAX * fan_conductance(fan)) / C2,  # T2 row
+              2 / (R31 * C3)) / s                                        # T3 row
     return min(MAX_SUBSTEP, RK4_STABILITY / lam)
 
 
 def model_step(T1, T2, T3, pwm, fan, extrude_v, dt, k_loss=1.0, max_substep=None, k_fil=1.0):
-    """RK4 ile, kararlilik icin kucuk alt-adimlara bolerek ilerler.
-    k_fil: baskiya giden isi carpani (filaman + nozzle'dan baskiya iletim; ogrenilen, bkz. K_FIL_MAX); K_FIL ile carpilir."""
+    """Advances with RK4, split into small substeps for stability.
+    k_fil: heat-into-the-print factor (filament + conduction from the nozzle into the print; learned, see K_FIL_MAX);
+    multiplies K_FIL."""
     if max_substep is None:
         max_substep = max_stable_substep(fan, extrude_v)
 
     def deriv(T1, T2, T3):
-        k_eff = k_loss   # her sicaklikta (sondurme kurali 2026-10-13'te kaldirildi)
+        k_eff = k_loss   # at every temperature (the fade-out rule was removed on 2026-10-13)
         Q_filament = k_fil * K_FIL * max(extrude_v, 0.0) * (T1 - T_AMB)
         Q_conv1 = k_eff * natural_loss(T1) + Q_filament
 
@@ -569,7 +571,7 @@ def model_step(T1, T2, T3, pwm, fan, extrude_v, dt, k_loss=1.0, max_substep=None
         dT1 = (Q_heater_to_1 - Q_hb - Q_conv1) / (C1 * cap_scale(T1))
 
         Q_c2 = HA2 * (T2 - T_AMB)                          # heat break -> heatsink
-        Q_fan = k_eff * fan_conductance(fan) * (T2 - T_AMB)   # parca sogutma fani nozzle tarafini sogutur
+        Q_fan = k_eff * fan_conductance(fan) * (T2 - T_AMB)   # the part cooling fan cools the nozzle side
         dT2 = (Q_hb - Q_c2 - Q_fan) / (C2 * cap_scale(T2))
 
         Q_heater = pwm * P_MAX
@@ -593,21 +595,21 @@ def model_step(T1, T2, T3, pwm, fan, extrude_v, dt, k_loss=1.0, max_substep=None
 
 
 class FaultMonitor:
-    """Anlik alarm kosullarini onaylanmis ariza olaylarina cevirir (onay + bitis gecikmesi)."""
+    """Turns instantaneous alarm conditions into confirmed fault events (confirmation + end delay)."""
 
     def __init__(self, confirm=None, clear=None, confirm_by_code=None):
-        """confirm_by_code: bazi kodlar icin farkli onay suresi (ornek GUC_*: ENERGY_CONFIRM)."""
+        """confirm_by_code: a different confirmation time for some codes (e.g. GUC_*: ENERGY_CONFIRM)."""
         self.confirm = FAULT_CONFIRM if confirm is None else confirm
         self.clear = FAULT_CLEAR if clear is None else clear
         self.confirm_by_code = confirm_by_code or {}
-        self.pending = {}     # kod -> kosulun kesintisiz dogru oldugu ilk an
-        self.active = {}      # kod -> arizanin basladigi an
-        self.last_seen = {}   # kod -> kosulun en son dogru oldugu an
-        self.events = []      # biten arizalar: (kod, baslangic, bitis)
+        self.pending = {}     # code -> first moment the condition has been true without interruption
+        self.active = {}      # code -> moment the fault started
+        self.last_seen = {}   # code -> last moment the condition was true
+        self.events = []      # finished faults: (code, start, end)
 
     def update(self, now, conditions):
-        """conditions: su an dogru olan ariza kodlari.
-        Donus: (yeni baslayan kodlar, biten olaylar [(kod, baslangic, bitis)])."""
+        """conditions: fault codes that are true now.
+        Returns: (newly started codes, finished events [(code, start, end)])."""
         started, ended = [], []
         for code in conditions:
             self.last_seen[code] = now
@@ -619,7 +621,7 @@ class FaultMonitor:
                 del self.pending[code]
                 started.append(code)
         for code in [c for c in self.pending if c not in conditions]:
-            del self.pending[code]          # kesildi: onay sayaci sifirdan
+            del self.pending[code]          # interrupted: the confirmation counter restarts
         for code in [c for c in self.active if c not in conditions]:
             if now - self.last_seen[code] >= self.clear:
                 event = (code, self.active.pop(code), now)
@@ -629,8 +631,8 @@ class FaultMonitor:
 
 
 def fault_conditions(k, fan, k_ref=1.0, active=None):
-    """Kayma alarmi (KAYIP_*): ogrenilen k referanstan (k_ref = son kabul edilen seviye) bandin disina cikti mi.
-    active: histerezisli durum (Twin.k_alarm); verilmezse yalniz K_ALARM_BAND. Hizli arizalar (GUC_*) energy_conditions'ta."""
+    """Drift alarm (KAYIP_*): has the learned k left the band around the reference (k_ref = last accepted level).
+    active: hysteresis state (Twin.k_alarm); if not given, K_ALARM_BAND only. Fast faults (GUC_*) are in energy_conditions."""
     conds = set()
     on = abs(k - k_ref) > K_ALARM_BAND if active is None else active
     if on and k > k_ref:
@@ -641,33 +643,33 @@ def fault_conditions(k, fan, k_ref=1.0, active=None):
 
 
 class EnergyMonitor:
-    """Eksik guc (W): son ENERGY_WINDOW saniyede modelin bekledigi kayip - (olculen guc - depolanan).
-    + = beklenenden AZ isi gidiyor, - = FAZLA. Olculmeyen T2 (nozzle tarafi) ve T3 (kartus),
-    GERCEK T1 ve olculen guc ile surulur (her aralikta T1 sabit sayilip tam ustel cozum);
-    depolanan enerji uc dugumun toplami. Ikizin kendi sicaklik durumundan bagimsizdir; kayiplar
-    ogrenilmis k ve k_fil ile olceklenir (modelle ayni "dara")."""
+    """Missing power (W): loss expected by the model over the last ENERGY_WINDOW seconds - (measured power - stored).
+    + = LESS heat leaving than expected, - = MORE. The unmeasured T2 (nozzle side) and T3 (cartridge) are driven by
+    the REAL T1 and the measured power (T1 taken constant over each interval, exact exponential solution); stored
+    energy is the sum of the three nodes. Independent of the twin's own temperature state; losses are scaled by the
+    learned k and k_fil (the same "tare" as the model)."""
 
     def __init__(self):
         self.T2 = self.T3 = None
         self.reset()
 
     def reset(self):
-        """Veri boslugu: pencere bosaltilir, T2/T3 bir sonraki olcumde yeniden kurulur."""
+        """Data gap: the window is emptied, T2/T3 are set up again at the next measurement."""
         self.T2 = self.T3 = None
-        self.hist = deque()        # (aralik_sonu, dt, kayip*dt, guc*dt, E_aralik_basi, T1)
-        self.pwm_hist = deque()    # (aralik_sonu, dt, pwm) - isinma (doygunluk) tespiti
+        self.hist = deque()        # (interval end, dt, loss*dt, power*dt, E at interval start, T1)
+        self.pwm_hist = deque()    # (interval end, dt, pwm) - heat-up (saturation) detection
         self.last_sat = -1e9
-        self.last_target = -1e9    # Klipper hedef sicakligini en son degistirdigi an
+        self.last_target = -1e9    # last moment Klipper changed the target temperature
         self.gap = None
 
     def _energy(self, T1):
         return C1 * cap_energy(T1) + C2 * cap_energy(self.T2) + C3 * cap_energy(self.T3)
 
     def update(self, now, dt, T1_prev, T1_now, pwm, fan, ext, power_scale=1.0, k=1.0, kfil=1.0):
-        """Gecen aralik: T1_prev araligin basindaki bilinen sicaklik, pwm/fan/ext araligin girdileri.
-        power_scale: tabla voltaj dusumu (gercek guc = pwm * P_MAX * power_scale); doygunluk
-        tespiti komut edilen pwm ile yapilir. k, kfil: ogrenilmis carpanlar (model_step ile ayni sekilde:
-        k blok + fan kaybini, kfil baskiya giden isiyi olcekler; heatsink yolu HA2 olceklenmez)."""
+        """Elapsed interval: T1_prev the known temperature at the start of the interval, pwm/fan/ext its inputs.
+        power_scale: bed voltage sag (real power = pwm * P_MAX * power_scale); saturation is detected from the
+        commanded pwm. k, kfil: learned factors (as in model_step: k scales the block + fan loss, kfil the heat into
+        the print; the heatsink path HA2 is not scaled)."""
         if self.T2 is None:
             _, self.T2, self.T3 = initial_state(T1_prev, pwm, fan)
         k_eff = k
@@ -684,7 +686,7 @@ class EnergyMonitor:
 
         self.hist.append((now, dt, loss * dt, P * dt, E0, T1_now))
         while len(self.hist) > 1 and self.hist[1][0] - self.hist[1][1] <= now - ENERGY_WINDOW:
-            self.hist.popleft()          # pencere en az ENERGY_WINDOW kalacak sekilde kirp
+            self.hist.popleft()          # trim so that the window stays at least ENERGY_WINDOW long
         self.pwm_hist.append((now, dt, pwm))
         while self.pwm_hist and self.pwm_hist[0][0] <= now - 3.0:
             self.pwm_hist.popleft()
@@ -697,8 +699,8 @@ class EnergyMonitor:
         ok = (span >= 0.8 * ENERGY_WINDOW and T1_now > ENERGY_TMIN
               and max(Ts) - min(Ts) < ENERGY_T_RANGE and now - self.last_sat >= ENERGY_SETTLE
               and now - self.last_target >= ENERGY_SETTLE)
-        # hedef degisimi: isitici hemen kapanir/acilir ama sicaklik gecikmeyle izler; o arada guc
-        # dengesi "isi gitmiyor" gibi gorunuyordu (27.09 baski basi, yanlis GUC_AZALDI)
+        # target change: the heater switches off/on at once but the temperature follows with a lag; meanwhile the
+        # power balance looked like "heat is not leaving" (27.09 print start, false GUC_AZALDI)
         if not ok:
             self.gap = None
             return None
@@ -718,46 +720,46 @@ def energy_conditions(gap):
 
 
 class Twin:
-    """Mesaj isleyici - canli script ve degerlendir.py AYNI kodu kullanir (birebir ayni sonuc).
+    """Message handler - the live script and evaluate.py use the SAME code (identical results).
 
-    Her Moonraker mesajinda (icinde sicaklik olsun olmasin) on_message() cagrilir:
-      1) gecen aralik, araligin BASINDA gecerli olan girdilerle (pwm/fan/ekstruzyon) ilerletilir
-         (sifirinci dereceden tutma: yeni gelen deger bu andan SONRASI icin gecerli),
-      2) mesajdaki yeni girdiler kaydedilir,
-      3) mesajda yeni sicaklik varsa residual hesaplanir,
-      4) ariza takibi: GUC_* (eksik guc) ve KAYIP_* (k kaymasi).
-    Eskiden model sadece sicaklik iceren mesajlarda ilerliyordu: sicakliksiz bir mesajla gelen
-    'isitici acildi' bilgisi o yuzden tum araliga geriye dogru uygulaniyor, isinma basinda
-    model ~8C one geciyordu (benchmark 2026-09-25 18:48 logu)."""
+    on_message() is called for every Moonraker message (with or without a temperature):
+      1) the elapsed interval is advanced with the inputs valid at its START (pwm/fan/extrusion)
+         (zero-order hold: a newly received value applies from this moment ON),
+      2) the new inputs in the message are stored,
+      3) if the message has a new temperature, the residual is computed,
+      4) fault tracking: GUC_* (missing power) and KAYIP_* (k drift).
+    Formerly the model advanced only on messages with a temperature: a 'heater switched on' arriving in a message
+    without a temperature was applied backwards over the whole interval, and at the start of a heat-up the model
+    ran ~8 C ahead (benchmark log 2026-09-25 18:48)."""
 
     def __init__(self, T1, T2, T3, pwm, fan, ext, k=1.0, kfil=1.0, k_ref=None):
-        """k, kfil: baslangic kayip ve filaman carpani (canli scriptte onceki oturumlardan, bkz. load_k).
-        k_ref: kayip alarminin referansi (bkz. load_k_ref, K_ACCEPT_TIME); verilmezse k."""
+        """k, kfil: initial loss and filament factors (in the live script from earlier sessions, see load_k).
+        k_ref: reference of the loss alarm (see load_k_ref, K_ACCEPT_TIME); k if not given."""
         self.T1_model, self.T2_model, self.T3_model = T1, T2, T3
         self.pwm, self.fan = pwm or 0.0, fan or 0.0
         self.ext = ext if ext is not None and abs(ext) > EXT_EPS else 0.0
-        self.flow = self.ext               # modele giden akis hizi (pos_e farkindan; yoksa anlik hiz)
-        self.last_e = None                 # (zaman, pos_e) - son konum mesaji
-        self.T1_real = T1                  # son bilinen gercek sicaklik
+        self.flow = self.ext               # flow fed to the model (from the pos_e difference; else instantaneous speed)
+        self.last_e = None                 # (time, pos_e) - last position message
+        self.T1_real = T1                  # last known real temperature
         self.prev_time = None
-        self.ext_history = deque()         # (aralik_sonu, aralik_suresi, hiz) - net akis ortalamasi
+        self.ext_history = deque()         # (interval end, interval length, speed) - net flow average
         self.learner = KLossLearner(k, kfil)
-        self.k_ref = k if k_ref is None else k_ref   # kayip alarminin referansi, bkz. K_ACCEPT_TIME
-        self.kst_lo = self.kst_hi = k               # kabul: k'nin son sabit penceredeki araligi
-        self.kst_t = 0.0                            # bu pencerede gecen sicak sure (s)
-        self.kout_t = 0.0                           # kayip alarminin acik kaldigi sicak sure (s)
-        self.k_alarm = False                        # kayip alarmi durumu (histerezisli, bkz. K_ALARM_CLEAR)
+        self.k_ref = k if k_ref is None else k_ref   # reference of the loss alarm, see K_ACCEPT_TIME
+        self.kst_lo = self.kst_hi = k               # acceptance: range of k in the latest steady window
+        self.kst_t = 0.0                            # hot time spent in this window (s)
+        self.kout_t = 0.0                           # hot time the loss alarm has been on (s)
+        self.k_alarm = False                        # loss alarm state (with hysteresis, see K_ALARM_CLEAR)
         self.faults = FaultMonitor(confirm_by_code={c: ENERGY_CONFIRM for c in ENERGY_TEXT})
-        self.energy = EnergyMonitor()      # ikizin hesabina dokunmaz
+        self.energy = EnergyMonitor()      # does not touch the twin's computation
         self.energy_error = None
-        self.target = None                 # Klipper hedef sicakligi (sadece kayit + eksik guc bekleme suresi)
-        self.bed = 0.0                     # tabla isitici pwm (0-1); bilinmiyorsa kapali sayilir
-        self.material = None               # baskinin malzemesi (G-code basligi), bkz. set_material
-        self.pause_flagged = False         # bu GUC_AZALDI olayi icin duraklatma zaten istendi mi (PAUSE_AFTER)
+        self.target = None                 # Klipper target temperature (logging + missing-power settle time only)
+        self.bed = 0.0                     # bed heater pwm (0-1); taken as off if unknown
+        self.material = None               # material of the print (G-code header), see set_material
+        self.pause_flagged = False         # pause already requested for this GUC_AZALDI event (PAUSE_AFTER)
 
     def set_material(self, name, kfil=None):
-        """Baskinin malzemesi degisti: k_fil o malzemenin kayitli degerinden (kfil; None = kayit yok, mevcut deger
-        kalir) ve oturum basi belirsizligiyle (P0_FIL) yeniden ogrenilir. k ortak kalir (hotend ozelligi)."""
+        """The print's material changed: k_fil is re-learned from that material's saved value (kfil; None = no record,
+        the current value stays) with the session-start uncertainty (P0_FIL). k stays shared (a hotend property)."""
         if kfil is not None:
             self.learner.kfil = min(K_FIL_MAX, max(K_FIL_MIN, kfil))
         P = self.learner.P
@@ -765,23 +767,23 @@ class Twin:
         self.material = name
 
     def on_message(self, now, T1_real=None, pwm=None, fan=None, ext=None, target=None, bed=None, pos_e=None):
-        """Bir mesaji isle. Mesajda olmayan alanlar None verilir.
-        pos_e: ekstruder konumu (mm, son bilinen deger); varsa akis bundan hesaplanir (bkz. POS_E_MAX_RATE).
-        Donus: dt, yeni_sicaklik, residual (sicaklik yoksa None), anomali (resmi ariza aktif mi),
-        k_anomali (ogrenilen kayip carpani normal bandin disinda), senkron, eksik_guc (W, gecersizse None),
-        ariza_basladi (yeni onaylanan ariza kodlari), ariza_bitti ([(kod, baslangic, bitis)])."""
+        """Process one message. Fields not in the message are given as None.
+        pos_e: extruder position (mm, last known value); if present, the flow is computed from it (see POS_E_MAX_RATE).
+        Returns: dt, yeni_sicaklik (new temperature), residual (None without a temperature), anomali (an official
+        fault is active), k_anomali (learned loss factor outside its band), senkron, eksik_guc (W, None if invalid),
+        ariza_basladi (newly confirmed fault codes), ariza_bitti ([(code, start, end)])."""
         out = {"dt": 0.0, "yeni_sicaklik": T1_real is not None,
                "residual": None, "anomali": False, "k_anomali": False, "senkron": False,
                "ariza_basladi": [], "ariza_bitti": [], "eksik_guc": None,
-               "k_kabul": None,   # (eski referans, yeni k): kalici degisim kabul edildi (bkz. K_ACCEPT_TIME)
-               "duraklat": False}  # GUC_AZALDI PAUSE_AFTER s'dir kesintisiz (olay basina bir kez)
+               "k_kabul": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
+               "duraklat": False}  # GUC_AZALDI has lasted PAUSE_AFTER s without interruption (once per event)
 
-        # 1) gecen araligi, araligin basindaki girdilerle ilerlet
+        # 1) advance the elapsed interval with the inputs valid at its start
         if self.prev_time is not None:
             dt = now - self.prev_time
             out["dt"] = dt
-            # net filaman akisi: son EXT_AVG_WINDOW saniyedeki isaretli hizin zaman agirlikli
-            # ortalamasi (geri cekme / geri itme birbirini goturur), sonra 0'in alti kirpilir
+            # net filament flow: time-weighted average of the signed speed over the last EXT_AVG_WINDOW seconds
+            # (retract / unretract cancel), then clipped below 0
             self.ext_history.append((now, dt, self.flow))
             while self.ext_history and self.ext_history[0][0] < now - EXT_AVG_WINDOW:
                 self.ext_history.popleft()
@@ -790,11 +792,10 @@ class Twin:
             ext_smoothed = max(ext_net, 0.0)
             T_now = T1_real if T1_real is not None else self.T1_real
             if dt > GAP_THRESHOLD or dt < 0:
-                # dt < 0: saat geri gitti (yeniden baglanirken Klipper/Pi yeniden baslamis olabilir;
-                # negatif adim modeli patlatiyordu). Ikisinde de arada ne oldugu bilinmiyor.
-                # uzun veri boslugu: arada ne oldugu bilinmiyor -> yeniden baslar gibi TUM
-                # dugumleri tutarli kur (sadece T1'i esitlemek T2/T3'u eski degerde birakip
-                # hemen ardindan sahte bir gecis uretiyordu)
+                # dt < 0: the clock went backwards (Klipper/Pi may have restarted during a reconnect;
+                # a negative step blew up the model). In both cases it is unknown what happened in between.
+                # long data gap: unknown what happened in between -> set up ALL nodes consistently as on a
+                # restart (equalising only T1 left T2/T3 at old values and produced a fake transient right after)
                 self.T1_model, self.T2_model, self.T3_model = initial_state(
                     T_now, pwm if pwm is not None else self.pwm,
                     fan if fan is not None else self.fan)
@@ -803,18 +804,18 @@ class Twin:
                     self.energy.reset()
                 out["senkron"] = True
             else:
-                # tabla acikken besleme voltaji duser: kartusa giden gercek guc biraz azalir
+                # with the bed on the supply voltage sags: the real power to the cartridge drops slightly
                 scale = 1.0 - BED_SAG * self.bed
-                # baskiya giden isi: fan sogutmuyorken yalniz filaman (1.0), fan acikken ogrenilen k_fil
+                # heat into the print: filament only (1.0) while the fan is not cooling, the learned k_fil with the fan on
                 kfil_now = self.learner.kfil if fan_conductance(self.fan) > 0 else 1.0
                 self.T1_model, self.T2_model, self.T3_model = model_step(
                     self.T1_model, self.T2_model, self.T3_model,
                     self.pwm * scale, self.fan, ext_smoothed, dt, self.learner.k, k_fil=kfil_now)
                 self.learner.update(now, dt, T_now, self.pwm * scale, self.fan, ext_smoothed > 0.0)
-                if T_now > ADAPT_TMIN:      # kabul sayaclari yalniz k'nin anlamli oldugu sicak calismada ilerler
+                if T_now > ADAPT_TMIN:      # acceptance counters advance only in hot operation, where k is meaningful
                     k = self.learner.k
                     lo, hi = min(self.kst_lo, k), max(self.kst_hi, k)
-                    if hi - lo > K_ACCEPT_RANGE:            # k hala degisiyor: sabitlik penceresi yeniden
+                    if hi - lo > K_ACCEPT_RANGE:            # k is still changing: restart the steadiness window
                         self.kst_lo = self.kst_hi = k
                         self.kst_t = 0.0
                     else:
@@ -827,7 +828,7 @@ class Twin:
                         self.kout_t = 0.0
                         self.k_alarm = False
                 if self.energy is not None:
-                    # hata verirse sadece eksik guc kapanir, ikiz ve izleme devam eder
+                    # on an error only the missing power switches off; the twin and monitoring continue
                     try:
                         out["eksik_guc"] = self.energy.update(now, dt, self.T1_real, T_now,
                                                               self.pwm, self.fan, ext_smoothed, scale,
@@ -842,10 +843,10 @@ class Twin:
                                               g is not None, blocked)
         self.prev_time = now
 
-        # 2) mesajdaki yeni girdiler bundan sonrasi icin gecerli
+        # 2) the new inputs in the message apply from now on
         if target is not None:
-            # hedef sicaklik modele girmez (model olculen gucle calisir); sadece erken uyari
-            # hedef degistikten sonra ENERGY_SETTLE saniye beklesin diye izlenir
+            # the target temperature does not enter the model (the model runs on the measured power); it is only
+            # tracked so that the early warning waits ENERGY_SETTLE seconds after a target change
             if self.target is not None and abs(target - self.target) > 0.5 and self.energy is not None:
                 self.energy.last_target = now
             self.target = target
@@ -857,7 +858,7 @@ class Twin:
             self.fan = fan
         if ext is not None:
             self.ext = ext if abs(ext) > EXT_EPS else 0.0
-        # akis: son iki mesaj arasindaki pos_e farki bir sonraki araliga uygulanir (~0.25 s gecikme, nedensel)
+        # flow: the pos_e difference between the last two messages applies to the next interval (~0.25 s lag, causal)
         if pos_e is not None:
             if self.last_e is not None:
                 dt_e = now - self.last_e[0]
@@ -867,15 +868,15 @@ class Twin:
         elif self.last_e is None:
             self.flow = self.ext
 
-        # 3) yeni sicaklik geldiyse karsilastir
+        # 3) compare if a new temperature arrived
         if T1_real is not None:
             self.T1_real = T1_real
             out["residual"] = 0.0 if out["senkron"] else T1_real - self.T1_model
         dev = abs(self.learner.k - self.k_ref)
-        self.k_alarm = dev > (K_ALARM_CLEAR if self.k_alarm else K_ALARM_BAND)   # histerezis: bant kenarinda ac-kapa yok
+        self.k_alarm = dev > (K_ALARM_CLEAR if self.k_alarm else K_ALARM_BAND)   # hysteresis: no toggling at the band edge
         out["k_anomali"] = self.k_alarm
 
-        # 4) ariza takibi - sadece yeni sicaklik gelen mesajlarda (kosullar olcume dayali)
+        # 4) fault tracking - only on messages with a new temperature (conditions are based on measurements)
         if T1_real is not None:
             conds = fault_conditions(self.learner.k, self.fan, self.k_ref, self.k_alarm)
             if not out["senkron"]:
@@ -886,7 +887,7 @@ class Twin:
                 self.pause_flagged = False
             elif not self.pause_flagged and now - t_az >= PAUSE_AFTER:
                 self.pause_flagged = out["duraklat"] = True
-        out["anomali"] = bool(self.faults.active)   # CSV 'anomali' = resmi alarm aktif (Unity durum hapi)
+        out["anomali"] = bool(self.faults.active)   # CSV 'anomali' = an official alarm is active (Unity status pill)
         return out
 
 
@@ -894,9 +895,9 @@ LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "twin.lock"
 
 
 def single_instance_lock():
-    """Ayni anda tek ikiz: isletim sistemi dosya kilidi. Ikinci kopya kilidi alamaz -> None.
-    Surec nasil biterse bitsin (Ctrl+C, pencereyi kapatmak, cokme) kilidi isletim sistemi birakir.
-    (2026-09-28: eski ve yeni script ayni anda calisip ayni CSV'ye yazmisti.)"""
+    """Only one twin at a time: operating-system file lock. A second copy cannot get the lock -> None.
+    However the process ends (Ctrl+C, closing the window, crash) the OS releases the lock.
+    (2026-09-28: the old and the new script ran at the same time and wrote to the same CSV.)"""
     fh = open(LOCK_FILE, "a+")
     try:
         if os.name == "nt":
@@ -913,13 +914,13 @@ def single_instance_lock():
 
 
 def classify_job(rows, t_confirm, codes, delay):
-    """Arka plan is parcacigi: son satirlardan arizayi siniflandirir. Donus: konsol satiri.
-    Tam rapor REPORT_FILE'a eklenir. Hata olursa canli izleme etkilenmez, sadece yazilir."""
+    """Background thread: classifies the fault from the latest rows. Returns: a console line.
+    The full report is appended to REPORT_FILE. On an error the live monitoring is not affected, it is only logged."""
     try:
         import sys
-        import fault_classifier   # gec import: pandas/scipy sadece ariza olunca yuklenir
+        import fault_classifier   # late import: pandas/scipy are loaded only when a fault happens
         summary, report = fault_classifier.classify_live(rows, sys.modules[__name__], t_confirm)
-    except Exception as e:  # noqa: BLE001 - siniflandirma yan ozellik, izlemeyi durdurmamali
+    except Exception as e:  # noqa: BLE001 - classification is a side feature, it must not stop monitoring
         return f"[ariza siniflandirma +{delay:.0f} s ({codes}) basarisiz: {type(e).__name__}: {e}]"
     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
         rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  {codes}  (onaydan +{delay:.0f} s)")
@@ -933,13 +934,13 @@ def _download(url, path):
     tmp = path + ".part"
     with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT) as r, open(tmp, "wb") as out:
         shutil.copyfileobj(r, out)
-    os.replace(tmp, path)   # yarim inmis dosya asla gercek adla kalmaz
+    os.replace(tmp, path)   # a half-downloaded file never keeps the real name
 
 
 def update_zoff(zoff, status):
-    """Z ofseti kaydi (mesajda gelen alanlarla). z: babystep / SET_GCODE_OFFSET Z (mm, + = nozzle tabladan uzak);
-    pos_z (toolhead konumu) bunu zaten icerir. endstop: kayitli stepper_z position_endstop (Z_OFFSET_APPLY_ENDSTOP +
-    SAVE_CONFIG ile degisir; pos_z'de GORUNMEZ, + = nozzle tablaya yakin)."""
+    """Z offset record (from the fields in the message). z: babystep / SET_GCODE_OFFSET Z (mm, + = nozzle further from
+    the bed); pos_z (toolhead position) already contains it. endstop: saved stepper_z position_endstop (changes with
+    Z_OFFSET_APPLY_ENDSTOP + SAVE_CONFIG; NOT visible in pos_z, + = nozzle closer to the bed)."""
     ho = status.get("gcode_move", {}).get("homing_origin")
     if isinstance(ho, (list, tuple)) and len(ho) >= 3:
         zoff["z"] = ho[2]
@@ -949,7 +950,7 @@ def update_zoff(zoff, status):
 
 
 def request_pause():
-    """Arka plan: Moonraker'a baskiyi duraklat istegi (PAUSE_MODE == 'aktif'). Donus: konsol satiri."""
+    """Background: pause request to Moonraker (PAUSE_MODE == 'aktif'). Returns: a console line."""
     import urllib.request
     try:
         req = urllib.request.Request(f"{HTTP_URL}/printer/print/pause", data=b"", method="POST")
@@ -960,7 +961,7 @@ def request_pause():
 
 
 def gcode_material(path):
-    """Orca/Prusa G-code'unun ayar blogundaki '; filament_type = X' (blok dosyanin sonunda; yoksa None)."""
+    """'; filament_type = X' from the settings block of an Orca/Prusa G-code (block at the end of the file; else None)."""
     found = None
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
@@ -970,9 +971,9 @@ def gcode_material(path):
 
 
 def plan_job(filename, t0, init):
-    """Arka plan is parcacigi: baski basinda G-code + printer.cfg indirir, ikizin planini uretir.
-    init: baskinin basladigi andaki olculen durum (simulasyonun baslangic kosulu).
-    Donus: (konsol satiri, malzeme ya da None). Hata olursa canli izleme etkilenmez, sadece yazilir."""
+    """Background thread: at print start downloads the G-code + printer.cfg and produces the twin's plan.
+    init: the state measured at print start (initial condition of the simulation).
+    Returns: (console line, material or None). On an error the live monitoring is not affected, it is only logged."""
     material = None
     try:
         import urllib.parse
@@ -981,7 +982,7 @@ def plan_job(filename, t0, init):
         gpath = os.path.join(GCODE_DIR, base)
         _download(f"{HTTP_URL}/server/files/gcodes/{urllib.parse.quote(filename)}", gpath)
         material = gcode_material(gpath)
-        import gcode_plan   # gec import: pandas sadece baski baslayinca yuklenir
+        import gcode_plan   # late import: pandas is loaded only when a print starts
         cfg, cfg_src = os.path.join(GCODE_DIR, "printer.cfg"), "Pi"
         try:
             _download(f"{HTTP_URL}/server/files/config/printer.cfg", cfg)
@@ -990,13 +991,13 @@ def plan_job(filename, t0, init):
         stamp = time.strftime("%Y%m%d_%H%M", time.localtime(t0))
         out = os.path.join(PLAN_DIR, f"tahmin_canli_{stamp}_{os.path.splitext(base)[0]}.csv")
         summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init)
-    except Exception as e:  # noqa: BLE001 - plan yan ozellik, izlemeyi durdurmamali
+    except Exception as e:  # noqa: BLE001 - the plan is a side feature, it must not stop monitoring
         return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material
     return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material
 
 
 def show_category(text, live):
-    """Siniflandirma sonucu: konsola yaz, telefon sayfasina kisa halini koy."""
+    """Classification result: print to the console, put the short form on the phone page."""
     print(text)
     first = next((ln for ln in text.splitlines() if "KATEGORISI" in ln or "basarisiz" in ln), "").strip()
     live["kategori"] = first.split("): ", 1)[-1] if "): " in first else first
@@ -1047,7 +1048,7 @@ tick();setInterval(tick,2000);
 
 
 async def web_server(live):
-    """Telefondan izleme sayfasi. live: main'in guncelledigi durum sozlugu (sadece okunur)."""
+    """Phone monitoring page. live: the state dict updated by main (read only)."""
     async def handle(reader, writer):
         try:
             line = (await asyncio.wait_for(reader.readline(), 5)).decode(errors="ignore")
@@ -1064,7 +1065,7 @@ async def web_server(live):
             writer.write(f"HTTP/1.1 200 OK\r\nContent-Type: {ctype}\r\nContent-Length: {len(body)}\r\n"
                          f"Cache-Control: no-store\r\nConnection: close\r\n\r\n".encode() + body)
             await writer.drain()
-        except Exception:  # noqa: BLE001 - sayfa hatasi izlemeyi etkilemez
+        except Exception:  # noqa: BLE001 - a page error does not affect monitoring
             pass
         finally:
             writer.close()
@@ -1077,7 +1078,7 @@ async def web_server(live):
     try:
         import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect((PRINTER_HOST, 80))        # paket gondermez; sadece hangi ag arayuzunun kullanildigini bulur
+        s.connect((PRINTER_HOST, 80))        # sends no packet; only finds which network interface is used
         ip = s.getsockname()[0]; s.close()
     except OSError:
         ip = "<bilgisayar-IP>"
@@ -1096,25 +1097,25 @@ async def main():
         print("\n!! Baska bir ikiz zaten calisiyor (ayni CSV'ye iki kopya yazardi).\n"
               "   Once onu kapat (o pencerede Ctrl+C), sonra tekrar baslat.\n")
         return
-    twin = None   # ilk gercek sicaklik bilinince kurulur
+    twin = None   # set up once the first real temperature is known
     live = {"T": None, "M": None, "R": None, "G": None, "pwm": 0.0, "fan": 0.0, "k": 1.0, "ext": 0.0,
             "ariza": [], "kategori": "", "wall": 0.0, "h": deque(),
-            "bT": None, "bTg": None, "bP": None, "bM": None, "bC": None}   # telefon sayfasi
+            "bT": None, "bTg": None, "bP": None, "bM": None, "bC": None}   # phone page
     web = await web_server(live) if WEB_PORT else None
-    buffer = deque()      # (model zamani, csv satiri) - siniflandirma icin son CLASSIFY_BUFFER saniye
-    scheduled = []        # [calisma zamani, onay zamani, kodlar, gecikme]
+    buffer = deque()      # (model time, csv row) - the last CLASSIFY_BUFFER seconds for classification
+    scheduled = []        # [run time, confirmation time, codes, delay]
     loop = asyncio.get_running_loop()
-    last_known = {"pwm": 0.0, "fan": 0.0, "ext": 0.0}   # twin kurulmadan once gelen girdiler
-    bed = {}                                             # tabla: son bilinen sicaklik/guc/hedef (kayit)
-    motion = {}                                          # kafa hizi, Y ve Z konumu (kayit)
-    pstat = {}                                           # print_stats: baski durumu ve dosya (girdi)
-    gmove = {}                                           # gcode_move: ekstruzyon modu (planin girdisi)
-    zoff = {}                                            # Z ofseti: babystep + kayitli endstop (kayit)
-    bed_twin = None                                     # tabla ikizi (tabla_model.BedTwin, gozlem)
+    last_known = {"pwm": 0.0, "fan": 0.0, "ext": 0.0}   # inputs that arrive before the twin is set up
+    bed = {}                                             # bed: last known temperature/power/target (logging)
+    motion = {}                                          # head speed, Y and Z position (logging)
+    pstat = {}                                           # print_stats: print state and file (input)
+    gmove = {}                                           # gcode_move: extrusion mode (plan input)
+    zoff = {}                                            # Z offset: babystep + saved endstop (logging)
+    bed_twin = None                                     # bed twin (bed_model.BedTwin, observation)
     bed_error = None
-    backup_state()                                       # acilista twin_state.json yedegi (son STATE_BACKUPS)
-    mat_last, mats = load_materials()                    # malzeme basina k_fil (bkz. set_material)
-    advice = maint_check()                               # bakim gostergesi (tavsiye, bkz. MAINT_*)
+    backup_state()                                       # twin_state.json backup at start-up (last STATE_BACKUPS)
+    mat_last, mats = load_materials()                    # k_fil per material (see set_material)
+    advice = maint_check()                               # maintenance indicator (advice, see MAINT_*)
     live["bakim"] = advice or ""
     if advice:
         print(f"\n!! {advice}\n")
@@ -1127,7 +1128,7 @@ async def main():
         print(f"[bakim gostergesi: oneri yok (fansiz baski k, temiz referans {MAINT_REF:.2f} +-{MAINT_BAND:.2f})]")
 
     def on_plan(fut):
-        """Plan isi bitti (olay dongusunde calisir): konsol satiri + baskinin malzemesi degistiyse k_fil degisimi."""
+        """Plan job finished (runs in the event loop): console line + k_fil switch if the print's material changed."""
         nonlocal mat_last
         msg, mat = fut.result()
         print(msg)
@@ -1147,7 +1148,7 @@ async def main():
               + (f"kayitli {new:.2f}" if new is not None else f"kaydi yok, {twin.learner.kfil:.2f} ile")
               + " (yeniden ogreniliyor)]")
 
-    # onceki oturumun logu yeniden adlandirilmadan kaldiysa ustune yazma: tarihli ada tasi
+    # if the previous session's log was left without renaming, do not overwrite it: move it to a dated name
     if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
         stamp = time.strftime("%Y%m%d_%H%M", time.localtime(os.path.getmtime(LOG_FILE)))
         old = os.path.join(os.path.dirname(LOG_FILE), f"realtime_log_ws_onceki_{stamp}.csv")
@@ -1158,10 +1159,10 @@ async def main():
             print(f"[onceki log tasinamadi ({e}); ustune yazilacak]")
 
     with open(LOG_FILE, "w", newline="") as f:
-        # Her mesaj bir satir. T_yeni=1: mesajda yeni sicaklik var (residual bu satirlarda).
-        # T_yeni=0: sadece pwm/fan degisti; T1_real son bilinen deger, residual bos.
-        # anomali = resmi alarm aktif (2026-10-12'den itibaren; oncesinde ham residual esigiydi).
-        # Tum mesajlar kayitli oldugu icin degerlendir.py canli calismayi birebir tekrarlar.
+        # One row per message. T_yeni=1: the message has a new temperature (residual on these rows).
+        # T_yeni=0: only pwm/fan changed; T1_real is the last known value, residual empty.
+        # anomali = an official alarm is active (since 2026-10-12; before that a raw residual threshold).
+        # Every message is logged, so evaluate.py replays the live run exactly.
         writer = csv.DictWriter(f, fieldnames=[
             "time", "T1_real", "T1_model", "residual", "pwm",
             "fan_state", "extrude_velocity", "anomali", "k_loss", "eventtime", "T_yeni", "k_anomali",
@@ -1171,19 +1172,19 @@ async def main():
         ])
         writer.writeheader()
 
-        # Model zamani: Klipper'in eventtime'i (degerlerin OLCULDUGU an). Mesajin PC'ye
-        # ulastigi an (time.time()) ag/Moonraker gecikmesiyle 0.03-0.56 s arasi oynuyor;
-        # pwm*dt integrali bu titremeyle 245C'de +-8C sahte salinim uretiyordu.
-        # Abonelik cevabinda eventtime olmayabiliyor; karar ilk bildirimde verilir ve
-        # model saati o bildirimden baslar (iki saat asla karistirilmaz).
+        # Model time: Klipper's eventtime (the moment the values were MEASURED). The moment the message reaches
+        # the PC (time.time()) varies by 0.03-0.56 s with network/Moonraker latency; the pwm*dt integral turned
+        # this jitter into +-8 C fake oscillations at 245 C.
+        # The subscription response may lack eventtime; the decision is made on the first notification and the
+        # model clock starts from that notification (the two clocks are never mixed).
         use_klipper_clock = None
-        last_save = last_flush = 0.0   # disk yazimlari PC saatine gore seyreltilir
+        last_save = last_flush = 0.0   # disk writes are thinned out by the PC clock
         energy_error_shown = False
         try:
             while True:
-                # Ag tikanirsa (ornegin ayni Wi-Fi'da video akisi) websocket kopabilir: script
-                # kapanmaz, RECONNECT_DELAY sonra yeniden baglanir ve ayni CSV'ye devam eder.
-                # Aradaki bosluk GAP_THRESHOLD'dan uzunsa ikiz gercek sicakliga yeniden oturur.
+                # If the network congests (e.g. a video stream on the same Wi-Fi) the websocket may drop: the
+                # script does not exit, it reconnects after RECONNECT_DELAY and continues the same CSV.
+                # If the gap is longer than GAP_THRESHOLD, the twin re-seats on the real temperature.
                 try:
                     print("Websocket baglaniliyor...")
                     async with websockets.connect(WS_URL, ping_interval=PING_INTERVAL,
@@ -1199,13 +1200,13 @@ async def main():
                                     "heater_bed": ["temperature", "power", "target"],
                                     "fan": ["speed"],
                                     "motion_report": ["live_extruder_velocity", "live_velocity", "live_position"],
-                                    # baski durumu ve dosya: ikizin G-code planinin GIRDISI (plan Klipper'dan okunmaz)
+                                    # print state and file: INPUT of the twin's G-code plan (the plan is not read from Klipper)
                                     "print_stats": ["state", "filename"],
-                                    # ekstruzyon modu (M82/M83): Klipper baskilar arasinda sifirlamaz, planin baslangic kosulu
+                                    # extrusion mode (M82/M83): Klipper does not reset it between prints, initial condition of the plan
                                     "gcode_move": ["absolute_extrude"],
-                                    # Z ofseti (sadece kayit, 2026-10-14): ilk katmanin istedigi isi baskidan baskiya
-                                    # 0.4-0.9 W oynuyor; ezme/nozzle-tabla araligi aday. homing_origin[2] = babystep
-                                    # (SET_GCODE_OFFSET Z); position_endstop = kayitli Z sifiri (yalniz baglanirken gelir)
+                                    # Z offset (logging only, 2026-10-14): the heat the first layer needs varies 0.4-0.9 W
+                                    # from print to print; squish/nozzle-bed gap is a candidate. homing_origin[2] = babystep
+                                    # (SET_GCODE_OFFSET Z); position_endstop = saved Z zero (only sent when connecting)
                                     "gcode_move": ["homing_origin"],
                                     "configfile": ["settings"],
                                 }
@@ -1214,29 +1215,29 @@ async def main():
                         }
                         await ws.send(json.dumps(subscribe_msg))
 
-                        # abonelik cevabi (id=1) o anki durumun tam anlik goruntusunu icerir. Baski sirasinda
-                        # Moonraker'in bildirimleri cevaptan once gelebilir: cevabi gelene kadar onlari atla
-                        # (2026-10-11: baski ortasinda yeniden baslatmada ilk mesaj bildirim cikti; hedef sicakliklar
-                        # ve baski durumu sadece degisince geldigi icin oturum boyunca bos kaldi)
+                        # the subscription response (id=1) holds a full snapshot of the current state. While printing,
+                        # Moonraker's notifications may arrive before the response: skip them until it comes
+                        # (2026-10-11: on a restart mid-print the first message was a notification; target temperatures
+                        # and print state come only when they change, so they stayed empty for the whole session)
                         while True:
                             first_response = json.loads(await ws.recv())
                             if first_response.get("id") == 1:
                                 break
-                        # tabla: bildirimler sadece degisen alanlari getirir; baslangic degerleri buradan
+                        # bed: notifications only carry the changed fields; initial values come from here
                         for key, val in first_response.get("result", {}).get("status", {}).get("heater_bed", {}).items():
                             if val is not None:
                                 bed[key] = val
-                        # konum da ayni: yazici bostayken live_position degismedigi icin hic gelmez. Baslangic
-                        # degeri buradan alinmazsa pos_* ilk harekete kadar bos kalir (2026-10-11: plan baslangicinda
-                        # pos_e bilinmedigi icin Unity ilerlemeyi hesaplayamadi)
+                        # the position too: while the printer is idle live_position does not change and never comes.
+                        # Without the initial value from here pos_* stay empty until the first move (2026-10-11: pos_e
+                        # was unknown at plan start, so Unity could not compute the progress)
                         mr0 = first_response.get("result", {}).get("status", {}).get("motion_report", {})
                         if mr0.get("live_velocity") is not None:
                             motion["v"] = mr0["live_velocity"]
                         pos0 = mr0.get("live_position")
                         if isinstance(pos0, (list, tuple)) and len(pos0) >= 4:
                             motion["x"], motion["y"], motion["z"], motion["e"] = pos0[0], pos0[1], pos0[2], pos0[3]
-                        # baski durumu: script (ya da yeniden baglanti) baski ortasinda basladiysa baslangic
-                        # anini gormedik -> o baski icin plan uretilmez (plan baskinin basina hizalanir)
+                        # print state: if the script (or a reconnect) started mid-print we did not see the start
+                        # -> no plan is produced for that print (the plan is aligned to the print start)
                         was = pstat.get("state")
                         for key, val in first_response.get("result", {}).get("status", {}).get("print_stats", {}).items():
                             if val is not None:
@@ -1251,7 +1252,7 @@ async def main():
                                   f"gormedigimiz icin bu baski icin G-code plani uretilmeyecek]")
                         print("Ilk cevap alindi, izleme basliyor. Durdurmak icin Ctrl+C.\n")
 
-                        if twin is None:     # yeniden baglanmada ikiz korunur
+                        if twin is None:     # the twin is kept across reconnects
                             try:
                                 initial_status = first_response["result"]["status"]
                                 ex0 = initial_status["extruder"]
@@ -1262,14 +1263,14 @@ async def main():
                                 twin = Twin(*load_state(ex0["temperature"], pwm0, fan0), pwm0, fan0, ext0,
                                             k0, kf0, load_k_ref(k0))
                                 twin.material = mat_last
-                                # hedef degismedikce bildirimde gelmez: baslangic degeri buradan
+                                # not in notifications unless it changes: initial value from here
                                 twin.target = ex0.get("target")
                             except (KeyError, TypeError):
                                 print("Uyari: ilk durum ayristirilamadi, ilk gercek veri mesajinda baslatilacak.")
                         else:
-                            # yeniden baglanma: kopuklukta degismis olabilecek girdileri anlik durumdan
-                            # tazele (Moonraker bildirimlerde sadece DEGISEN alanlari gonderir; fan
-                            # kopuklukta degistiyse bir sonraki degisimine kadar eski deger kalirdi)
+                            # reconnect: refresh inputs that may have changed during the outage from the snapshot
+                            # (Moonraker sends only CHANGED fields in notifications; if the fan changed during the
+                            # outage the old value would stay until its next change)
                             st0 = first_response.get("result", {}).get("status", {})
                             for key, val in (("pwm", st0.get("extruder", {}).get("power")),
                                              ("fan", st0.get("fan", {}).get("speed")),
@@ -1293,24 +1294,24 @@ async def main():
                                 print("[Zaman kaynagi: " + ("Klipper eventtime]" if use_klipper_clock else
                                       f"PC saati - bildirimde eventtime yok, params={str(params)[:120]}]"))
                             if use_klipper_clock and event_time is None:
-                                continue  # zaman damgasi yok - iki saati karistirmamak icin atla
+                                continue  # no time stamp - skip so the two clocks are never mixed
                             now = event_time if use_klipper_clock else wall_time
 
-                            # mesajda olmayan alan None kalir (Moonraker sadece degisenleri gonderir)
+                            # a field not in the message stays None (Moonraker sends only what changed)
                             ex = status.get("extruder", {})
                             T1_real = ex.get("temperature")
                             pwm = ex.get("power")
                             target = ex.get("target")
-                            # tabla: nozzle ikizine sadece guc olarak girer (besleme voltaji dususu);
-                            # kendi ikizi (tabla_model.BedTwin) asagida, gozlem modunda
+                            # bed: enters the nozzle twin only as power (supply voltage sag);
+                            # its own twin (bed_model.BedTwin) below, in observation mode
                             bed_msg = status.get("heater_bed", {})
                             for key, val in bed_msg.items():
                                 if val is not None:
                                     bed[key] = val
                             fan = status.get("fan", {}).get("speed")
                             ext = status.get("motion_report", {}).get("live_extruder_velocity")
-                            # kafa hizi ve konumu: sadece kayit (tabla Y ekseninde hareket ettikce tabla
-                            # kaybi artiyor mu; Z ile nozzle-tabla yakinligi)
+                            # head speed and position: logging only (does the bed loss grow as the bed moves along Y;
+                            # nozzle-bed proximity from Z)
                             mr = status.get("motion_report", {})
                             if mr.get("live_velocity") is not None:
                                 motion["v"] = mr["live_velocity"]
@@ -1318,8 +1319,8 @@ async def main():
                             if isinstance(pos, (list, tuple)) and len(pos) >= 3:
                                 motion["x"], motion["y"], motion["z"] = pos[0], pos[1], pos[2]
                                 if len(pos) >= 4:
-                                    # ekstruder toplam konumu (mm filaman): iki an arasindaki fark = gercek
-                                    # net besleme; ornekleme/geri cekme kaybi yok (akis hesabi icin aday)
+                                    # total extruder position (mm of filament): the difference between two moments =
+                                    # the real net feed; no sampling/retraction loss (candidate for the flow)
                                     motion["e"] = pos[3]
 
                             update_zoff(zoff, status)
@@ -1327,7 +1328,7 @@ async def main():
                             for key, val in status.get("gcode_move", {}).items():
                                 if val is not None:
                                     gmove[key] = val
-                            # baski durumu (twin kurulmadan once de izlenir: baslangic ani kacmasin)
+                            # print state (tracked before the twin is set up too, so the start is not missed)
                             ps = status.get("print_stats", {})
                             if ps:
                                 was = pstat.get("state")
@@ -1336,10 +1337,10 @@ async def main():
                                         pstat[key] = val
                                 if pstat.get("state") != was:
                                     print(f"[baski durumu: {was} -> {pstat.get('state')}]")
-                                    # pause'dan devam yeni baski degildir
+                                    # resuming from pause is not a new print
                                     if pstat.get("state") == "printing" and was != "paused":
                                         print(f"[baski basladi: {pstat.get('filename', '?')} - G-code plani hazirlaniyor]")
-                                        # baslangic kosulu: su an olculen durum (ikiz henuz kurulmadiysa son bilinen)
+                                        # initial condition: the state measured now (last known if the twin is not set up yet)
                                         th = twin.T1_real if twin is not None else T1_real
                                         init = {"T_h": th if th is not None else 25.0,
                                                 "T_b": bed.get("temperature", 25.0),
@@ -1354,7 +1355,7 @@ async def main():
                                         fut.add_done_callback(on_plan)
 
                             if twin is None:
-                                # ilk durum alinamamisti: girdileri biriktir, ilk sicaklikta modeli kur
+                                # the initial state could not be read: collect inputs, set up the model at the first temperature
                                 for key, val in (("pwm", pwm), ("fan", fan), ("ext", ext)):
                                     if val is not None:
                                         last_known[key] = val
@@ -1367,12 +1368,12 @@ async def main():
                                 twin.material = mat_last
 
                             r = twin.on_message(now, T1_real, pwm, fan, ext, target, bed.get("power"), motion.get("e"))
-                            if twin.learner.windows:     # bakim izleme: pencere k'leri (model saati -> duvar saati)
+                            if twin.learner.windows:     # maintenance log: window k values (model clock -> wall clock)
                                 maint_record([(tn + wall_time - now, kind, kv) for tn, kind, kv in twin.learner.windows])
                                 twin.learner.windows.clear()
 
-                            # tabla ikizi (GOZLEM: alarm yok). Tabla sicakligi ve gucu ilk kez bilinince kurulur.
-                            # Hata verirse sadece kendisi kapanir, nozzle ikizi ve izleme devam eder.
+                            # bed twin (OBSERVATION: no alarm). Set up once the bed temperature and power are first known.
+                            # On an error only the bed twin switches off; the nozzle twin and monitoring continue.
                             if bed_twin is None and bed_error is None and "temperature" in bed and "power" in bed:
                                 bed_twin = bed_model.BedTwin(bed["temperature"], bed["power"])
                             bed_r = None
@@ -1395,7 +1396,7 @@ async def main():
                                       f"  (residual={r['residual']:+.1f}C, k={twin.learner.k:.3f}"
                                       + (f", eksik guc={g:+.1f} W" if g is not None else "") + ")\n")
                             if r["ariza_basladi"] and not any(abs(s[1] - now) < 60.0 for s in scheduled):
-                                # yakin zamanda baslamis bir olay zaten siniflandirilacaksa tekrar planlanmaz
+                                # not scheduled again if an event that started recently is already to be classified
                                 codes = ",".join(sorted(twin.faults.active))
                                 scheduled += [[now + dl, now, codes, dl] for dl in CLASSIFY_DELAYS]
                                 print(f"[ariza kategorisi {CLASSIFY_DELAYS[0]:.0f} s sonra hesaplanacak]")
@@ -1432,7 +1433,7 @@ async def main():
                             if r["senkron"]:
                                 print(f"[senkronize edildi - {r['dt']:.1f}s'lik veri boslugu]")
                                 if r["dt"] < 0:
-                                    # saat geri gitti: arabellekteki satirlar artik ayni zaman ekseninde degil
+                                    # the clock went back: the buffered rows are no longer on the same time axis
                                     buffer.clear()
                                     scheduled.clear()
                             if r["yeni_sicaklik"]:
@@ -1478,7 +1479,7 @@ async def main():
                             }
                             writer.writerow(row)
 
-                            # telefon sayfasi (sadece okunan kopya)
+                            # phone page (read-only copy)
                             live.update(T=twin.T1_real, M=twin.T1_model, pwm=twin.pwm, fan=twin.fan,
                                         k=twin.learner.k, ext=twin.ext, G=r["eksik_guc"], wall=wall_time,
                                         ariza=sorted(twin.faults.active),
@@ -1496,7 +1497,7 @@ async def main():
                                     while h and h[0][0] < now - WEB_HISTORY:
                                         h.popleft()
 
-                            # ariza siniflandirma: son satirlar bellekte, zamani gelen is arka planda calisir
+                            # fault classification: the latest rows are in memory, due jobs run in the background
                             buffer.append((now, row))
                             while buffer[0][0] < now - CLASSIFY_BUFFER:
                                 buffer.popleft()
@@ -1516,7 +1517,7 @@ async def main():
         finally:
             if web is not None:
                 web.close()
-            # cikista (Ctrl+C, baglanti kopmasi) son durumu mutlaka kaydet
+            # on exit (Ctrl+C, connection loss) always save the final state
             if twin is not None:
                 save_state(twin.T1_model, twin.T2_model, twin.T3_model, twin.learner.k, twin.learner.kfil,
                            twin.k_ref, twin.material, mats)
@@ -1527,7 +1528,7 @@ async def main():
                     print(f"  {code}: {sure} - {FAULT_TEXT[code]}")
                 if events:
                     print(f"  kategoriler (hesaplandiysa): {REPORT_FILE}")
-                # oturumlar arasi trend: bu oturumun ozeti twin_gecmis.csv'ye (bkz. gecmis.py)
+                # session-to-session trend: this session's summary to twin_gecmis.csv (see session_history.py)
                 f.flush()
                 try:
                     import sys
@@ -1540,7 +1541,7 @@ async def main():
                         print(f"Oturum ozeti -> {os.path.basename(session_history.GECMIS_FILE)}: "
                               f"{', '.join(vals) if vals else '245C tutma verisi yetersiz, olcut yok'}"
                               f"  (trend: python session_history.py)")
-                except Exception as e:  # noqa: BLE001 - ozet yan ozellik
+                except Exception as e:  # noqa: BLE001 - the summary is a side feature
                     print(f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]")
 
 

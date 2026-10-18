@@ -14,8 +14,9 @@ built on a **grey-box model** (fixed physics + a few parameters learned online).
 (yet) act on the printer automatically, it is strictly a **digital shadow** in Kritzinger et al.'s (2018)
 terminology; the first feedback path (pausing the print) exists in shadow mode.
 
-> Code identifiers and comments are in Turkish (the author's language). See the [glossary](#glossary).
-> An English pass is planned with the v0.3 refactor; CSV columns and alarm codes will keep their names.
+> Comments are in English; code identifiers and console messages are still in Turkish (the author's language).
+> See the [glossary](#glossary). Identifiers will be renamed with the v0.3 refactor; CSV columns and alarm codes
+> keep their names.
 > The decision history (why each parameter has its value, what was tried and rejected, with scores)
 > is in [`KARARLAR.md`](KARARLAR.md) (Turkish); code comments refer to it as `[Kxx]`.
 > Planned versions: [`ROADMAP.md`](ROADMAP.md).

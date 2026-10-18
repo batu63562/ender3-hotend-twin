@@ -1,20 +1,20 @@
 """
-Baski oncesi tahmin (golgeden ikize 1b): G-code -> zaman cizelgesi -> kapali dongu ikiz.
+Pre-print prediction (shadow to twin, 1b): G-code -> timeline -> closed-loop twin.
 
-1) G-code okunur (Orca ciktisi + printer.cfg makrolari: START_GCODE, END_PRINT).
-2) Klipper'in hiz planlayicisi (toolhead.py lookahead: kose hizi, ivme, minimum_cruise_ratio,
-   ekstruder kose limiti) taklit edilir: her hareketin suresi -> filaman akisi zamana yayilir.
-3) Hotend ve tabla, Klipper PID'leriyle kapali dongude simule edilir (kapali_dongu.KlipperPID):
-   M109/M190 beklemeleri de simulasyonda gercekten beklenir (isinma suresi tahmini).
-4) Cikti: zaman serisi (sicaklik, isitici gucu, akis, fan, katman) + rapor.
-   Zaman serisi tahminler/tahmin_<ad>.csv'ye yazilir (Unity Print modulu okur, bkz. UNITY_ARAYUZ.md).
+1) The G-code is read (Orca output + printer.cfg macros: START_GCODE, END_PRINT).
+2) Klipper's motion planner (toolhead.py lookahead: junction speed, acceleration, minimum_cruise_ratio,
+   extruder corner limit) is imitated: duration of every move -> filament flow spread over time.
+3) Hotend and bed are simulated in closed loop with Klipper's PIDs (closed_loop.KlipperPID):
+   M109/M190 waits are really waited for in the simulation (heat-up time prediction).
+4) Output: time series (temperature, heater power, flow, fan, layer) + report.
+   The time series is written to tahminler/tahmin_<name>.csv (read by the Unity Print module, see UNITY_ARAYUZ.md).
 
-Dogrulama (G-code'un gercek logu varsa): simulasyon logdaki bir senkron aninda (ornegin 2. katmandaki
-M104 S240) logun o anki durumundan baslatilir; katman zamanlari, akis ve isitici gucu karsilastirilir.
+Validation (if the G-code has a real log): the simulation starts from the log's state at a sync point
+(e.g. M104 S240 on layer 2); layer times, flow and heater power are compared.
 
-Kullanim:
-    python gcode_tahmin.py yazici/supporto_mac_0.3mm_petg.gcode                 # baski oncesi rapor
-    python gcode_tahmin.py G.gcode --log loglar/baskilar/0910_dunun_aynisi.csv  # dogrulama
+Usage:
+    python gcode_plan.py yazici/supporto_mac_0.3mm_petg.gcode                 # pre-print report
+    python gcode_plan.py G.gcode --log loglar/baskilar/0910_dunun_aynisi.csv  # validation
 """
 import argparse
 import math
@@ -31,8 +31,8 @@ import bed_model as tm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CFG = os.path.join(HERE, "yazici", "printer.cfg")
-STEP = kd.REPORT_TIME          # s - termal simulasyon / PID adimi
-HOME_TIME = 15.0               # s - G28 suresi (yaklasik; uc eksen, iki kademeli)
+STEP = kd.REPORT_TIME          # s - thermal simulation / PID step
+HOME_TIME = 15.0               # s - G28 duration (approximate; three axes, two-stage)
 FILAMENT_AREA = math.pi * 1.75 ** 2 / 4
 
 
@@ -40,7 +40,7 @@ FILAMENT_AREA = math.pi * 1.75 ** 2 / 4
 # printer.cfg
 # ---------------------------------------------------------------------------
 def read_cfg(path):
-    """Bolumler -> {anahtar: deger}; SAVE_CONFIG (#*#) blogu ustune yazar; makrolarin gcode govdesi."""
+    """Sections -> {key: value}; the SAVE_CONFIG (#*#) block overrides; gcode bodies of macros."""
     sections, macros, cur, in_gcode = {}, {}, None, False
     for raw in open(path, encoding="utf-8"):
         line = raw.rstrip("\n")
@@ -90,7 +90,7 @@ class Machine:
         self.pid_bed = tuple(float(hb[k]) for k in ("pid_kp", "pid_ki", "pid_kd"))
 
     def expand(self, name, params):
-        """Makroyu duz G-code satirlarina acar (sadece {PARAM} yerine koyma; Jinja 'set' satirlari atlanir)."""
+        """Expands a macro into plain G-code lines (only {PARAM} substitution; Jinja 'set' lines are skipped)."""
         out = []
         for line in self.macros.get(name, []):
             if line.startswith("{%"):
@@ -100,7 +100,7 @@ class Machine:
 
 
 # ---------------------------------------------------------------------------
-# G-code -> islem listesi
+# G-code -> list of operations
 # ---------------------------------------------------------------------------
 class Move:
     __slots__ = ("start", "end", "axes_d", "move_d", "axes_r", "accel", "kin", "max_cruise_v2", "min_move_t",
@@ -115,7 +115,7 @@ class Move:
         velocity = min(speed, mc.max_v)
         self.kin = move_d >= 1e-9
         self.accel = mc.max_a
-        if not self.kin:                            # sadece ekstruder (geri cekme / geri itme)
+        if not self.kin:                            # extruder only (retract / unretract)
             move_d = abs(self.axes_d[3])
             self.accel = 99999999.9
         self.move_d = move_d
@@ -128,7 +128,7 @@ class Move:
         self.delta_v2 = 2.0 * move_d * self.accel
         self.max_smoothed_v2 = 0.0
         self.smooth_delta_v2 = 2.0 * move_d * mc.accel_to_decel
-        # kinematik / ekstruder limitleri (cartesian.check_move, extruder.check_move)
+        # kinematic / extruder limits (cartesian.check_move, extruder.check_move)
         if self.kin and abs(self.axes_d[2]) > 1e-9:
             zr = move_d / abs(self.axes_d[2])
             self.limit(mc.max_z_v * zr, mc.max_z_a * zr)
@@ -176,7 +176,7 @@ class Move:
 
 
 def flush(queue):
-    """toolhead.py LookAheadQueue.flush (lazy=False): sondan basa tepe hiz ve kavsak hizlari."""
+    """toolhead.py LookAheadQueue.flush (lazy=False): peak cruise and junction speeds, from the end backwards."""
     delayed = []
     next_end_v2 = next_smoothed_v2 = peak_cruise_v2 = 0.0
     for i in range(len(queue) - 1, -1, -1):
@@ -204,11 +204,11 @@ def flush(queue):
 
 
 def parse(gcode_path, mc, abs_e=True):
-    """G-code -> islem listesi: ('move', Move) | ('temp', 'hotend'|'bed', deger, bekle) | ('fan', 0-1)
-    | ('dwell', s) | ('layer', z) | ('type', ad). Hareket sureleri planlayicidan doldurulur.
-    abs_e: baski basindaki ekstruzyon modu. Klipper modu baskilar arasinda sifirlamaz; Orca'nin M83'u
-    START_GCODE'dan SONRA geldigi icin makrodaki prime cizgisi onceki baskidan kalan modda yurur
-    (14.10: goreli modda E28 = +28 mm, plan mutlak varsayip 14 mm eksik sayiyordu)."""
+    """G-code -> list of operations: ('move', Move) | ('temp', 'hotend'|'bed', value, wait) | ('fan', 0-1)
+    | ('dwell', s) | ('layer', z) | ('type', name). Move durations are filled in by the planner.
+    abs_e: extrusion mode at print start. Klipper does not reset the mode between prints; Orca's M83 comes
+    AFTER START_GCODE, so the prime line in the macro runs in the mode left over from the previous print
+    (14.10: in relative mode E28 = +28 mm, the plan assumed absolute and counted 14 mm too little)."""
     ops, queue, prev = [], [], None
     pos = [0.0, 0.0, 0.0, 0.0]; base_e = 0.0
     abs_xyz = True
@@ -304,7 +304,7 @@ def parse(gcode_path, mc, abs_e=True):
 
 
 # ---------------------------------------------------------------------------
-# Kapali dongu simulasyonu (hotend + tabla)
+# Closed-loop simulation (hotend + bed)
 # ---------------------------------------------------------------------------
 class Sim:
     def __init__(self, mc, m, k=1.0, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b=0.0, tgt_h=0.0, tgt_b=0.0, fan=0.0,
@@ -317,13 +317,13 @@ class Sim:
         self.sm_h, self.sm_b = T_h, T_b                      # Klipper smoothed_temp (smooth_time 1 s)
         self.tgt_h, self.tgt_b, self.fan = tgt_h, tgt_b, fan
         self.t = 0.0
-        self.ext_hist = deque()                              # (t, dt, hiz) - ikizle ayni 10 s net akis
-        self.act_hist = deque()                              # (t, hareketli) - tabla aktivitesi (30 s)
+        self.ext_hist = deque()                              # (t, dt, speed) - same 10 s net flow as the twin
+        self.act_hist = deque()                              # (t, moving) - bed activity (30 s)
         self.rows = []
         self.layer, self.ftype = 0.0, ""
 
     def step(self, e_rate, moving):
-        """STEP saniye: PID'ler olcer, isiticilar suruler, modeller ilerler."""
+        """STEP seconds: PIDs measure, heaters are driven, models advance."""
         m, dt = self.m, STEP
         pwm_h = self.pid_h.update(self.t, self.T1, self.tgt_h)
         pwm_b = self.pid_b.update(self.t, self.Tal, self.tgt_b)
@@ -353,11 +353,11 @@ class Sim:
 
 
 def run(ops, sim, start_op=0, max_wait=3600.0):
-    """Islemleri sirayla oynatir. Hareketler zaman ekseninde birikir; termal simulasyon hareketlerin
-    arkasindan STEP adimlarla ilerler. Bekleme (M109/M190) simulasyonun kendisiyle cozulur.
-    Donus: katman baslangic zamanlari [(z, t)]."""
-    clock = sim.t                    # hareket saati (planlayicinin ilerledigi an)
-    segs = deque()                   # (t0, t1, e) - ekstruzyon araliklari
+    """Plays the operations in order. Moves accumulate on the time axis; the thermal simulation follows behind
+    them in STEP increments. Waits (M109/M190) are resolved by the simulation itself.
+    Returns: layer start times [(z, t)]."""
+    clock = sim.t                    # motion clock (where the planner has got to)
+    segs = deque()                   # (t0, t1, e) - extrusion intervals
     layers = []
 
     def advance(t_end):
@@ -385,7 +385,7 @@ def run(ops, sim, start_op=0, max_wait=3600.0):
                 segs.append((clock, clock + dur, mv.e, mv.kin))
                 clock += dur
             continue
-        advance(clock)               # komut, oncesindeki hareketler bittiginde gecerli olur
+        advance(clock)               # a command takes effect when the moves before it have finished
         if kind == "layer":
             sim.layer = op[1]; layers.append((op[1], clock))
         elif kind == "type":
@@ -412,7 +412,7 @@ def run(ops, sim, start_op=0, max_wait=3600.0):
 
 
 # ---------------------------------------------------------------------------
-# Rapor ve dogrulama
+# Report and validation
 # ---------------------------------------------------------------------------
 def report(sim_df, layers, mc, m):
     df = sim_df
@@ -428,7 +428,7 @@ def report(sim_df, layers, mc, m):
     print(f"  baslangic -> ilk katman: {t_first/60:.1f} dk (tabla + nozzle isinmasi, START_GCODE)")
     print(f"  baski (ilk katman -> son): {(t_end - t_first)/60:.1f} dk   toplam {t_end/60:.1f} dk")
     if pr.any():
-        # hedef degisiminden sonraki 120 s haric (245 -> 240 gecisi "asim" sayilmasin)
+        # the 120 s after a target change are excluded (so the 245 -> 240 step does not count as "overshoot")
         t_chg = df.t.where(df.target.diff().fillna(0) != 0).ffill().fillna(-1e9)
         dip = (df.target - df.T1)[pr & (df.t - t_chg > 120)]
         print(f"  baskida isitici: ort {P[pr].mean():.1f} W, 10 s ort. en yuksek {Pa[pr].max():.1f} W "
@@ -453,29 +453,30 @@ TAHMIN_COLS = ["t", "katman_z", "tip", "akis_anlik", "akis", "T1", "pwm", "targe
 
 
 def save_csv(df, path, t0=None):
-    """Tahmin zaman serisi -> CSV (Unity Print modulu okur; sutunlar UNITY_ARAYUZ.md'de).
-    t0 verilirse (dogrulama: logla senkron) 'time' = unix zamani (logun 'time' sutunuyla ayni saat) eklenir. Zaman bukulmez:
-    takvim sapmasi (plan vs gercek katman zamani) Unity'de residual olarak gorunsun diye."""
+    """Prediction time series -> CSV (read by the Unity Print module; columns in UNITY_ARAYUZ.md).
+    If t0 is given (validation: in sync with the log), 'time' = unix time (same clock as the log's 'time' column)
+    is added. Time is not warped: so that the schedule deviation (plan vs. real layer time) shows in Unity as a
+    residual."""
     out = df[TAHMIN_COLS].copy()
     if t0 is not None:
         out.insert(0, "time", out.t + t0)
-    out["tip"] = out.tip.fillna("").astype(str).str.replace(",", " ")   # Unity CSV'yi virgulle boler
+    out["tip"] = out.tip.fillna("").astype(str).str.replace(",", " ")   # Unity splits the CSV on commas
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"   # Unity canli modda klasoru tarar: yarim yazilmis dosyayi asla gormesin
+    tmp = path + ".tmp"   # Unity scans the folder in live mode: it must never see a half-written file
     out.to_csv(tmp, index=False, float_format="%.4f")
     os.replace(tmp, path)
     print(f"\ntahmin zaman serisi: {os.path.relpath(path, HERE)}  ({len(out)} satir, {out.t.iloc[-1]/60:.1f} dk)")
 
 
-YOL_TOL = 0.05   # mm: ardisik segmentler birlestirilirken izin verilen sapma (gorsel; geometri bundan iyi okunmaz)
+YOL_TOL = 0.05   # mm: allowed deviation when merging consecutive segments (visual; geometry is not read better than this)
 
 
 def save_toolpath(ops, path, start_op=0):
-    """Unity'nin G-code geometrisi icin ekstruzyon segmentleri (bkz. UNITY_ARAYUZ.md, yol_*.bin).
-    Her segment: x0 y0 x1 y1 z e (float32, little-endian). e = planin baslangicindan beri kumulatif filaman
-    (kosu maksimumu), planin CSV'sindeki E ekseniyle ayni: Unity gercek ilerlemeyi (pos_e) buna esler.
-    Ayni Z'de uc uca ve dogrultusu YOL_TOL icinde kalan ardisik segmentler birlestirilir (egriler yuzlerce minik
-    segmentten olusuyor; 850 bin -> 545 bin)."""
+    """Extrusion segments for Unity's G-code geometry (see UNITY_ARAYUZ.md, yol_*.bin).
+    Each segment: x0 y0 x1 y1 z e (float32, little-endian). e = cumulative filament since the plan start
+    (running maximum), the same as the E axis in the plan CSV: Unity maps the real progress (pos_e) onto it.
+    Consecutive segments on the same Z that join end to end and stay within YOL_TOL of a straight line are
+    merged (curves consist of hundreds of tiny segments; 850 k -> 545 k)."""
     import struct
     out, run, e_cum, e_max = [], None, 0.0, 0.0
 
@@ -519,10 +520,10 @@ def toolpath_path(plan_csv):
 
 def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b=0.0,
                   tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True):
-    """Canli ikiz (realtime_websocket.py) baski basladiginda arka planda cagirir.
-    Simulasyon, baskinin basladigi anda OLCULEN durumdan baslar (sicak makinede soguk baslangic
-    isinmayi dakikalarca fazla tahmin ederdi). t0: baskinin basladigi an (PC unix saati) -> CSV 'time'.
-    Donus: tek satirlik ozet."""
+    """Called in the background by the live twin (realtime_websocket.py) when a print starts.
+    The simulation starts from the state MEASURED at print start (a cold start on a warm machine would
+    overestimate the heat-up by minutes). t0: print start (PC unix time) -> CSV 'time'.
+    Returns: a one-line summary."""
     mc, m = Machine(cfg), d.load_model()
     k, kfil = m.load_k()
     sim = Sim(mc, m, k, T_h=T_h, T_b=T_b, pwm_h=pwm_h, pwm_b=pwm_b, tgt_h=tgt_h, tgt_b=tgt_b, fan=fan, kfil=kfil)
@@ -538,7 +539,7 @@ def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b
 
 
 def layer_times_log(log, sync_t):
-    """Logda katman baslangiclari: Z'nin yeni bir degere cikip orada kaldigi ilk an (senkrondan sonra)."""
+    """Layer starts in the log: the first moment Z rises to a new value and stays there (after the sync)."""
     z = log.pos_z.values; t = log.t.values
     out = {}
     for i in range(1, len(z)):
@@ -555,14 +556,14 @@ def validate(gcode, log_path, mc, m, k=None):
     for c in ("pos_z", "target", "bed_pwm", "bed_T", "bed_target"):
         log[c] = pd.to_numeric(log[c], errors="coerce")
     ops = parse(gcode, mc)
-    # senkron: G-code'daki ilk "M104 S240" (2. katman) ile logda hedefin 240'a indigi an
+    # sync: the first "M104 S240" in the G-code (layer 2) and the moment the target drops to 240 in the log
     i_op = next(i for i, o in enumerate(ops) if o[0] == "temp" and o[1] == "hotend" and o[2] == 240.0)
     tg = log.target.ffill().values
     j = next(i for i in range(1, len(log)) if tg[i] == 240.0 and tg[i - 1] != 240.0)
     r0 = log.iloc[j]
     if k is None:
         k = float(pd.to_numeric(log.k_loss, errors="coerce").iloc[max(j - 1, 0)])
-    # k_fil 2026-10-09'dan itibaren loglaniyor; eski loglarda 1
+    # k_fil is logged since 2026-10-09; 1 in older logs
     kfil = float(pd.to_numeric(log.k_fil, errors="coerce").iloc[max(j - 1, 0)]) if "k_fil" in log else 1.0
     if np.isnan(kfil):
         kfil = 1.0
@@ -573,9 +574,9 @@ def validate(gcode, log_path, mc, m, k=None):
     layers = run(ops, sim, start_op=i_op)
     s = sim.frame()
     s["t_log"] = s.t + r0.t
-    # katman zamanlari
-    # Z ofseti (SET_GCODE_OFFSET / Z ofset ayari): log Z'si G-code'dan sabit bir miktar farkli olabilir.
-    # Ofset, logdaki kararli Z degerlerinin en yakin G-code katmanina farklarinin medyani.
+    # layer times
+    # Z offset (SET_GCODE_OFFSET / Z offset setting): the log's Z may differ from the G-code by a constant amount.
+    # Offset = median difference between the stable Z values in the log and the nearest G-code layer.
     lt = layer_times_log(log, r0.t)
     gz = np.array([z for z, _ in layers])
     diffs = [zl - gz[np.argmin(np.abs(gz - zl))] for zl in lt if zl < gz.max() + 1]
@@ -593,12 +594,12 @@ def validate(gcode, log_path, mc, m, k=None):
               f"(gercek sure {(pairs[-1][2]-pairs[0][2])/60:.1f} dk, tahmin {(pairs[-1][1]-pairs[0][1])/60:.1f} dk, "
               f"%{100*e[-1]/(pairs[-1][2]-pairs[0][2]):+.1f}); katman suresi hatasi ort %{100*np.mean(dur_s/dur_l-1):+.1f}, "
               f"ort mutlak %{100*np.mean(np.abs(dur_s/dur_l-1)):.1f}")
-        # zaman bukme: simulasyon zamanini katman baslangiclarina gore log zamanina esle
+        # time warp: map simulation time onto log time by the layer starts
         warp = lambda ts: np.interp(ts, [p[1] for p in pairs], [p[2] for p in pairs])
         s["t_warp"] = warp(s.t_log)
     else:
         s["t_warp"] = s.t_log
-    # karsilastirma: 10 s ortalamalar, ortak zaman izgarasinda
+    # comparison: 10 s averages on a common time grid
     n = int(10.0 / STEP)
     s["P"] = (s.pwm * m.P_MAX).rolling(n, min_periods=n).mean()
     s["Q"] = s.akis.rolling(n, min_periods=n).mean()
@@ -617,7 +618,7 @@ def validate(gcode, log_path, mc, m, k=None):
               f"fark {np.nanmean(err):+5.2f}  rms {np.sqrt(np.nanmean(err**2)):5.2f}  korelasyon {cor:.2f}")
     T_sim = np.interp(lg.t, s.t_warp, s.T1)
     print(f"  nozzle sicakligi: rms {np.sqrt(np.mean((T_sim - lg.T1_real.values)**2)):.2f} C")
-    # log.t Klipper saati (eventtime); Unity PC saatini ('time', unix) kullanir: senkron anindaki fark
+    # log.t is Klipper's clock (eventtime); Unity uses the PC clock ('time', unix): the offset at the sync point
     s.attrs["unix_offset"] = float(r0.time - r0.t)
     return s, lg
 

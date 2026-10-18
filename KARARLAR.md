@@ -231,3 +231,18 @@ aralıkta oturumun ilk baskısı olmayan ve önceki baskı M83'te bıraktıysa p
 saydı (Unity takım yolu ilerlemesi 14 mm kayar). Bugün etkisiz: Pi'deki printer.cfg'de M82 var, planlayıcı makrodaki
 M82'yi işliyor. Önemi v0.4: makrosunda M82 olmayan yazıcılarda mod yine Klipper'dan okunmalı. Model ve alarmlar
 etkilenmez (plan girdisi). Düzeltme: iki alan tek listede; canlı ikizle henüz doğrulanmadı.
+
+
+## K26 — k_fil tavanı (1.6) 17.10'da: incelendi, v0.1'de DEĞİŞİKLİK YOK (2026-10-18)
+17.10 TPU küp serisinde k_fil baskıdan baskıya 1.42 → 1.60 tırmandı, son baskılarda %83–100 tavanda; ardından PETG
+baskısı TPU değeriyle başladı (PETG kaydı yok: malzeme takibi 16.10'da TPU ile başladı) ve %98 tavanda kaldı; fanlı
+baskıda eksik güç −0.2…−0.44 W. Deneme (overrides, model değişikliği değil) `K_FIL_MAX` 1.6 → 2.0: k_fil serbest
+kalınca yalnız 1.65–1.73'e çıkıyor (kaçmıyor); Eylül fazları aynı, ayar canlı başlangıç TÜMÜ 3.50 → 3.47 (fanlı tutma
+3.39 → 3.35), arıza 13 = 13, 17.10 loglarında olay 0 = 0. PETG baskısındaki k düşüşü (1.012 → 0.980) tavandan DEĞİL:
+2.0 ile de 0.975; nedeni K22'deki filaman değişimi tutma pencereleri. Sonuç: tavanın hatası ~0.1 k_fil ≈ 0.2–0.4 W,
+alarm eşiğinin (2.5 W) çok altında; alarmlar değişmiyor → yayın haftasında model değişikliği yapılmadı. Tavanı 2.0'a
+çıkarmak v0.2 adayı (tam kabul kapısı: sınav, etiketler, yapay yavaş arıza testi). Malzeme tablosu (ρ·A·cp) bunu
+çözmez: malzemeler arası fark ≤ %10, oysa aynı malzemede k_fil iki günde 0.98 → 1.60 (TPU) oynuyor → baskıya giden
+ısıyı malzeme sabiti değil geometri/hız belirliyor (K08, K17). Açık soru: PETG profili fanı %20'de (eşiğin hemen
+üstü, soğutma ~0) ama k_fil ~1.7 istiyor; A0'a göre fansızda 1.0 yetiyordu → k_fil'i fan değil baskı evresi (ilk
+katman tabla üstü / sonraki katmanlar plastik üstü) belirliyor olabilir.

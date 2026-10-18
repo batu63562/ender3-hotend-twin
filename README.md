@@ -71,13 +71,13 @@ Klipper ──websocket──► Moonraker ──► realtime_websocket.py ─�
                                       │   ├─ KLossLearner (k, k_fil Kalman)
                                       │   ├─ FaultMonitor (GUC_*, KAYIP_*)
                                       │   └─ shadow pause / maintenance advice
-                                      ├─ bed twin (tabla_model.py, observation only)
-                                      ├─ G-code plan at print start (gcode_tahmin.py → tahminler/)
+                                      ├─ bed twin (bed_model.py, observation only)
+                                      ├─ G-code plan at print start (gcode_plan.py → tahminler/)
                                       └─ phone page (http://<pc>:8080)
 ```
 
 - **Same code live and offline.** `Twin.on_message()` processes one Moonraker message. The live script and
-  the evaluation tool (`degerlendir.py`) call exactly the same code, so a recorded log replays to the
+  the evaluation tool (`evaluate.py`) call exactly the same code, so a recorded log replays to the
   identical result. Every model change is scored this way before it goes live.
 - **Clock.** The model integrates on Klipper's `eventtime` (when values were measured), not the PC arrival
   time; network jitter otherwise created fake ±8 °C oscillations.
@@ -197,7 +197,7 @@ the window (`[K17]`). It is the same dilemma as numerical diffusion in CFD.
 - **Shadow pause.** If `GUC_AZALDI` lasts 150 s continuously during printing, the twin logs "would pause"
   (`PAUSE_MODE = "golge"`). In `"aktif"` mode it sends `POST /printer/print/pause` to Moonraker. Benign
   first-layer events lasted ≤ 110 s; real persistent faults ≥ 246 s. `KAYIP` never pauses.
-- **Fault category** (`ariza_siniflandir.py`): after an alarm, a rule-based classifier suggests a physical
+- **Fault category** (`fault_classifier.py`): after an alarm, a rule-based classifier suggests a physical
   category (A fan path / B no filament flow / C insulation-environment / D thermistor / E heater).
   Diagnostic only; known to confuse B and C in some cases.
 
@@ -208,12 +208,12 @@ the window (`[K17]`). It is the same dilemma as numerical diffusion in CFD.
 | File | Role |
 |---|---|
 | `realtime_websocket.py` | Live twin: Moonraker connection, model, learner, alarms, CSV, phone page, plan trigger, shadow pause, maintenance advice. |
-| `degerlendir.py` | Offline evaluation: replays logs through the live code, phase-by-phase RMSE and alarm counts (`--set ayar|sinav`, `--canli`, `--zincir`). |
-| `tabla_model.py` | Bed twin (aluminium plate + glass, 2 nodes) with its own loss learner. Observation only, no alarm. |
-| `gcode_tahmin.py` | The "plan": parses the G-code, replicates Klipper's motion planner, simulates hotend/bed with the PID (`kapali_dongu.py`), writes the expected timeline and the toolpath (`tahminler/`). Unity compares plan vs. reality (schedule deviation, flow, power). |
-| `kapali_dongu.py` | Closed-loop (PID) simulation used by the plan and for validation. |
-| `ariza_siniflandir.py` | Post-alarm physical category (see above). |
-| `gecmis.py` | Per-session summary history (`twin_gecmis.csv`). |
+| `evaluate.py` | Offline evaluation: replays logs through the live code, phase-by-phase RMSE and alarm counts (`--set calibration|test`, `--live-start`, `--chain`). |
+| `bed_model.py` | Bed twin (aluminium plate + glass, 2 nodes) with its own loss learner. Observation only, no alarm. |
+| `gcode_plan.py` | The "plan": parses the G-code, replicates Klipper's motion planner, simulates hotend/bed with the PID (`closed_loop.py`), writes the expected timeline and the toolpath (`tahminler/`). Unity compares plan vs. reality (schedule deviation, flow, power). |
+| `closed_loop.py` | Closed-loop (PID) simulation used by the plan and for validation. |
+| `fault_classifier.py` | Post-alarm physical category (see above). |
+| `session_history.py` | Per-session summary history (`twin_gecmis.csv`). |
 | `Ender3_Twin/` | Unity 6 project: 3D printer from CAD, replay/live timeline, alarm map on the G-code toolpath. |
 
 ---
@@ -243,11 +243,11 @@ onsets). Each number is the `TUMU` row under *KLIPPER ZAMANLI LOGLAR* of the com
 
 | Set | Logs | Command | RMSE | Alarms |
 |---|---|---|---|---|
-| September calibration runs | 9 | `python degerlendir.py` | 3.62 | 0 |
-| Calibration set (`ayar`) | 34 | `python degerlendir.py --set ayar --canli` | 3.50 | 13 |
-| Test set (`sınav`) | 45 | `python degerlendir.py --set sinav --canli` | 3.36 | 14 |
+| September calibration runs | 9 | `python evaluate.py` | 3.62 | 0 |
+| Calibration set (`ayar`) | 34 | `python evaluate.py --set calibration --live-start` | 3.50 | 13 |
+| Test set (`sınav`) | 45 | `python evaluate.py --set test --live-start` | 3.36 | 14 |
 
-`--canli` ("live start") starts each log from the `k` and `k_fil` the live twin had when it was recorded,
+`--live-start` starts each log from the `k` and `k_fil` the live twin had when it was recorded,
 as it really ran. Without it every log starts from `k = 1`, which is wrong for the October logs (the real
 `k` drifted to 0.87–1.06): the test set then scores 4.83. The logs are in the evaluation-data release
 asset; the September runs are in the repository. Earlier reports in `KARARLAR.md` (3.76 / 3.30) used the
@@ -266,10 +266,10 @@ plan, classifier and evaluation tools). Klipper + Moonraker reachable on the net
 
 1. Copy `config.example.toml` to `config.toml` and set `printer_host` (not needed for offline evaluation).
 2. Start the twin **before** starting a print (the G-code plan is only produced if the twin sees the print
-   start): double-click `ikiz_baslat.bat` or run `python realtime_websocket.py`.
+   start): double-click `start_twin.bat` or run `python realtime_websocket.py`.
 3. Optional: open `http://<pc-ip>:8080` on a phone, or start the Unity project and choose *Live*.
-4. Offline evaluation: `python degerlendir.py --set ayar --canli` (or `sinav`; `--zincir` instead of
-   `--canli` to carry state from log to log).
+4. Offline evaluation: `python evaluate.py --set calibration --live-start` (or `test`; `--chain` instead of
+   `--live-start` to carry state from log to log).
 
 The twin never sends G-code to the printer. The only possible command is the pause in `aktif` mode
 (off by default).

@@ -39,8 +39,8 @@ Release tasks:
 - [ ] A default `twin_state.json` for a fresh start.
 - [x] A small curated sample dataset published as a release asset, so the twin can be replayed without a
       printer: three demo recordings with plans and toolpaths (`ender3-twin-sample-data-v0.1.zip`), and
-      every log behind the scores (`ender3-twin-eval-data-v0.1.zip`, reproduces `degerlendir.py` exactly).
-- [x] README score table regenerated with documented commands (`degerlendir.py --canli`).
+      every log behind the scores (`ender3-twin-eval-data-v0.1.zip`, reproduces `evaluate.py` exactly).
+- [x] README score table regenerated with documented commands (`evaluate.py --live-start`).
 - [ ] A ready-to-run Windows build of the Unity viewer in the release, opening the sample dataset.
       `Twin/Toolpath` and `Twin/Ghost` in *Always Included Shaders*.
 - [ ] Remaining Turkish runtime messages in the Unity start menu translated to English.

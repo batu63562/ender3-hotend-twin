@@ -62,7 +62,7 @@ Unity tarafında sütun eşlemesi tek bir yerde: `Ender3_Twin/Assets/Scripts/Twi
 Yeni bir sütunu Unity'de göstermek için oraya bir satır eklemek yeterli.
 
 ## Tahmin dosyası (Print modülü: plan ↔ gerçek)
-İkizin G-code'dan ürettiği plan: `gcode_tahmin.py` → `dt/tahminler/tahmin_<ad>.csv`.
+İkizin G-code'dan ürettiği plan: `gcode_plan.py` → `dt/tahminler/tahmin_<ad>.csv`.
 - Doğrulama modu (`--log`): ad = log adı; `time` sütunu var ve logun `time`'ı ile **aynı PC saati**
   (senkron: 2. katmandaki `M104 S240`). Unity bu dosyayı, zaman aralığı oynatılan kayıtla çakıştığı için eşleştirir.
 - Canlı mod: `realtime_websocket.py` baskı başlayınca (`print_state` → `printing`) G-code'u ve printer.cfg'yi

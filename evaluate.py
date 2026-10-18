@@ -302,25 +302,29 @@ def print_comparison(sc, ref, ref_name):
             print(f"  birlesik ({title}): " + "  ".join(f"{r.faz} {r.rmse - r.rmse_ref:+.2f}" for r in j.itertuples()))
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--kaydet", metavar="AD", help="skorlari benchmark/skorlar/AD.csv olarak sakla")
-    ap.add_argument("--karsilastir", metavar="AD", help="benchmark/skorlar/AD.csv ile karsilastir")
-    ap.add_argument("--set", choices=["ayar", "sinav", "hepsi"],
-                    help="benchmark/setler.csv'deki log seti (verilmezse sadece benchmark/*.csv)")
-    ap.add_argument("--zincir", action="store_true",
-                    help="loglari ardisik oturum say: her biri oncekinin ogrendigi k ile baslar")
-    ap.add_argument("--canli", action="store_true",
-                    help="her log kaydedildigi andaki k/k_fil ile baslar (canli baslangic; README skorlari)")
-    a = ap.parse_args()
-    if a.zincir and a.canli:
-        ap.error("--zincir ve --canli birlikte kullanilmaz")
+# Komut satirindaki set adlari -> setler.csv'deki degerler (veri sozlesmesi Turkce kalir)
+SET_NAMES = {"calibration": "ayar", "test": "sinav", "all": "hepsi"}
 
-    sc = evaluate(paths=set_paths(a.set) if a.set else None, chain=a.zincir, live=a.canli)
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description="Replay logs through the live twin code and print phase scores.")
+    ap.add_argument("--save", metavar="NAME", help="save the scores as benchmark/skorlar/NAME.csv")
+    ap.add_argument("--compare", metavar="NAME", help="compare with benchmark/skorlar/NAME.csv")
+    ap.add_argument("--set", choices=list(SET_NAMES),
+                    help="log set from benchmark/setler.csv (default: only the September runs benchmark/*.csv)")
+    ap.add_argument("--chain", action="store_true",
+                    help="treat logs as consecutive sessions: each starts with the k learned by the previous one")
+    ap.add_argument("--live-start", action="store_true",
+                    help="each log starts with the k / k_fil the live twin had when it was recorded (README scores)")
+    a = ap.parse_args()
+    if a.chain and a.live_start:
+        ap.error("--chain and --live-start cannot be combined")
+
+    sc = evaluate(paths=set_paths(SET_NAMES[a.set]) if a.set else None, chain=a.chain, live=a.live_start)
     print_scorecard(sc)
-    if a.karsilastir:
-        print_comparison(sc, pd.read_csv(os.path.join(SCORE_DIR, a.karsilastir + ".csv")), a.karsilastir)
-    if a.kaydet:
+    if a.compare:
+        print_comparison(sc, pd.read_csv(os.path.join(SCORE_DIR, a.compare + ".csv")), a.compare)
+    if a.save:
         os.makedirs(SCORE_DIR, exist_ok=True)
-        sc.to_csv(os.path.join(SCORE_DIR, a.kaydet + ".csv"), index=False)
-        print(f"\nKaydedildi: benchmark/skorlar/{a.kaydet}.csv")
+        sc.to_csv(os.path.join(SCORE_DIR, a.save + ".csv"), index=False)
+        print(f"\nKaydedildi: benchmark/skorlar/{a.save}.csv")

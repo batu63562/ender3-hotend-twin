@@ -76,8 +76,8 @@ def hold150(raw, m):
 
 def summarize(path, m, note=""):
     """Bir oturum logundan ozet satiri (dict)."""
-    import degerlendir as d
-    import ariza_siniflandir as a
+    import evaluate as d
+    import fault_classifier as a
     raw = pd.read_csv(path)
     if len(raw) < 20 or raw.T1_real.isna().all():
         return None                                  # bos/cok kisa oturum: ozet yok
@@ -158,7 +158,7 @@ def backfill(m):
 
 def report():
     if not os.path.exists(GECMIS_FILE):
-        print("gecmis yok - once 'python gecmis.py --doldur' ya da canli scripti calistir")
+        print("gecmis yok - once 'python session_history.py --backfill' ya da canli scripti calistir")
         return
     g = pd.read_csv(GECMIS_FILE)
     show = ["oturum", "sure_dk", "tutma245_s", "P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct",
@@ -189,17 +189,17 @@ def report():
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--doldur", action="store_true")
-    ap.add_argument("--ekle", metavar="LOG")
+    ap = argparse.ArgumentParser(description="Session-to-session trend of hotend losses (twin_gecmis.csv).")
+    ap.add_argument("--backfill", action="store_true", help="rebuild the history from the benchmark and fault logs")
+    ap.add_argument("--add", metavar="LOG", help="add one session log to the history")
     args = ap.parse_args()
-    if args.doldur or args.ekle:
-        import degerlendir as d
+    if args.backfill or args.add:
+        import evaluate as d
         mod = d.load_model()
-        if args.doldur:
+        if args.backfill:
             backfill(mod)
         else:
-            r = summarize(args.ekle, mod)
+            r = summarize(args.add, mod)
             if r:
                 append(r); print("eklendi")
             else:

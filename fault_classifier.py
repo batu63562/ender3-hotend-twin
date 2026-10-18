@@ -42,7 +42,7 @@ import os
 import numpy as np
 import pandas as pd
 
-import degerlendir as d
+import evaluate as d
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LABEL_FILE = os.path.join(HERE, "benchmark", "ariza_ornekleri", "etiketler.csv")
@@ -634,14 +634,16 @@ def evaluate_labels():
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("log", nargs="?")
-    ap.add_argument("--pencere", nargs=2, type=float, metavar=("BAS", "SON"))
-    ap.add_argument("--etiketler", action="store_true")
+    ap = argparse.ArgumentParser(description="Physical fault category for the twin's alarms (diagnostic only).")
+    ap.add_argument("log", nargs="?", help="session log: classify the alarms the twin found")
+    ap.add_argument("--window", nargs=2, type=float, metavar=("START", "END"),
+                    help="classify this window instead (seconds from log start)")
+    ap.add_argument("--labels", action="store_true",
+                    help="score against benchmark/ariza_ornekleri/etiketler.csv")
     a = ap.parse_args()
-    if a.etiketler:
+    if a.labels:
         evaluate_labels()
     elif a.log:
-        classify_log(a.log, window=a.pencere)
+        classify_log(a.log, window=a.window)
     else:
         ap.print_help()

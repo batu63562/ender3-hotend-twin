@@ -29,7 +29,7 @@ import os
 import numpy as np
 import pandas as pd
 
-import degerlendir as d
+import evaluate as d
 
 # printer.cfg SAVE_CONFIG blogu (2026-09-26 PID ayari, kullanicidan 2026-10-09)
 PID_KP, PID_KI, PID_KD = 40.262, 12.201, 33.216
@@ -171,11 +171,11 @@ def summarize(sc, title):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("log", nargs="?")
-    ap.add_argument("--set", choices=["ayar", "sinav", "hepsi"])
-    ap.add_argument("--k1", action="store_true", help="k=1 sabit (onceki oturumdan k devralma yok)")
+    ap = argparse.ArgumentParser(description="Closed-loop (PID) validation: simulate the heater from the target.")
+    ap.add_argument("log", nargs="?", help="one log (default: the test set)")
+    ap.add_argument("--set", choices=list(d.SET_NAMES), help="log set from benchmark/setler.csv")
+    ap.add_argument("--k1", action="store_true", help="fixed k = 1 (no k carried over from the previous session)")
     a = ap.parse_args()
-    paths = [a.log] if a.log else d.set_paths(a.set or "sinav")
+    paths = [a.log] if a.log else d.set_paths(d.SET_NAMES[a.set or "test"])
     sc = run(paths, chain_k=not a.k1)
     summarize(sc, a.set or os.path.basename(a.log or ""))

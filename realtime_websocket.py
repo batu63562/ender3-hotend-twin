@@ -10,7 +10,7 @@ from collections import deque
 
 import websockets
 
-import tabla_model   # tabla ikizi (ayri model dosyasi; bu dosyadaki nozzle modeline dokunmaz)
+import bed_model   # tabla ikizi (ayri model dosyasi; bu dosyadaki nozzle modeline dokunmaz)
 
 # Tum dosyalar script'in klasorune yazilir (VS Code hangi klasorden calistirirsa calistirsin)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -917,8 +917,8 @@ def classify_job(rows, t_confirm, codes, delay):
     Tam rapor REPORT_FILE'a eklenir. Hata olursa canli izleme etkilenmez, sadece yazilir."""
     try:
         import sys
-        import ariza_siniflandir   # gec import: pandas/scipy sadece ariza olunca yuklenir
-        summary, report = ariza_siniflandir.classify_live(rows, sys.modules[__name__], t_confirm)
+        import fault_classifier   # gec import: pandas/scipy sadece ariza olunca yuklenir
+        summary, report = fault_classifier.classify_live(rows, sys.modules[__name__], t_confirm)
     except Exception as e:  # noqa: BLE001 - siniflandirma yan ozellik, izlemeyi durdurmamali
         return f"[ariza siniflandirma +{delay:.0f} s ({codes}) basarisiz: {type(e).__name__}: {e}]"
     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
@@ -981,7 +981,7 @@ def plan_job(filename, t0, init):
         gpath = os.path.join(GCODE_DIR, base)
         _download(f"{HTTP_URL}/server/files/gcodes/{urllib.parse.quote(filename)}", gpath)
         material = gcode_material(gpath)
-        import gcode_tahmin   # gec import: pandas sadece baski baslayinca yuklenir
+        import gcode_plan   # gec import: pandas sadece baski baslayinca yuklenir
         cfg, cfg_src = os.path.join(GCODE_DIR, "printer.cfg"), "Pi"
         try:
             _download(f"{HTTP_URL}/server/files/config/printer.cfg", cfg)
@@ -989,7 +989,7 @@ def plan_job(filename, t0, init):
             cfg, cfg_src = CFG_FALLBACK, "yerel kopya"
         stamp = time.strftime("%Y%m%d_%H%M", time.localtime(t0))
         out = os.path.join(PLAN_DIR, f"tahmin_canli_{stamp}_{os.path.splitext(base)[0]}.csv")
-        summary = gcode_tahmin.plan_for_live(gpath, cfg, t0, out, **init)
+        summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init)
     except Exception as e:  # noqa: BLE001 - plan yan ozellik, izlemeyi durdurmamali
         return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material
     return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material
@@ -1374,7 +1374,7 @@ async def main():
                             # tabla ikizi (GOZLEM: alarm yok). Tabla sicakligi ve gucu ilk kez bilinince kurulur.
                             # Hata verirse sadece kendisi kapanir, nozzle ikizi ve izleme devam eder.
                             if bed_twin is None and bed_error is None and "temperature" in bed and "power" in bed:
-                                bed_twin = tabla_model.BedTwin(bed["temperature"], bed["power"])
+                                bed_twin = bed_model.BedTwin(bed["temperature"], bed["power"])
                             bed_r = None
                             if bed_twin is not None:
                                 try:
@@ -1531,15 +1531,15 @@ async def main():
                 f.flush()
                 try:
                     import sys
-                    import gecmis
-                    row = gecmis.summarize(LOG_FILE,sys.modules[__name__])
+                    import session_history
+                    row = session_history.summarize(LOG_FILE,sys.modules[__name__])
                     if row:
-                        gecmis.append(row)
+                        session_history.append(row)
                         vals = [f"{k}={row[k]}" for k in ("P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct",
                                                           "baski_kaybi_pct") if k in row]
-                        print(f"Oturum ozeti -> {os.path.basename(gecmis.GECMIS_FILE)}: "
+                        print(f"Oturum ozeti -> {os.path.basename(session_history.GECMIS_FILE)}: "
                               f"{', '.join(vals) if vals else '245C tutma verisi yetersiz, olcut yok'}"
-                              f"  (trend: python gecmis.py)")
+                              f"  (trend: python session_history.py)")
                 except Exception as e:  # noqa: BLE001 - ozet yan ozellik
                     print(f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]")
 

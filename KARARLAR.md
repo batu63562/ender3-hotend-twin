@@ -206,3 +206,14 @@ eklendi (yalnız değerlendirme aracı, model aynı). Doğrulama: 15.10 setleriy
 (K17 ile birebir); taze mod çıktısı değişmedi. Bugünkü setler (README): Eylül 3.62, ayar 34 log 3.50 / 13,
 sınav 45 log 3.36 / 14; taze başlangıçla sınav 4.83 (Ekim k'sı 1'den uzak). Değerlendirme verisi temiz bir
 klonda (yalnız git + veri arşivi) satırı satırına aynı skoru veriyor.
+
+
+## K24 — Dışa açık adlar İngilizce (2026-10-18, v0.1 öncesi)
+Dil kuralı: kullanıcının yazdığı adlar yayından sonra değiştirilemez. Bu tarihten önceki kayıtlarda eski adlar geçer:
+`degerlendir.py` → `evaluate.py`, `ariza_siniflandir.py` → `fault_classifier.py`, `gcode_tahmin.py` → `gcode_plan.py`,
+`gecmis.py` → `session_history.py`, `kapali_dongu.py` → `closed_loop.py`, `tabla_model.py` → `bed_model.py`,
+`ikiz_baslat.bat` → `start_twin.bat`. Bayraklar: `--set ayar|sinav|hepsi` → `calibration|test|all` (setler.csv'deki
+değerler Türkçe kalır), `--canli` → `--live-start`, `--zincir` → `--chain`, `--kaydet` → `--save`, `--karsilastir`
+→ `--compare`, `--etiketler` → `--labels`, `--pencere` → `--window`, `--yol` → `--toolpath`, `--goreli-e` →
+`--relative-e`, `--doldur` → `--backfill`, `--ekle` → `--add`. Davranış aynı: eski kodla (`pre-english` etiketi) skorlar,
+plan, takım yolu, arıza sınıflandırıcı ve kapalı döngü çıktıları birebir karşılaştırıldı.

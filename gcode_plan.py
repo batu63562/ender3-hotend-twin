@@ -25,9 +25,9 @@ from collections import deque
 import numpy as np
 import pandas as pd
 
-import degerlendir as d
-import kapali_dongu as kd
-import tabla_model as tm
+import evaluate as d
+import closed_loop as kd
+import bed_model as tm
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CFG = os.path.join(HERE, "yazici", "printer.cfg")
@@ -623,18 +623,19 @@ def validate(gcode, log_path, mc, m, k=None):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="G-code -> expected print timeline (the twin's plan).")
     ap.add_argument("gcode")
-    ap.add_argument("--cfg", default=DEFAULT_CFG)
-    ap.add_argument("--log", help="bu G-code'un gercek logu: dogrulama")
-    ap.add_argument("--k", type=float, help="kayip carpani (verilmezse twin_state.json'daki ogrenilmis k)")
-    ap.add_argument("--csv", help="tahmin zaman serisinin dosyasi (varsayilan: tahminler/tahmin_<log ya da gcode adi>.csv)")
-    ap.add_argument("--yol", help="sadece Unity takim yolunu bu dosyaya yaz (mevcut bir canli plan icin, simulasyonsuz)")
-    ap.add_argument("--goreli-e", action="store_true", help="baski basinda Klipper goreli ekstruzyon modundaydi (M83)")
+    ap.add_argument("--cfg", default=DEFAULT_CFG, help="Klipper printer.cfg (default: yazici/printer.cfg)")
+    ap.add_argument("--log", help="real log of this G-code: validate the plan against it")
+    ap.add_argument("--k", type=float, help="loss factor (default: the learned k in twin_state.json)")
+    ap.add_argument("--csv", help="output timeline (default: tahminler/tahmin_<log or gcode name>.csv)")
+    ap.add_argument("--toolpath", help="only write the Unity toolpath to this file (no simulation)")
+    ap.add_argument("--relative-e", action="store_true",
+                    help="Klipper was in relative extrusion mode (M83) at print start")
     a = ap.parse_args()
-    if a.yol:
-        n = save_toolpath(parse(a.gcode, Machine(a.cfg), abs_e=not a.goreli_e), a.yol)
-        print(f"takim yolu: {a.yol} ({n} segment)")
+    if a.toolpath:
+        n = save_toolpath(parse(a.gcode, Machine(a.cfg), abs_e=not a.relative_e), a.toolpath)
+        print(f"takim yolu: {a.toolpath} ({n} segment)")
         raise SystemExit
     mc, m = Machine(a.cfg), d.load_model()
     name = os.path.splitext(os.path.basename(a.log or a.gcode))[0]

@@ -313,4 +313,10 @@ saklanır. Canlı döngü ve `evaluate.replay` aynı yoldan print_state geçirir
 `MODEL_VERSION` değişmedi (durum anlamı aynı; öğrenilmiş k korunur). Doğrulama: Eylül çıktısı ve arıza sınıflandırıcı
 etiket çıktısı v0.1 ile BİREBİR aynı; ayar 3.46 / 12 arıza, sınav 3.34 / 14 arıza, fanlı tutma 2.12, soğuma 4.43 —
 düzenekteki sayılarla aynı. Birim testi: standby → printing çapaya döner; paused → printing, ilk mesaj ve bilinmeyen
-durum dönmez. Canlı baskıda henüz denenmedi.
+durum dönmez.
+**Canlı test ve v0.1'e alınması (18.10, kullanıcı kararı):** dal kodu iki PETG baskısında (Articulated Coffee Buddy
+1 sa 42 dk ve 37 dk, ikinci baskı oturum yeniden başlatıldıktan sonra): ikisinde de baskı başında k_fil 1.59 / 1.38 →
+1.33, sonra 1.33 → ~1.45 → 1.38 ve 1.33 → 1.46; tavana değmedi; baskıda eksik güç +0.09 / −0.13 W, rms 0.42 / 0.41 W;
+alarm ve gölge duraklatma yok; k 1.012 → 1.007 → 1.010 (17.10'daki tavan-PETG baskısında 1.012 → 0.980'di). Oturum sonu
+yolu (durum kaydı, twin_gecmis özeti, durum yedeği) çalıştı. Demo kayıtlarının alarmları çapayla aynı. `main` dalın
+ucuna ileri alındı (birleştirme); README skorları güncellendi: ayar 3.46 / 12, sınav 3.34 / 14.

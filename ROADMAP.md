@@ -27,7 +27,8 @@ caught, one change at a time. Decisions are recorded in [`KARARLAR.md`](KARARLAR
 ## v0.1 — It works on one printer
 
 The current state: a 3-node hotend model, the missing-power alarm (`GUC_*`), online learning of `k` and
-`k_fil` with the drift alarm (`KAYIP_*`), maintenance advice, shadow-mode pause, the G-code plan, the bed
+`k_fil` (every print restarts `k_fil` from a fixed anchor, [K27]) with the drift alarm (`KAYIP_*`),
+maintenance advice, shadow-mode pause, the G-code plan, the bed
 twin (observation only) and the Unity replay/live view. Validated on one Ender 3 with PETG and TPU at
 235–245 °C. See [Limitations](README.md#limitations).
 
@@ -90,7 +91,7 @@ in thermal resistances they do not know. The printer measures itself, like Klipp
 
 Materials: a material table (density, heat capacity, typical temperature) from which the filament heating
 term is computed. `k_fil` itself turned out to depend on the print, not the material: every print starts
-from one anchor (v0.2, [K27]).
+from one anchor (v0.1, [K27]).
 
 English identifiers, done together with this refactor since it touches the same code (public names and
 comments were already translated before v0.1). It must be behaviour-neutral, so replaying the logs gives

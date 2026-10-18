@@ -320,3 +320,14 @@ durum dönmez.
 alarm ve gölge duraklatma yok; k 1.012 → 1.007 → 1.010 (17.10'daki tavan-PETG baskısında 1.012 → 0.980'di). Oturum sonu
 yolu (durum kaydı, twin_gecmis özeti, durum yedeği) çalıştı. Demo kayıtlarının alarmları çapayla aynı. `main` dalın
 ucuna ileri alındı (birleştirme); README skorları güncellendi: ayar 3.46 / 12, sınav 3.34 / 14.
+
+
+## K28 — Duraklatma kuralının geriye dönük raporu (2026-10-19, v0.2 gün 1)
+Bütün arşiv (loglar/baskilar + deneyler, 115 log, 88.6 saat; print_state'li 53 log, 48.8 baskı saati) güncel kodla,
+her log kaydedildiği andaki k/k_fil ile yeniden oynatıldı (bozuk 2809_string ve 3 "_geometri" dosyası atlandı).
+GUC_AZALDI olayı 46; süre medyanı 35 s, %90 76 s, %95 110 s. 150 s kuralıyla duraklatma 2, ikisi de gerçek ve kesintisiz
+arıza (2909 topak/havada baskı 286 s, 3009 stand2 filaman durdu 246 s). **Yanlış duraklatma 0.** Kullanıcı 150 s'den önce
+durdurduğu için duraklatmaya varmayan gerçek arızalar: 1510 goofy bust filaman bitti (63 s) ve 0810_1451 (119 s,
+14:35; eksik güç +3.8 W, baskı 1.9 dk sonra iptal; Mainsail'de 08.10 benchy PETG 0.3 mm iptal, kullanıcı: temizlikten
+sonraki ilk benchy'ler hatalıydı, elle durdurdu → gerçek). En uzun bilinen zararsız olay 83 s (1610_2005 TPU küp) →
+eşik payı 67 s. Aktif moda geçiş kararı gün 4'te (yeni baskılar + arıza deneyleri ile).

@@ -29,7 +29,8 @@ terminology; the first feedback path (pausing the print) exists in shadow mode.
    folder next to it.
 3. Open **demo1 filament runout PETG**, press **N** to jump to the alarm: the spool ran empty at ~61.5 min,
    the twin raises `GUC_AZALDI` ("low heat demand") about 20 s later, and the G-code toolpath shows where
-   the print was. Mouse: drag to orbit, right-drag to pan, wheel to zoom.
+   the print was. Mouse: drag to orbit, right-drag to pan, wheel to zoom. Keys: **H** / **B** hotend / bed
+   view, **Space** pause, **1–3** speed, **Esc** back (view → overview → start menu).
 
 To replay the same logs through the Python twin instead (Windows/macOS/Linux), see
 [Running it](#running-it) and the evaluation-data release asset.

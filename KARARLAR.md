@@ -284,3 +284,14 @@ P0_FIL'den büyük) → her baskı başında filtre hızlı → baskı başında
 Çapanın bunu ne bozduğu ne düzelttiği: iki yapı da başlangıçta aynı belirsizlikte. Sonraki aday (ayrı adım): çapa iyi
 bir başlangıç verdiği için baskı başı belirsizliği küçültmek (P0_FIL ↓ ya da boşta büyümeye tavan) → erken yutma azalır;
 bedeli yeni geometriye yavaş uyum, karne gerekli.
+**Çapa duyarlılığı (ayar, τ 0, tavan 1.6):** tek çapa 1.15 / 1.25 / 1.33 / 1.45 / 1.55 → TÜMÜ 3.456 / 3.458 / 3.465 /
+3.508 / 3.554, arıza 12 / 12 / 12 / 13 / 15, fanlı eksik güç bias +0.023 / +0.036 / +0.046 / +0.064 / +0.076 W. Malzeme
+başına 1.35/1.32 = tek 1.33 (3.464) → malzeme ayrımı gereksiz (k_fil'i geometri belirliyor, K26). 1.15–1.33 düz, 1.45 üstü
+uçurum: yüksek çapa eksik gücü GUC_AZALDI yönüne kaydırıp yanlış alarm üretiyor. Medyan baskı SONU değerinden; k_fil
+baskı içinde tırmandığı için doğru başlangıç biraz aşağıda.
+**Adım 5, tek çapa 1.25:** yakalama sayıları aynı (3/3, 3/3, 3/7, 7/7); 1 senaryo YAVAŞ (feet, fan açılınca, 4 W/30 dk:
+29.4 → 34.7 dk), 3'ü hızlı (voronoi 11.2 → 10.1, PETG ortası 12.1 → 11.2 ve 24.5 → 23.7). Gyroid yanlış GUC 1 → 0.
+Düşük çapa baskı başında eksik gücü negatife kaydırır → arızanın önce bu sapmayı aşması gerekir (yüksek çapanın tersi):
+çapa erken baskıda alarm istatistiğine bir bias, yanlış alarm ↔ tespit gecikmesi ödünleşimi. 1.35/1.32'de yavaş
+senaryo yoktu (gyroid 50 → 38 s). Karar kullanıcıda: 1.33 (kapıyı temiz geçmesi beklenir, adım 5 tek 1.33 ile tekrar)
+ya da 1.25 (yanlış alarm 0, bir senaryoda +5 dk gecikme: kapı kuralına açık istisna).

@@ -47,8 +47,13 @@ echo "== service started: systemctl status ender3-twin   |   live console: journ
 if [ "${1:-}" = "--samba" ]; then
     command -v smbd >/dev/null || { sudo apt-get update && sudo apt-get install -y samba; }
     if ! grep -q '^\[ender3-twin\]' /etc/samba/smb.conf; then
-        printf '\n[ender3-twin]\n   path = %s\n   read only = yes\n   guest ok = yes\n   browseable = yes\n   force user = %s\n' \
+        # Windows 11 refuses guest shares: the share is for this user, with a Samba password
+        printf '\n[ender3-twin]\n   path = %s\n   read only = yes\n   guest ok = no\n   valid users = %s\n   browseable = yes\n' \
             "$APP_DIR" "$USER_NAME" | sudo tee -a /etc/samba/smb.conf >/dev/null
+    fi
+    if ! sudo pdbedit -L 2>/dev/null | grep -q "^$USER_NAME:"; then
+        echo "== Samba password for $USER_NAME (Windows asks for it when opening the share):"
+        sudo smbpasswd -a "$USER_NAME"
     fi
     sudo systemctl restart smbd
     echo "== read-only share: \\\\$(hostname -I | awk '{print $1}')\\ender3-twin  (Unity StartMenu > Data Folder)"

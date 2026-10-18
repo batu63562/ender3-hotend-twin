@@ -267,3 +267,20 @@ etkilenmez (yapı gereği). Kalan kapı adımları: etiketli arızalar, yapay ya
 her baskıda yeniden öğrenme baştan var olan arızayı yutabilir), sonra kullanıcı onayı ve sınav. Tek değişiklik kuralı:
 önce çapa, sonra ayrı adım olarak tavan 2.0. Uygulama notu: Twin baskı başını bilmeli (on_message'a print_state),
 canlı ve evaluate aynı kodu kullansın.
+**Kapı adım 5 (2026-10-18, ayar):** yapay yavaş arıza (K17 yöntemi: ölçülen ısıtıcı gücü rampayla azaltıldı, sonra
+sabit), ayardaki print_state'li 7 baskı, fan açılınca + baskı ortası, 3 W/10 dk ve 4 W/30 dk = 20 senaryo:
+| yer | arıza | temel | çapa |
+|---|---|---|---|
+| baskı ortası | 3 W / 10 dk | 3/3, 8.9 dk | 3/3, 8.9 dk |
+| baskı ortası | 4 W / 30 dk | 3/3, 23.8 dk | 3/3, 23.7 dk |
+| fan açılınca | 3 W / 10 dk | 3/7, 11.0 dk | 3/7, 10.1 dk |
+| fan açılınca | 4 W / 30 dk | 7/7, 27.5 dk | 7/7, 27.5 dk |
+Çapa hiçbir senaryoda kötü değil (2'sinde daha erken). Gyroid'in 0.1 dk'sı yapay arıza değil, oradaki mevcut zararsız
+olay. Ayar etiketleri: gyroid yanlış GUC 50 → 38 s, feet 61 = 61 s (ikisi de duraklatma eşiğinin altında); Eylül
+etiketleri yapı gereği aynı. → Adım 5 ayarda GEÇTİ; sıradaki: kullanıcı onayı, sonra sınav (adım 4).
+**Ayrı ve ESKİ bir zayıflık bulundu:** fan açılırken başlayan 3 W/10 dk arıza temelde de 4/7 yutuluyor (baskı
+ortasında 3/3 yakalanıyor). Neden: k_fil'in Kalman belirsizliği boşta Q_FIL·süre ile büyüyor (bir gecede ~0.03,
+P0_FIL'den büyük) → her baskı başında filtre hızlı → baskı başındaki yavaş arıza k_fil'e (0.8'e kadar) öğretiliyor.
+Çapanın bunu ne bozduğu ne düzelttiği: iki yapı da başlangıçta aynı belirsizlikte. Sonraki aday (ayrı adım): çapa iyi
+bir başlangıç verdiği için baskı başı belirsizliği küçültmek (P0_FIL ↓ ya da boşta büyümeye tavan) → erken yutma azalır;
+bedeli yeni geometriye yavaş uyum, karne gerekli.

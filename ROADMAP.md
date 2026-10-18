@@ -43,7 +43,8 @@ Release tasks:
 - [x] README score table regenerated with documented commands (`evaluate.py --live-start`).
 - [ ] A ready-to-run Windows build of the Unity viewer in the release, opening the sample dataset.
       `Twin/Toolpath` and `Twin/Ghost` in *Always Included Shaders*.
-- [ ] Remaining Turkish runtime messages in the Unity start menu translated to English.
+- [x] Remaining Turkish runtime messages in the Unity start menu translated to English.
+- [x] The build looks for `sample_data` next to the exe when no data folder is set (else Desktop/dt).
 - [ ] README: short demo clip of a real fault being caught, results table, "try it without a printer".
 - [ ] GitHub topics and a social preview image.
 

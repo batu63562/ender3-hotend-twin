@@ -331,3 +331,18 @@ durdurduğu için duraklatmaya varmayan gerçek arızalar: 1510 goofy bust filam
 14:35; eksik güç +3.8 W, baskı 1.9 dk sonra iptal; Mainsail'de 08.10 benchy PETG 0.3 mm iptal, kullanıcı: temizlikten
 sonraki ilk benchy'ler hatalıydı, elle durdurdu → gerçek). En uzun bilinen zararsız olay 83 s (1610_2005 TPU küp) →
 eşik payı 67 s. Aktif moda geçiş kararı gün 4'te (yeni baskılar + arıza deneyleri ile).
+
+
+## K29 — 7/24 çalışma: baskı başına log, günlük işler, kod sürümü (2026-10-19, v0.2 gün 1, MODEL DIŞI)
+- **Log baskı başına** (kullanıcı kararı): her yeni baskıda (`print_state` → printing, pause dönüşü hariç) canlı CSV
+  kapanır, `realtime_log_ws_onceki_<son yazma>.csv` olarak arşivlenir, aynı adla yeni dosya açılır; ilk satırı baskının
+  ilk mesajı. 240 satırdan (~1 dk) kısa parça ayrılmaz. Aynı dakikada ikinci arşive saniye eklenir (üzerine yazma yok).
+  Arşivlenen parçanın oturum özeti arka planda `twin_gecmis.csv`'ye (çıkışta da son parçanınki). Unity canlı görünüm
+  baskı başında sıfırlanır (LiveCsvTail dosya küçülünce baştan okur).
+- **Günlük işler:** durum yedeği ve bakım göstergesi açılışta ve tarih değişince (`daily_jobs`).
+- **`code_version` sütunu** (yalnız her dosyanın ilk satırı): `MODEL_VERSION` + `realtime_websocket.py` ve `bed_model.py`
+  içeriğinin 8 haneli sha1'i (satır sonu CRLF/LF farkı yok sayılır; git gerektirmez, Pi için).
+Test: sahte Moonraker (14.10 cap/chain/glass logunu websocket'ten 60× hızla yeniden yayınlar, `main()` gerçek döngüsüyle):
+3 baskı → 3 dosya, her biri tek `printing → complete`; satır kaybı yok (8665 / kaynak 8666, fark abonelik cevabı);
+`code_version` her dosyanın ilk satırında; ikinci arşiv saniye ekli; 3 oturum özeti; parçalar `evaluate.py` ile
+oynatılıyor. Model sınıfları (Twin, KLossLearner, EnergyMonitor, FaultMonitor, model_step) AST'de aynı, Eylül 3.62.

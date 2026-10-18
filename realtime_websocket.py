@@ -920,6 +920,127 @@ def single_instance_lock():
     return fh
 
 
+def source_version():
+    """MODEL_VERSION + a short hash of the twin's own source files: identifies the exact code behind a log
+    (MODEL_VERSION alone is not bumped on every change). Content hash, so it needs no git (Pi deployment)."""
+    import hashlib
+    h = hashlib.sha1()
+    for name in ("realtime_websocket.py", "bed_model.py"):
+        try:
+            with open(os.path.join(HERE, name), "rb") as fh:
+                h.update(fh.read().replace(b"\r\n", b"\n"))   # same hash for a CRLF and an LF checkout
+        except OSError:
+            pass
+    return f"{MODEL_VERSION}+{h.hexdigest()[:8]}"
+
+
+CODE_VERSION = source_version()
+
+# One row per message. T_yeni=1: the message has a new temperature (residual on these rows).
+# T_yeni=0: only pwm/fan changed; T1_real is the last known value, residual empty.
+# anomali = an official alarm is active (since 2026-10-12; before that a raw residual threshold).
+# Every message is logged, so evaluate.py replays the live run exactly.
+# code_version: only on the first row of each file (see source_version).
+LOG_FIELDS = [
+    "time", "T1_real", "T1_model", "residual", "pwm",
+    "fan_state", "extrude_velocity", "anomali", "k_loss", "eventtime", "T_yeni", "k_anomali",
+    "ariza", "eksik_guc", "target", "bed_T", "bed_pwm", "bed_target",
+    "head_v", "pos_x", "pos_y", "pos_z", "pos_e", "bed_model", "bed_res", "bed_k", "k_fil",
+    "print_state", "z_offset", "z_endstop", "malzeme", "duraklat", "code_version"
+]
+ROTATE_MIN_ROWS = 240       # a log part shorter than this (~1 min at 4 Hz) is not split off at a print start
+
+
+def archive_log():
+    """Moves a non-empty LOG_FILE to realtime_log_ws_onceki_<last write>.csv (the name Unity lists); a second
+    part in the same minute gets seconds in its name so nothing is overwritten. Returns the new path or None."""
+    if not (os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0):
+        return None
+    mt = time.localtime(os.path.getmtime(LOG_FILE))
+    old = os.path.join(os.path.dirname(LOG_FILE), f"realtime_log_ws_onceki_{time.strftime('%Y%m%d_%H%M', mt)}.csv")
+    if os.path.exists(old):
+        old = old[:-4] + time.strftime("%S", mt) + ".csv"
+    try:
+        os.replace(LOG_FILE, old)
+        print(f"[onceki log korundu: {os.path.basename(old)}]")
+        return old
+    except OSError as e:
+        print(f"[onceki log tasinamadi ({e}); ustune yazilacak]")
+        return None
+
+
+class LogFile:
+    """The live CSV. rotate() closes it, archives it and starts a new file (one log per print)."""
+
+    def __init__(self):
+        self._open()
+
+    def _open(self):
+        self.fh = open(LOG_FILE, "w", newline="")
+        self.writer = csv.DictWriter(self.fh, fieldnames=LOG_FIELDS)
+        self.writer.writeheader()
+        self.rows = 0
+
+    def write(self, row):
+        if self.rows == 0:
+            row = dict(row, code_version=CODE_VERSION)
+        self.writer.writerow(row)
+        self.rows += 1
+
+    def flush(self):
+        self.fh.flush()
+
+    def rotate(self):
+        """Archive the current part and start a new file. Returns the archived path (None if too short to split)."""
+        if self.rows < ROTATE_MIN_ROWS:
+            return None
+        self.fh.close()
+        old = archive_log()
+        self._open()
+        return old
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.fh.close()
+
+
+def summarize_session(path):
+    """Session-to-session trend: summary of one log part to twin_gecmis.csv (see session_history.py).
+    Returns a console line or None; never raises (side feature)."""
+    try:
+        import sys
+        import session_history
+        row = session_history.summarize(path, sys.modules[__name__])
+        if not row:
+            return None
+        session_history.append(row)
+        vals = [f"{k}={row[k]}" for k in ("P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct", "baski_kaybi_pct")
+                if k in row]
+        return (f"Oturum ozeti ({os.path.basename(path)}) -> {os.path.basename(session_history.GECMIS_FILE)}: "
+                f"{', '.join(vals) if vals else '245C tutma verisi yetersiz, olcut yok'}"
+                f"  (trend: python session_history.py)")
+    except Exception as e:  # noqa: BLE001 - the summary is a side feature
+        return f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]"
+
+
+def daily_jobs(live):
+    """At start-up and once a day (24/7 operation): dated backup of twin_state.json and the maintenance indicator."""
+    backup_state()
+    advice = maint_check()
+    live["bakim"] = advice or ""
+    if advice:
+        print(f"\n!! {advice}\n")
+        try:
+            with open(REPORT_FILE, "a", encoding="utf-8") as rf:
+                rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  BAKIM  {advice}\n")
+        except OSError:
+            pass
+    else:
+        print(f"[bakim gostergesi: oneri yok (fansiz baski k, temiz referans {MAINT_REF:.2f} +-{MAINT_BAND:.2f})]")
+
+
 def classify_job(rows, t_confirm, codes, delay):
     """Background thread: classifies the fault from the latest rows. Returns: a console line.
     The full report is appended to REPORT_FILE. On an error the live monitoring is not affected, it is only logged."""
@@ -1120,19 +1241,9 @@ async def main():
     zoff = {}                                            # Z offset: babystep + saved endstop (logging)
     bed_twin = None                                     # bed twin (bed_model.BedTwin, observation)
     bed_error = None
-    backup_state()                                       # twin_state.json backup at start-up (last STATE_BACKUPS)
     mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
-    advice = maint_check()                               # maintenance indicator (advice, see MAINT_*)
-    live["bakim"] = advice or ""
-    if advice:
-        print(f"\n!! {advice}\n")
-        try:
-            with open(REPORT_FILE, "a", encoding="utf-8") as rf:
-                rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  BAKIM  {advice}\n")
-        except OSError:
-            pass
-    else:
-        print(f"[bakim gostergesi: oneri yok (fansiz baski k, temiz referans {MAINT_REF:.2f} +-{MAINT_BAND:.2f})]")
+    daily_jobs(live)                                     # state backup + maintenance indicator (again every day)
+    print(f"[kod surumu: {CODE_VERSION}]")
 
     def on_plan(fut):
         """Plan job finished (runs in the event loop): console line + the print's material (k_fil restarts from the
@@ -1150,29 +1261,16 @@ async def main():
             print(f"[malzeme: {mat} - k_fil capadan ({K_FIL_ANCHOR:.2f}) ogreniliyor]")
 
     # if the previous session's log was left without renaming, do not overwrite it: move it to a dated name
-    if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
-        stamp = time.strftime("%Y%m%d_%H%M", time.localtime(os.path.getmtime(LOG_FILE)))
-        old = os.path.join(os.path.dirname(LOG_FILE), f"realtime_log_ws_onceki_{stamp}.csv")
-        try:
-            os.replace(LOG_FILE, old)
-            print(f"[onceki log korundu: {os.path.basename(old)}]")
-        except OSError as e:
-            print(f"[onceki log tasinamadi ({e}); ustune yazilacak]")
+    archive_log()
+    log = LogFile()
+    today = time.strftime("%Y-%m-%d")       # daily jobs run again when the date changes (24/7 operation)
 
-    with open(LOG_FILE, "w", newline="") as f:
-        # One row per message. T_yeni=1: the message has a new temperature (residual on these rows).
-        # T_yeni=0: only pwm/fan changed; T1_real is the last known value, residual empty.
-        # anomali = an official alarm is active (since 2026-10-12; before that a raw residual threshold).
-        # Every message is logged, so evaluate.py replays the live run exactly.
-        writer = csv.DictWriter(f, fieldnames=[
-            "time", "T1_real", "T1_model", "residual", "pwm",
-            "fan_state", "extrude_velocity", "anomali", "k_loss", "eventtime", "T_yeni", "k_anomali",
-            "ariza", "eksik_guc", "target", "bed_T", "bed_pwm", "bed_target",
-            "head_v", "pos_x", "pos_y", "pos_z", "pos_e", "bed_model", "bed_res", "bed_k", "k_fil",
-            "print_state", "z_offset", "z_endstop", "malzeme", "duraklat"
-        ])
-        writer.writeheader()
+    def on_summary(fut):
+        msg = fut.result()
+        if msg:
+            print(msg)
 
+    with log:
         # Model time: Klipper's eventtime (the moment the values were MEASURED). The moment the message reaches
         # the PC (time.time()) varies by 0.03-0.56 s with network/Moonraker latency; the pwm*dt integral turned
         # this jitter into +-8 C fake oscillations at 245 C.
@@ -1342,6 +1440,12 @@ async def main():
                                     # resuming from pause is not a new print
                                     if pstat.get("state") == "printing" and was != "paused":
                                         print(f"[baski basladi: {pstat.get('filename', '?')} - G-code plani hazirlaniyor]")
+                                        # one log per print: the part before (idle, the previous print's cool-down)
+                                        # is archived and summarized; this message is the new file's first row
+                                        old = log.rotate()
+                                        if old:
+                                            print(f"[log bolundu: {os.path.basename(old)}]")
+                                            loop.run_in_executor(None, summarize_session, old).add_done_callback(on_summary)
                                         # initial condition: the state measured now (last known if the twin is not set up yet)
                                         th = twin.T1_real if twin is not None else T1_real
                                         init = {"T_h": th if th is not None else 25.0,
@@ -1480,7 +1584,7 @@ async def main():
                                 "malzeme": twin.material or "",
                                 "duraklat": PAUSE_MODE if r["duraklat"] and pstat.get("state") == "printing" else "",
                             }
-                            writer.writerow(row)
+                            log.write(row)
 
                             # phone page (read-only copy)
                             live.update(T=twin.T1_real, M=twin.T1_model, pwm=twin.pwm, fan=twin.fan,
@@ -1509,12 +1613,15 @@ async def main():
                                 fut = loop.run_in_executor(None, classify_job, [b[1] for b in buffer], *job[1:])
                                 fut.add_done_callback(lambda f: show_category(f.result(), live))
                             if wall_time - last_flush >= FLUSH_INTERVAL:
-                                f.flush()
+                                log.flush()
                                 last_flush = wall_time
+                            if time.strftime("%Y-%m-%d", time.localtime(wall_time)) != today:   # 24/7: once a day
+                                today = time.strftime("%Y-%m-%d", time.localtime(wall_time))
+                                daily_jobs(live)
                     print("\n[baglanti sunucu tarafindan kapatildi]")
                 except (websockets.exceptions.WebSocketException, OSError, asyncio.TimeoutError) as e:
                     print(f"\n[baglanti koptu: {type(e).__name__}: {e}]")
-                f.flush()
+                log.flush()
                 print(f"[{RECONNECT_DELAY:.0f} s sonra yeniden baglaniliyor - durdurmak icin Ctrl+C]\n")
                 await asyncio.sleep(RECONNECT_DELAY)
         finally:
@@ -1531,21 +1638,11 @@ async def main():
                     print(f"  {code}: {sure} - {FAULT_TEXT[code]}")
                 if events:
                     print(f"  kategoriler (hesaplandiysa): {REPORT_FILE}")
-                # session-to-session trend: this session's summary to twin_gecmis.csv (see session_history.py)
-                f.flush()
-                try:
-                    import sys
-                    import session_history
-                    row = session_history.summarize(LOG_FILE,sys.modules[__name__])
-                    if row:
-                        session_history.append(row)
-                        vals = [f"{k}={row[k]}" for k in ("P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct",
-                                                          "baski_kaybi_pct") if k in row]
-                        print(f"Oturum ozeti -> {os.path.basename(session_history.GECMIS_FILE)}: "
-                              f"{', '.join(vals) if vals else '245C tutma verisi yetersiz, olcut yok'}"
-                              f"  (trend: python session_history.py)")
-                except Exception as e:  # noqa: BLE001 - the summary is a side feature
-                    print(f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]")
+                # session-to-session trend: the summary of the current (last) log part to twin_gecmis.csv
+                log.flush()
+                msg = summarize_session(LOG_FILE)
+                if msg:
+                    print(msg)
 
 
 if __name__ == "__main__":

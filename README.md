@@ -298,7 +298,7 @@ The twin never sends G-code to the printer. The only possible command is the pau
 
 | Path | Content |
 |---|---|
-| `realtime_log_ws.csv` | Live log of the current session (one row per Moonraker message). Previous one is renamed `realtime_log_ws_onceki_YYYYMMDD_HHMM.csv`. Column contract: `UNITY_ARAYUZ.md`. |
+| `realtime_log_ws.csv` | Live log (one row per Moonraker message), one file per print: at each print start the previous part is archived as `realtime_log_ws_onceki_YYYYMMDD_HHMM.csv` and summarized into `twin_gecmis.csv`. The first row carries `code_version`. Column contract: `UNITY_ARAYUZ.md`. |
 | `twin_state.json` | Learned `k` and `k_fil`, `KAYIP` reference, last material, last model state. Backed up to `durum_yedek/` at each start (last 30). |
 | `bakim_izleme.csv`, `bakim_durumu.json` | Maintenance indicator data and last result. |
 | `ariza_raporlari.txt` | Alarm reports, classifications, shadow-pause and maintenance messages. |

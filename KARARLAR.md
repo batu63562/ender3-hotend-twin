@@ -246,3 +246,24 @@ alarm eşiğinin (2.5 W) çok altında; alarmlar değişmiyor → yayın haftas�
 ısıyı malzeme sabiti değil geometri/hız belirliyor (K08, K17). Açık soru: PETG profili fanı %20'de (eşiğin hemen
 üstü, soğutma ~0) ama k_fil ~1.7 istiyor; A0'a göre fansızda 1.0 yetiyordu → k_fil'i fan değil baskı evresi (ilk
 katman tabla üstü / sonraki katmanlar plastik üstü) belirliyor olabilir.
+
+
+## K27 — k_fil çapası (v0.2 adayı, 2026-10-18) — AYAR AŞAMASI
+Fikir: k makinenin özelliği (oturumlar arası taşınır), k_fil baskının özelliği (geometri/hız; K26) → baskı başında
+k_fil = a + (k_son − a)·exp(−Δt/τ); a = malzeme çapası, τ = 0 her baskı çapadan, τ = ∞ bugünkü yapı, arası "yay".
+Değerlendirme düzeneği (model değişmedi): ayar seti, canlı başlangıç, baskı başı/sonu `print_state`'ten (34 logun
+15'inde var; diğerlerinde aday = temel). Çapa = temel koşuda baskı sonu k_fil medyanı: PETG 1.35, TPU 1.32 (neredeyse
+aynı → malzeme ayrımı belki gereksiz).
+| aday | TÜMÜ | fanlı tutma | arıza | eksik güç fanlı rms | tavanda |
+|---|---|---|---|---|---|
+| temel (τ ∞, tavan 1.6) | 3.497 | 3.39 | 13 | 0.616 W | %9 |
+| τ 0 / 15 dk / 1 sa / 4 sa, tavan 1.6 | 3.463 | 3.36 | 12 | 0.609 W | %7 |
+| τ ∞, tavan 2.0 | 3.474 | 3.35 | 13 | 0.612 W | %0 |
+| τ 0…4 sa, tavan 2.0 | 3.449 | 3.33 | 12 | 0.607 W | %0 |
+τ 0–4 sa arası sonuç aynı → yay sabiti önemsiz, en basiti τ = 0 (her baskı çapadan). Kaybolan arıza: 15.10 TPU duvarsız
+gyroid küpte etiketli YANLIŞ GUC_AZALDI (3 → 2). Log bazında karışık: gyroid 6.35 → 5.86, yarıda durdurulan 3.98 → 3.72,
+17.10 PETG 2.82 → 2.73; havaya basılan 4.12 → 4.22, voronoi 2.60 → 2.75. Eylül logları print_state içermediği için
+etkilenmez (yapı gereği). Kalan kapı adımları: etiketli arızalar, yapay yavaş arıza (baskı BAŞINDA enjekte edilen dahil:
+her baskıda yeniden öğrenme baştan var olan arızayı yutabilir), sonra kullanıcı onayı ve sınav. Tek değişiklik kuralı:
+önce çapa, sonra ayrı adım olarak tavan 2.0. Uygulama notu: Twin baskı başını bilmeli (on_message'a print_state),
+canlı ve evaluate aynı kodu kullansın.

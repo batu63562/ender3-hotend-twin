@@ -525,7 +525,8 @@ def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b
     overestimate the heat-up by minutes). t0: print start (PC unix time) -> CSV 'time'.
     Returns: a one-line summary."""
     mc, m = Machine(cfg), d.load_model()
-    k, kfil = m.load_k()
+    k, _ = m.load_k()
+    kfil = m.K_FIL_ANCHOR          # a new print starts from the anchor, as in the live twin [K27]
     sim = Sim(mc, m, k, T_h=T_h, T_b=T_b, pwm_h=pwm_h, pwm_b=pwm_b, tgt_h=tgt_h, tgt_b=tgt_b, fan=fan, kfil=kfil)
     ops = parse(gcode, mc, abs_e=abs_e)
     layers = run(ops, sim)
@@ -645,9 +646,9 @@ if __name__ == "__main__":
         s, _ = validate(a.gcode, a.log, mc, m, a.k)
         save_csv(s, csv_path, t0=(s.t_log - s.t).iloc[0] + s.attrs["unix_offset"])
     else:
-        k, kfil = m.load_k()
+        k, _ = m.load_k()
         k = a.k if a.k is not None else k
-        sim = Sim(mc, m, k, kfil=kfil)
+        sim = Sim(mc, m, k, kfil=m.K_FIL_ANCHOR)   # a new print starts from the anchor [K27]
         layers = run(parse(a.gcode, mc), sim)
         df = sim.frame(); df.attrs["k"] = k
         report(df, layers, mc, m)

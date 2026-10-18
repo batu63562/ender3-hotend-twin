@@ -306,3 +306,11 @@ ya da 1.25 (yanlış alarm 0, bir senaryoda +5 dk gecikme: kapı kuralına açı
 Sıradaki: uygulama (Twin baskı başını bilmeli; malzeme kaydı baskı başında çapayı ezmemeli → `malzeme_kfil` deposu
 çapayla gereksizleşiyor), uygulanan kodun bu düzenekle aynı skoru verdiğinin doğrulanması. v0.1'i etkilememesi için
 ayrı dalda.
+**Uygulandı (dal `v0.2-kfil-capa`, kullanıcı onayı):** `K_FIL_ANCHOR = 1.33`; `Twin.on_message(print_state=)` printing'e
+girişte (pause'dan dönüş hariç, ilk mesaj hariç) ve `set_material`'de `anchor_kfil()` (k_fil = çapa, P = P0_FIL; k'ya
+dokunmaz). Malzeme başına k_fil deposu (`malzeme_kfil`, `load_materials`) kaldırıldı; son malzeme yalnız CSV için
+saklanır. Canlı döngü ve `evaluate.replay` aynı yoldan print_state geçirir; `gcode_plan` yeni baskıyı çapayla planlar.
+`MODEL_VERSION` değişmedi (durum anlamı aynı; öğrenilmiş k korunur). Doğrulama: Eylül çıktısı ve arıza sınıflandırıcı
+etiket çıktısı v0.1 ile BİREBİR aynı; ayar 3.46 / 12 arıza, sınav 3.34 / 14 arıza, fanlı tutma 2.12, soğuma 4.43 —
+düzenekteki sayılarla aynı. Birim testi: standby → printing çapaya döner; paused → printing, ilk mesaj ve bilinmeyen
+durum dönmez. Canlı baskıda henüz denenmedi.

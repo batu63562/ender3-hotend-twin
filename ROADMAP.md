@@ -88,8 +88,9 @@ in thermal resistances they do not know. The printer measures itself, like Klipp
    fits the heat capacities, resistances and `k` for that hotend.
 3. **Online learning = fine tuning.** `k` and `k_fil` keep adapting, as today.
 
-Materials: a material table (density, heat capacity, typical temperature) and a default `k_fil` for a
-material with no history. Per-material `k_fil` storage already exists.
+Materials: a material table (density, heat capacity, typical temperature) from which the filament heating
+term is computed. `k_fil` itself turned out to depend on the print, not the material: every print starts
+from one anchor (v0.2, [K27]).
 
 English identifiers, done together with this refactor since it touches the same code (public names and
 comments were already translated before v0.1). It must be behaviour-neutral, so replaying the logs gives

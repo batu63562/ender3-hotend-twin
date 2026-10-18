@@ -167,9 +167,10 @@ model        y = k · (block + fan loss) + k_fil · K_FIL · flow · (T − T_am
 - **Estimator.** A 2-state Kalman filter on `[k, k_fil]`. `k_fil` has process noise (it may change ~0.05 per
   hour). `k` has none; its speed is set by a covariance floor equivalent to a time constant (60 s in holds,
   30 min while printing) so short faults never leak into it.
-- **Materials.** `k` is shared; `k_fil` is stored per material. The material is read from the G-code header
-  (`; filament_type = PETG`) when a print starts; on a change, `k_fil` restarts from that material's stored
-  value with fresh uncertainty.
+- **Anchor.** `k` belongs to the machine and is carried from print to print. `k_fil` belongs to the print
+  (geometry, speed): every new print starts it from a fixed anchor (1.33) with fresh uncertainty and learns
+  from there. Carrying it over let a series of similar prints push it to its upper bound; a per-material
+  value made no difference (PETG and TPU anchors came out 1.35 and 1.32). See `KARARLAR.md` [K27].
 
 **The core trade-off ("error reduction vs. error swallowing").** A faster learner makes residuals smaller
 but also absorbs slow faults as the "new normal". This was tested by injecting synthetic slow faults into
@@ -282,7 +283,7 @@ The twin never sends G-code to the printer. The only possible command is the pau
 | Path | Content |
 |---|---|
 | `realtime_log_ws.csv` | Live log of the current session (one row per Moonraker message). Previous one is renamed `realtime_log_ws_onceki_YYYYMMDD_HHMM.csv`. Column contract: `UNITY_ARAYUZ.md`. |
-| `twin_state.json` | Learned `k`, `k_fil` per material, `KAYIP` reference, last model state. Backed up to `durum_yedek/` at each start (last 30). |
+| `twin_state.json` | Learned `k` and `k_fil`, `KAYIP` reference, last material, last model state. Backed up to `durum_yedek/` at each start (last 30). |
 | `bakim_izleme.csv`, `bakim_durumu.json` | Maintenance indicator data and last result. |
 | `ariza_raporlari.txt` | Alarm reports, classifications, shadow-pause and maintenance messages. |
 | `tahminler/` | G-code plans (`tahmin_*.csv`) and toolpaths (`yol_*.bin`). |

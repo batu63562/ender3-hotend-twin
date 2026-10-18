@@ -85,6 +85,9 @@ R_HOLD = 0.3 ** 2             # W^2 - measurement noise of a 20 s hold window
 R_PRINT = 0.4 ** 2 * 300.0 / PRINT_WINDOW   # W^2 - ~0.4 W residual in a 300 s window; noise ~1/duration
 P0_FIL = 0.15 ** 2            # k_fil uncertainty at session start (or material change)
 K_FIL_MIN, K_FIL_MAX = 0.8, 1.6   # k_fil = filament heating (1.0) + contact conduction from the nozzle into the print [K08]
+# k_fil belongs to the print (geometry, speed), not to the machine or the material: every print (and a material
+# change) starts from this anchor with P0_FIL uncertainty and learns from there; k is kept between prints [K26, K27].
+K_FIL_ANCHOR = 1.33
 K_STATE_MAX_AGE = 7 * 86400.0   # s - k is kept between sessions; older than this is not inherited
 EXT_EPS = 1e-6   # mm/s - Klipper reports ~1e-15 crumbs when idle; speeds below this are zero [K16]
 # Rejected/removed rules: delaying hold learning after arrival [K10], learning from the 150 C preheat [K11],
@@ -158,9 +161,9 @@ FAULT_TEXT.update(ENERGY_TEXT)
 PAUSE_AFTER = 150.0       # s
 PAUSE_MODE = "golge"      # "golge" (shadow: log only) | "aktif" (active: pause via Moonraker) | "kapali" (off)
 
-# Material and backup: k is shared (a hotend property); k_fil is stored per material. The material is read from
-# the G-code header ("; filament_type = "); on a change k_fil is re-learned from that material's record
-# (Twin.set_material). At every start a dated copy of twin_state.json is taken, the newest STATE_BACKUPS are kept [K21].
+# Material and backup: the material is read from the G-code header ("; filament_type = ") for the CSV; k_fil is not
+# stored per material any more, every print starts from K_FIL_ANCHOR [K27]. At every start a dated copy of
+# twin_state.json is taken, the newest STATE_BACKUPS are kept [K21].
 STATE_BACKUP_DIR = os.path.join(HERE, "durum_yedek")
 STATE_BACKUPS = 30
 
@@ -355,19 +358,13 @@ def load_k_ref(k):
     return ref
 
 
-def load_materials():
-    """(last material, {material: k_fil}) - (None, {}) without a record."""
+def load_last_material():
+    """Material of the last print (for the CSV until the next G-code is read); None without a record."""
     try:
         with open(STATE_FILE) as f:
-            saved = json.load(f)
+            return json.load(f).get("malzeme")
     except (OSError, ValueError):
-        return None, {}
-    mats = {m: min(K_FIL_MAX, max(K_FIL_MIN, float(v))) for m, v in (saved.get("malzeme_kfil") or {}).items()}
-    last = saved.get("malzeme")
-    if mats:
-        print(f"[Malzeme basina k_fil: " + ", ".join(f"{m} {v:.2f}" for m, v in mats.items())
-              + f"; son malzeme {last or '?'}]")
-    return last, mats
+        return None
 
 
 def backup_state():
@@ -385,7 +382,7 @@ def backup_state():
         print(f"[durum yedegi alinamadi: {e}]")
 
 
-def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None, materials=None):
+def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None):
     data = {"time": time.time(), "model": MODEL_VERSION, "T1": T1, "T2": T2, "T3": T3}
     if k is not None:
         data["k"], data["k_time"] = k, time.time()
@@ -393,11 +390,8 @@ def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None, materia
         data["k_fil"] = kfil
     if k_ref is not None:
         data["k_ref"] = k_ref
-    if material is not None or materials:
-        mats = dict(materials or {})
-        if material is not None and kfil is not None:
-            mats[material] = kfil              # current k_fil of the current material
-        data["malzeme"], data["malzeme_kfil"] = material, mats
+    if material is not None:
+        data["malzeme"] = material
     with open(STATE_FILE, "w") as f:
         json.dump(data, f)
 
@@ -754,24 +748,37 @@ class Twin:
         self.energy_error = None
         self.target = None                 # Klipper target temperature (logging + missing-power settle time only)
         self.bed = 0.0                     # bed heater pwm (0-1); taken as off if unknown
-        self.material = None               # material of the print (G-code header), see set_material
+        self.material = None               # material of the print (G-code header), logging only
+        self.print_state = None            # Klipper print_stats.state of the previous message (None = unknown)
         self.pause_flagged = False         # pause already requested for this GUC_AZALDI event (PAUSE_AFTER)
 
-    def set_material(self, name, kfil=None):
-        """The print's material changed: k_fil is re-learned from that material's saved value (kfil; None = no record,
-        the current value stays) with the session-start uncertainty (P0_FIL). k stays shared (a hotend property)."""
-        if kfil is not None:
-            self.learner.kfil = min(K_FIL_MAX, max(K_FIL_MIN, kfil))
+    def anchor_kfil(self):
+        """k_fil back to K_FIL_ANCHOR with the start uncertainty (P0_FIL); k is not touched (a hotend property)."""
+        self.learner.kfil = min(K_FIL_MAX, max(K_FIL_MIN, K_FIL_ANCHOR))
         P = self.learner.P
         P[1][1], P[0][1], P[1][0] = P0_FIL, 0.0, 0.0
+
+    def set_material(self, name):
+        """The print's material changed (read from the G-code shortly after the print starts): k_fil restarts from
+        the anchor, like at a print start."""
+        self.anchor_kfil()
         self.material = name
 
-    def on_message(self, now, T1_real=None, pwm=None, fan=None, ext=None, target=None, bed=None, pos_e=None):
+    def on_message(self, now, T1_real=None, pwm=None, fan=None, ext=None, target=None, bed=None, pos_e=None,
+                   print_state=None):
         """Process one message. Fields not in the message are given as None.
         pos_e: extruder position (mm, last known value); if present, the flow is computed from it (see POS_E_MAX_RATE).
+        print_state: Klipper print_stats.state; entering 'printing' (not from 'paused') is a new print -> k_fil
+        restarts from the anchor (K_FIL_ANCHOR).
         Returns: dt, yeni_sicaklik (new temperature), residual (None without a temperature), anomali (an official
         fault is active), k_anomali (learned loss factor outside its band), senkron, eksik_guc (W, None if invalid),
         ariza_basladi (newly confirmed fault codes), ariza_bitti ([(code, start, end)])."""
+        # 0) new print: k_fil is a property of the print, not carried over from the previous one [K27]
+        if print_state is not None:
+            if (print_state == "printing" and self.print_state is not None
+                    and self.print_state not in ("printing", "paused")):
+                self.anchor_kfil()
+            self.print_state = print_state
         out = {"dt": 0.0, "yeni_sicaklik": T1_real is not None,
                "residual": None, "anomali": False, "k_anomali": False, "senkron": False,
                "ariza_basladi": [], "ariza_bitti": [], "eksik_guc": None,
@@ -1114,7 +1121,7 @@ async def main():
     bed_twin = None                                     # bed twin (bed_model.BedTwin, observation)
     bed_error = None
     backup_state()                                       # twin_state.json backup at start-up (last STATE_BACKUPS)
-    mat_last, mats = load_materials()                    # k_fil per material (see set_material)
+    mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
     advice = maint_check()                               # maintenance indicator (advice, see MAINT_*)
     live["bakim"] = advice or ""
     if advice:
@@ -1128,7 +1135,8 @@ async def main():
         print(f"[bakim gostergesi: oneri yok (fansiz baski k, temiz referans {MAINT_REF:.2f} +-{MAINT_BAND:.2f})]")
 
     def on_plan(fut):
-        """Plan job finished (runs in the event loop): console line + k_fil switch if the print's material changed."""
+        """Plan job finished (runs in the event loop): console line + the print's material (k_fil restarts from the
+        anchor if it changed)."""
         nonlocal mat_last
         msg, mat = fut.result()
         print(msg)
@@ -1137,16 +1145,9 @@ async def main():
         if twin is None:
             mat_last = mat
             return
-        if mat == twin.material:
-            print(f"[malzeme: {mat} (ayni) - k_fil {twin.learner.kfil:.2f} ile devam]")
-            return
-        if twin.material:
-            mats[twin.material] = twin.learner.kfil
-        new = mats.get(mat)
-        twin.set_material(mat, new)
-        print(f"[malzeme: {twin.material} -> k_fil "
-              + (f"kayitli {new:.2f}" if new is not None else f"kaydi yok, {twin.learner.kfil:.2f} ile")
-              + " (yeniden ogreniliyor)]")
+        if mat != twin.material:
+            twin.set_material(mat)
+            print(f"[malzeme: {mat} - k_fil capadan ({K_FIL_ANCHOR:.2f}) ogreniliyor]")
 
     # if the previous session's log was left without renaming, do not overwrite it: move it to a dated name
     if os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0:
@@ -1368,7 +1369,8 @@ async def main():
                                             k0, kf0, load_k_ref(k0))
                                 twin.material = mat_last
 
-                            r = twin.on_message(now, T1_real, pwm, fan, ext, target, bed.get("power"), motion.get("e"))
+                            r = twin.on_message(now, T1_real, pwm, fan, ext, target, bed.get("power"), motion.get("e"),
+                                                pstat.get("state"))
                             if twin.learner.windows:     # maintenance log: window k values (model clock -> wall clock)
                                 maint_record([(tn + wall_time - now, kind, kv) for tn, kind, kv in twin.learner.windows])
                                 twin.learner.windows.clear()
@@ -1388,7 +1390,7 @@ async def main():
                                     print(f"[tabla ikizi hata verdi ve kapandi: {bed_error} - izleme devam ediyor]")
                             if wall_time - last_save >= STATE_SAVE_INTERVAL:
                                 save_state(twin.T1_model, twin.T2_model, twin.T3_model, twin.learner.k,
-                                           twin.learner.kfil, twin.k_ref, twin.material, mats)
+                                           twin.learner.kfil, twin.k_ref, twin.material)
                                 last_save = wall_time
 
                             for code in r["ariza_basladi"]:
@@ -1521,7 +1523,7 @@ async def main():
             # on exit (Ctrl+C, connection loss) always save the final state
             if twin is not None:
                 save_state(twin.T1_model, twin.T2_model, twin.T3_model, twin.learner.k, twin.learner.kfil,
-                           twin.k_ref, twin.material, mats)
+                           twin.k_ref, twin.material)
                 events =twin.faults.events + [(c, t0, None) for c, t0 in twin.faults.active.items()]
                 print(f"\nAriza ozeti: {f'{len(events)} ariza' if events else 'ariza yok'}")
                 for code, t0, t1 in events:

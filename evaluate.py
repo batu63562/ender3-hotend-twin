@@ -135,18 +135,19 @@ def replay(df, m, events=None, k0=1.0, kfil0=1.0, state=None, k_ref0=None):
     # extruder position (logged since 2026-09-29): last known value as in the live script;
     # flow is computed from it, otherwise from the instantaneous speed
     pe = pd.to_numeric(df.pos_e, errors="coerce").ffill().values if "pos_e" in df else np.full(n, np.nan)
-    # material (logged since 2026-10-16): at print start the live twin reads the material from the G-code and
-    # switches k_fil to that material's saved value (Twin.set_material); the saved value is that row's k_fil
+    # material (logged since 2026-10-16): the live twin reads it from the G-code shortly after the print starts;
+    # a change restarts k_fil from the anchor (Twin.set_material)
     mz = df["malzeme"].fillna("").astype(str).values if "malzeme" in df else None
-    kfl = pd.to_numeric(df["k_fil"], errors="coerce").values if "k_fil" in df else np.full(n, np.nan)
+    # print state (logged since 2026-10-11): a new print restarts k_fil from the anchor, as in the live twin
+    ps = df["print_state"].fillna("").astype(str).values if "print_state" in df else None
     if mz is not None:
         twin.material = mz[0] or None
     for i in range(n):
         if mz is not None and mz[i] and mz[i] != twin.material:
-            twin.set_material(mz[i], kfl[i] if np.isfinite(kfl[i]) else None)
+            twin.set_material(mz[i])
         r = twin.on_message(t[i], T[i] if has_T[i] else None, pwm[i], fan[i], ext[i],
                             None if np.isnan(tg[i]) else tg[i], None if np.isnan(bp[i]) else bp[i],
-                            None if np.isnan(pe[i]) else pe[i])
+                            None if np.isnan(pe[i]) else pe[i], None if ps is None else ps[i])
         T1m[i] = twin.T1_model; ks[i] = twin.learner.k; refs[i] = twin.k_ref
         synced[i] = r["senkron"]; anom[i] = r["anomali"]
         res[i] = r["residual"] if r["residual"] is not None else 0.0

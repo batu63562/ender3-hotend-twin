@@ -295,3 +295,14 @@ Düşük çapa baskı başında eksik gücü negatife kaydırır → arızanın 
 çapa erken baskıda alarm istatistiğine bir bias, yanlış alarm ↔ tespit gecikmesi ödünleşimi. 1.35/1.32'de yavaş
 senaryo yoktu (gyroid 50 → 38 s). Karar kullanıcıda: 1.33 (kapıyı temiz geçmesi beklenir, adım 5 tek 1.33 ile tekrar)
 ya da 1.25 (yanlış alarm 0, bir senaryoda +5 dk gecikme: kapı kuralına açık istisna).
+**Seçim: tek çapa 1.33 (kullanıcı). Kapı sonucu — GEÇTİ (2026-10-18):**
+- Adım 5 (ayar): 20 yapay senaryonun hiçbirinde temelden yavaş/yutan yok (voronoi 11.2 → 10.1, PETG ortası 24.5 → 23.7
+  daha hızlı; yakalama 3/3, 3/3, 3/7, 7/7 aynı). Ayar etiketleri: gyroid yanlış GUC 50 s → YOK; feet 61 = 61 s.
+- Adım 4 (sınav, onaydan sonra): TÜMÜ 3.36 → 3.34, fanlı tutma 2.18 → 2.12, soğuma 4.38 → 4.43 (+0.05; soğumada akış
+  yok, fark k ile k_fil'in Kalman'daki bağından k'ya küçük yansıma), diğer fazlar aynı; arıza 14 = 14; fanlı eksik güç
+  bias −0.018 → −0.004 W, rms 0.435 → 0.427 W. Sınav etiketleri birebir aynı (11.10 ve 15.10 B arızaları aynı anda
+  yakalanıyor, 12.10 ikisinde de yok, 16.10 zararsız olay aynı).
+- Adım 3: Eylül logları print_state içermediği için yapı gereği aynı.
+Sıradaki: uygulama (Twin baskı başını bilmeli; malzeme kaydı baskı başında çapayı ezmemeli → `malzeme_kfil` deposu
+çapayla gereksizleşiyor), uygulanan kodun bu düzenekle aynı skoru verdiğinin doğrulanması. v0.1'i etkilememesi için
+ayrı dalda.

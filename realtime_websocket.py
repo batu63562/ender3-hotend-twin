@@ -1206,9 +1206,15 @@ async def web_server(live):
         return None
     try:
         import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect((PRINTER_HOST, 80))        # sends no packet; only finds which network interface is used
-        ip = s.getsockname()[0]; s.close()
+        ip = "127.0.0.1"
+        # UDP connect sends no packet; it only finds which network interface is used. PRINTER_HOST may carry a port,
+        # and on the Pi it is 127.0.0.1 (loopback): then ask for the interface towards the LAN instead.
+        for target in (PRINTER_HOST.split(":")[0], "10.255.255.255"):
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((target, 80))
+            ip = s.getsockname()[0]; s.close()
+            if not ip.startswith("127."):
+                break
     except OSError:
         ip = "<bilgisayar-IP>"
     print(f"[telefondan izleme: http://{ip}:{WEB_PORT}  (ayni Wi-Fi/ag)]")

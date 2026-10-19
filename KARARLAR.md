@@ -348,7 +348,7 @@ Test: sahte Moonraker (14.10 cap/chain/glass logunu websocket'ten 60× hızla ye
 oynatılıyor. Model sınıfları (Twin, KLossLearner, EnergyMonitor, FaultMonitor, model_step) AST'de aynı, Eylül 3.62.
 
 
-## K30 — İkiz Raspberry Pi'de servis (2026-10-19, v0.2 gün 2, MODEL DIŞI) — KURULUM BETİKLERİ, PI'DE DENENMEDİ
+## K30 — İkiz Raspberry Pi'de servis (2026-10-19, v0.2 gün 2, MODEL DIŞI) — PI'DE ÇALIŞIYOR (19.10, bkz. K31)
 Neden: PC uyuyunca baskı ortasında ikiz kesiliyordu (17.10 13:05). Kurulum: PC'de `deploy.ps1` (scp ile kod + istenirse
 öğrenilmiş durum, sonra Pi'de `pi/install.sh`): Python 3.11+ kontrolü, venv, websockets (zorunlu) + numpy/pandas (plan,
 sınıflandırıcı, özet için; kurulamazsa ikiz yine çalışır), `config.toml` = `127.0.0.1:7125` (Moonraker doğrudan) ve
@@ -359,3 +359,31 @@ Samba paylaşımı (Unity veri klasörü `\\<pi>\ender3-twin`). Kod: `web_port` 
 (Windows ağ paylaşımında FileInfo.Length ~10 s önbellekte kalabiliyor), "script çalışıyor" eşiği paylaşımda 15 s.
 `.gitattributes`: .sh ve .service LF. Pi'de doğrulanacak: kurulum, Klipper "Timer too close" yok, baskı başı plan
 süresi, Unity'nin paylaşımdan canlı akıcılığı.
+
+## K31 — Pi servisi saat senkronunu bekler; Pi'de ilk gün (2026-10-19, v0.2 gün 2, MODEL DIŞI)
+Olay: Pi'nin pilli saati yok. Açılışta saat son kaydedilen zamandan (02:03) başlıyor, NTP sonra 11:11'e atlatıyor;
+ikiz o arada başladığı için log adı (`_0203`), ilk satırların `time`'ı ve durum yaşı ("0.0 saat önce") yanlıştı,
+Unity'de 9 saatlik sahte boşluk. Model etkilenmedi: adım zamanı Klipper `eventtime`. Çözüm `pi/ender3-twin.service`:
+`ExecStartPre` `timedatectl NTPSynchronized=yes` olana kadar en çok 120 s bekler (`-` önekli: internetsiz zaman
+aşımı hata sayılmaz, ikiz senkronsuz saatle yine başlar), `TimeoutStartSec=180`, `After=time-sync.target`.
+`systemd-time-wait-sync` seçilmedi (zaman aşımı yok, internetsiz Pi'de ikiz hiç başlamazdı). Elektrik kesintisi
+sonrası açılışta henüz denenmedi.
+Pi'de ilk gün (servis 11:46–20:21, yeniden başlama 0): 7 baskı (PETG), her birinde log döndü, k_fil çapalandı, plan
+3–14 s'de hazır; resmi alarm 0, gölge duraklatma 0, k 1.017 → 1.009; klippy.log'da "Timer too close" 0. SSH anahtarla
+(kullanıcı `batu63562`), Samba paylaşımı, telefon sayfası (8090) ve Unity'nin paylaşımdan canlı izlemesi çalışıyor. Konsoldaki
+telefon adresi Pi'de `<bilgisayar-IP>` yazıyordu (yazıcı adresi `127.0.0.1:7125`: port + loopback); düzeltildi, 21:39'da
+deploy edildi.
+
+## K32 — Kasıtlı arıza deneyleri PLANLANDI (2026-10-19, v0.2, MODEL DIŞI: veri)
+Neden: eylül deneyleri (deney1–4) baskı değildi; `print_state`, gölge duraklatma (150 s) ve k_fil çapası/öğrenmesi ile
+arıza etkileşimi hiç denenmedi. Bugünkü kodla yeniden oynatma: çorapsız GUC_ARTTI 332 s (güçlü), folyolu kanal yalnız
+KAYIP_AZALDI_FAN (+0.2 W), mandal açık GUC_AZALDI 29–35 s (1.65 mm/s: eşik sınırında, duraklatmaya varmaz).
+Tasarım (`yazici/ARIZA_DENEYLERI.md`, G-code'lar `yazici/ariza_deneyleri.py` ile): taşıyıcı ~7 mm³/s kare tüp
+(tam akış kesilmesi eşiği ancak ~3.8 mm³/s üstünde geçer); arıza pencereleri PAUSE/RESUME ile çerçeveli: etiket
+sınırları `print_state` geçişinden, arıza kaldırıldıktan sonraki pencere kontrol. Sıra (kullanıcı kararı):
+deney10 mandal açık (B, tahmin +4.6 W, gölge duraklatma), deney11 fan emişi kapalı %25 (~+2.7 W, sınırda) ve %60
+(~+5 W), deney13 çıkıntı lalesi 0 → 70° (sarı adayı, +1…1.5 W), deney12 cereyan (C, GUC_ARTTI, büyüklük bilinmiyor).
+Elenenler: filaman kesme (deney10 ile aynı ısıl imza), kısmi tıkanma (`M221` ikiz için arıza değil, ikiz akışı step
+konumundan okur; gerçek tıkanma all-metal + PETG'de riskli), çorap çıkarma (Pi'deki k'yı kirletir; eylülde zaten
+yakalanıyor), kanal çevirme (deney11 aynı fizik, daha güvenli). Etiket ve set satırları deneylerden sonra, set ataması
+mekanik dönüşümle.

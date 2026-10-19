@@ -1,12 +1,17 @@
 [Unit]
 Description=Ender 3 hotend digital twin
-After=network-online.target moonraker.service
+After=network-online.target time-sync.target moonraker.service
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=@USER@
 WorkingDirectory=@APP_DIR@
+# The Pi has no battery clock: at boot it resumes from the last saved time and NTP jumps it forward later, so the
+# log name, the first rows and the state age would carry the old time. Wait for NTP, at most 2 min; without
+# internet ("-": a timeout is not a failure) the twin starts anyway with the unsynced clock.
+ExecStartPre=-/usr/bin/timeout 120 /bin/sh -c 'until [ "$(timedatectl show -p NTPSynchronized --value)" = yes ]; do sleep 2; done'
+TimeoutStartSec=180
 ExecStart=@APP_DIR@/venv/bin/python -u @APP_DIR@/realtime_websocket.py
 Restart=on-failure
 RestartSec=10

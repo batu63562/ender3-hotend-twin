@@ -62,14 +62,17 @@ Release tasks:
   sock removed, fan duct misaligned.
 
 **Shadow → active pause.** Follow 10–20 prints in shadow mode, report the false-pause rate and detection
-delay, then switch `PAUSE_MODE` to `"aktif"`.
+delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 7 prints, 0 shadow pauses.)
 
 **Continuous (24/7) operation:**
-- Split logs per print / per day instead of only at start-up.
-- Run the maintenance check and the `twin_state` backup daily, not only at start-up.
-- Write the code version into the log (`MODEL_VERSION` is not updated automatically).
-- Run the twin on the Raspberry Pi as a service (a sleeping PC stops it mid-print); Unity stays on the PC
-  and reads the CSV over the network.
+- [x] Split logs per print instead of only at start-up.
+- [x] Run the maintenance check and the `twin_state` backup daily, not only at start-up.
+- [x] Write the code version into the log (`MODEL_VERSION` is not updated automatically).
+- [x] Run the twin on the Raspberry Pi as a service (a sleeping PC stops it mid-print). Running since
+      2026-10-19; the service waits for clock sync at boot (the Pi has no battery clock). First day: 7 prints,
+      no restart, no alarm.
+- [x] Unity on the PC reads the CSV from the Pi over the network (read-only share).
+- [ ] A few days of unattended running, including a power cycle of the printer.
 
 **Done when:** false-alarm rate per print hour and detection delay are reported on a held-out set, and the
 pause is active.

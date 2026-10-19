@@ -37,6 +37,15 @@ if [ ! -f "$APP_DIR/config.toml" ]; then
     echo "== wrote config.toml (Moonraker at 127.0.0.1:7125, phone page on port $WEB_PORT)"
 fi
 
+# Raspberry Pi OS keeps the journal in RAM (40-rpi-volatile-storage.conf, ~33 MB, lost on reboot): keep it on disk
+# so the reason for a night-time crash or reboot is still readable in the morning.
+if [ ! -f /etc/systemd/journald.conf.d/90-ender3-twin.conf ]; then
+    sudo mkdir -p /etc/systemd/journald.conf.d
+    printf '[Journal]\nStorage=persistent\nSystemMaxUse=200M\n' \
+        | sudo tee /etc/systemd/journald.conf.d/90-ender3-twin.conf >/dev/null
+    sudo systemctl restart systemd-journald
+fi
+
 sed -e "s|@USER@|$USER_NAME|g" -e "s|@APP_DIR@|$APP_DIR|g" "$APP_DIR/pi/ender3-twin.service" \
     | sudo tee /etc/systemd/system/ender3-twin.service >/dev/null
 sudo systemctl daemon-reload

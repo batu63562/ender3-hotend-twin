@@ -30,10 +30,12 @@ benchmark/skorlar/
 benchmark/ariza_ornekleri/*
 !benchmark/ariza_ornekleri/etiketler.csv
 
-# Printer files: keep the config and the experiment G-codes only
+# Printer files: keep the config, the experiment G-codes and their generator + plan
 yazici/*
 !yazici/printer.cfg
 !yazici/deney*.gcode
+!yazici/ariza_deneyleri.py
+!yazici/ARIZA_DENEYLERI.md
 son.gcode
 
 # Release assets staged for upload (sample data zips)

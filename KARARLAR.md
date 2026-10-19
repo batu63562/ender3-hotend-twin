@@ -331,6 +331,11 @@ durdurduğu için duraklatmaya varmayan gerçek arızalar: 1510 goofy bust filam
 14:35; eksik güç +3.8 W, baskı 1.9 dk sonra iptal; Mainsail'de 08.10 benchy PETG 0.3 mm iptal, kullanıcı: temizlikten
 sonraki ilk benchy'ler hatalıydı, elle durdurdu → gerçek). En uzun bilinen zararsız olay 83 s (1610_2005 TPU küp) →
 eşik payı 67 s. Aktif moda geçiş kararı gün 4'te (yeni baskılar + arıza deneyleri ile).
+Betik (19.10 akşam): `py benchmark/report_v02.py` aynı raporu tek komutla üretir (yanlış alarm / baskı saati ayar–sınav
+ayrı, etiketli arızaların alarm ve duraklatma gecikmesi, gölge duraklatmalar; kopyalar zaman aralığından eşleşir).
+19.10 dahil: 129 log, 57.4 baskı saati, GUC_AZALDI 46 (medyan 37 s), duraklatma 2 (stand2 + 2909 havada baskı),
+etiketli 12 arızadan 10'u yakalandı (medyan gecikme 28 s), yanlış alarm 0.14 / baskı saati (etiketsizler dahil).
+2909 havada baskı ve 08.10 olayları etiketsiz: betik "false?" listeler, elle etiketlenene kadar yanlış sayılır.
 
 
 ## K29 — 7/24 çalışma: baskı başına log, günlük işler, kod sürümü (2026-10-19, v0.2 gün 1, MODEL DIŞI)

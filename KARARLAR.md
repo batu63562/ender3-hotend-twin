@@ -532,3 +532,19 @@ temas boşluğu/direnci sıcaklıkla artar → tam güçte kartuş bloğun üst�
 açıkken birikir). Açık sorunlar: C3 0.83 J/K ile ~300 K kartuş farkı gerekir (gerçek kartuş ~1.5–2 J/K olmalı), ΔP'nin
 bir kısmı hızla ölçekleniyor (heat break?). Olası yan kazanç: ilk katmanların ~2. dakikasındaki +1.2–1.4 W sarı aday
 (19.10) bu deponun varıştan sonra oturması olabilir — sarı seviyeye geçince bu gözle yeniden açılacak.
+
+## K37 — Etiketsiz alarmların incelenmesi; ısınma sonrası ilk katman geçicisi (2026-10-20, v0.2, ANALİZ, KARAR KULLANICIDA)
+K28 raporundaki etiketsiz GUC olayları bağlamıyla incelendi (replay, canlı başlangıç; eksik güç, akış, z, hedef).
+Öneriler `benchmark/ariza_ornekleri/etiket_onerileri.csv`'de (etiketler.csv'ye YAZILMADI; güven + gerekçe sütunlu,
+göreli yolla orijinal loglara bağlı): 0810_sonunda_basarili, 0810_2135, 0810_1804 (16 s), 1510 goofy bust → "-"
+(ısınma sonrası ilk katman geçicisi); 0810_1804 (486 s) → "-" (baskı sonu hareketi); 2909 havada baskı → B (K28: gerçek,
+286 s); 0810_duz_baski_x_takildi ve 1310 bakım testi (GUC_ARTTI, bakım kaybı gerçekten artırdı, k 0.876 bayattı; C mi
+"-" mi) → düşük güven, kullanıcı kararı.
+**Bulgu:** sınavdaki "yanlış" alarmların çoğu AYNI imza: 245'e varıştan 25–90 s sonra, ilk katman başında (z 0.3),
+eksik güç +1.4…+4.3 W, 4 dk'da sıfıra iner; 16–34 s sürer, duraklatmaya varmaz. K36'nın ısınma deposu hipoteziyle
+uyumlu (ısınmada biriken ek enerji varıştan sonra bloğa döner → ısıtıcı daha az güç ister → GUC_AZALDI).
+Önerilerle rapor (bilgi): yanlış duraklatma ayar 0 / sınav 0, sınav yanlış alarm 0.155 → 0.093 / baskı saati.
+`ENERGY_SETTLE` taraması (bilgi, kod değişmedi; etiketler + öneriler): 30 s (bugün) yanlış 38, yakalanan 15/17;
+90 s yanlış 26 (sınav 8 → 4), yakalanan 14/17 (kaçan yalnız düşük güvenli 1310 bakım etiketi; çorapsız 78 → 134 s);
+150 s yanlış 23, 13/17 (deney1 mandalı da kaçar). 90 s alarm kuralı adayı — kabul kapısından geçmeli; ama tolerans
+genişletmek kök nedeni gizler: fiziksel çözüm K36'nın ısınma deposu (v0.3 R31(T)). Karar kullanıcıda.

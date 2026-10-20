@@ -36,6 +36,10 @@ yazici/*
 !yazici/deney*.gcode
 !yazici/ariza_deneyleri.py
 !yazici/ARIZA_DENEYLERI.md
+!yazici/BASKI_KUYRUGU.md
+!yazici/calibration_print.py
+!yazici/calibration_*.gcode
+!yazici/virtual_print.py
 son.gcode
 
 # Release assets staged for upload (sample data zips)

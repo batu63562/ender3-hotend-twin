@@ -671,3 +671,26 @@ kalibrasyon başka yazıcıya taşınabilir). Sıra: (1) `yazici/deney15_fan_egr
 245 + 215 °C, ~45 dk; Eylül deney5/6'nın bakım sonrası tekrarı) — v0.2 beklenirken alınabilir, sonra Pi durumu geri
 yüklenir; (2) v0.2 kapanınca S3d ayrı dalda ikizin içine tutarlı yerleştirilir (öğrenici, eksik güç, initial_state,
 k_fil çapası) ve kabul kapısından geçirilir.
+
+## K41 — v0.3 hazırlığı: kalibrasyon baskısı üreteci, sanal yazıcı, karne aracı, baskı kuyruğu (2026-10-20 gece)
+Kullanıcı isteği: v0.3 için onay gerektirmeyenleri yap; baskı gerektirenleri tek listede topla. Canlı koda dokunulmadı.
+- **`yazici/calibration_print.py` → `yazici/calibration_245.gcode`** (~52–58 dk, ekstrüzyon yok, tabla kapalı, Z50):
+  soğuk başlangıç, odadan tam güç rampa + tutma, serbest soğuma → MID, **yavaş rampa = hedefi 1 °C'lik adımlarla
+  artırmak** (PID doymaz: sanal baskıda güç medyan 0.47, en çok 0.63, 0.83 °C/s; deney14b'nin `max_power` değişikliği
+  gerekmez), fan merdiveni (15/25/40/60/100 ve 0), ±10 °C küçük adımlar, inen tutmalar (215/185/150; 215'te fan
+  40/100), 150 → 185 → 215 → 245 tam güç adımları (kartuş bloktan çok sıcakken farklı sıcaklıklar), 60 °C'ye serbest soğuma.
+- **`yazici/virtual_print.py`**: ısıtıcı G-code'unu sanal yazıcıda koşar (closed_loop.KlipperPID, katsayılar
+  `printer.cfg` SAVE_CONFIG'den: 38.530 / 12.232 / 30.342) ve ikiz logu yazar → baskıdan önce süre ve
+  `calibrate.py --synthetic` ile tanılanabilirlik. (Not: `closed_loop.py`'nin kendi sabitleri 40.262 / 12.201 / 33.216
+  eski; G-code planı PID'i printer.cfg'den okuduğu için canlı plan etkilenmez; yalnız closed_loop'un çevrimdışı
+  doğrulama aracı. Bakımda tutulan modül, değişiklik ayrı karar.)
+- **Tasarımın tanılanabilirliği** (sanal baskı, belirsizlik ~1 °C model hatası ve ~52 bağımsız değer varsayımıyla):
+  bugünkü yapı 6 parametre: kapasite ±%0.8, fan ±%2.7, CRAD ±%5, R_HB ±%14, C(T) ±%14, R31 ±%20, ilişkili çift yok
+  (yalnız deney9: fan bilgisiz). Yukarı adımlar eklenmeden önce R31 ±%28, R31~R_HB 0.91. S3d: EPS3 ×2.25, CRAD ±%39,
+  CRAD~EPS3 −0.96, CRAD~HA2_FAN 0.98 → kartuş ve blok kaybı tek baskıda zayıf ayrılıyor (T3 ölçülmüyor); gerçek veride
+  deney9 + 14a + 14b birlikte EPS3 ×1.14 verdi → S3d sınanacaksa kalibrasyon baskısı deney loglarıyla birlikte.
+- **`benchmark/baseline_snapshot.py`**: `--save NAME` Eylül (taze), ayar ve sınav (canlı başlangıç) her logun faz
+  skorlarını, alarm sayılarını, son k / k_fil'i ve kod sürümünü `benchmark/baseline_NAME.json`'a yazar; `--check NAME`
+  farkları listeler. v0.3 refactor'unun "v0.2 skorlarını birebir üret" şartı bununla. Sınav yalnız özdeşlik denetimi.
+- **`yazici/BASKI_KUYRUGU.md`**: bekleyen tüm baskı/deneyler (Pause/Resume, gölge mod baskıları + ikize yararlı baskı
+  önerileri, deney15, kalibrasyon baskısı, K38 deploy, iki etiket) ve deney öncesi/sonrası durum yedekleme.

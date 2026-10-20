@@ -640,3 +640,28 @@ Hiçbiri bugünkü baskılarda açık kazanç vermiyor. (1) Kapasite: soğumaya 
 kalibrasyon G-code'u fanı baskıda kullanılan seviyelerde adımlamalı. (3) Eylül seti eski donanım durumu (13.10 bakım,
 kanal yeniden takıldı): yapı sınaması için doğru, bugünkü parametrelerin sınaması için değil → kalibrasyon aynı
 donanım dönemindeki loglarla sınanmalı (`--score-since`).
+
+## K40 — Isınma asimetrisi için yapı adayları (2026-10-20 gece, v0.3 yolu A, ANALİZ, MODEL DEĞİŞMEDİ)
+Soru (K36, K39): ısınmada kaybolan 80–180 J nereye gidiyor? Adaylar `calibrate.py` ile kalibrasyon loglarında (deney9,
+14a, 14b; log başına k) fit edildi; geçici yamalarla (model_step + öğrenici/eksik güç kartuş kaybını ayırır + başlangıç
+k'sı K_MAP ile ölçeklenir) Eylül ve 14.10+ ayar setinde (22 log, canlı başlangıç) puanlandı.
+| aday | kalibrasyon rms | sonuç |
+| bugünkü yapı, log başına k | 3.59 | referans |
+| bugünkü yapı, 6 param yeniden fit (K39) | 2.27 | baskılara genellenmedi |
+| S1: heat break + heatsink düğümü (C4, G24, G4A) | 2.27 | C4 alt sınıra → veri istemedi, ELENDİ |
+| kartuştan doğrusal kayıp (G3A), CRAD sabit | 2.28 | G3A alt sınıra, ELENDİ |
+| kartuştan radyasyon (EPS3), CRAD sabit | 2.22 | EPS3 alt sınıra, ELENDİ |
+| **S3d: radyasyon bloktan kartuşa (CRAD serbest + EPS3)** | **1.36–1.43** | ayrılamayan çift yok |
+S3d değerleri: CRAD /4 (sınırda), EPS3 4.1e-11, R31 ×2.5 (7.5 K/W: tam güçte kartuş bloktan ~300 K sıcak — sınırda
+fiziksel), C_ALL 0.82, CAP_T_COEF ×0.84, R_HB ×1.67, HA2_FAN 0.87; log k'ları bugünkünün ~1.16 katı (K_MAP).
+Fizik: ısınırken çok ısınan kartuş fazla ısıyı radyasyonla (T⁴) kaybeder, soğumada kartuş = blok → kayıp yok.
+Adil puanlama (K_MAP 1.16; 1.05 ile tutmalarda −4 °C bias çıktı — eşleme önemli):
+- 14.10+ ayar 22 log: TÜMÜ 2.88 → 3.68; ısınma 3.76 → 3.71, varış 5.26 → 3.85, soğuma 4.55 → 3.79, diğer tutmalar
+  3.40 → 3.15, tutma245 4.66 → 4.57, FANLI TUTMA 2.12 → 3.83 (baskıların çoğu), geçiş 4.95 → 5.22.
+- Eylül (eski donanım): TÜMÜ 3.53 → 5.34 (ısınma 2.32 → 3.97, varış 1.79 → 3.76, soğuma 6.44 → 7.73).
+Hüküm: S3d mevcut yapının yapamadığını yapıyor (aynı dönemde ısınma bozulmadan varış + soğuma iyileşiyor), ama fanlı
+baskı ve Eylül kötüleşiyor → bu hâliyle KABUL EDİLMEZ. Fanlı baskıdaki kayıp büyük ölçüde puanlama yamalarının
+eksikleri olabilir (fan eğrisi yalnız %100'de ölçüldü, k_fil çapası 1.33 eski yapıya göre, K_MAP kaba eşleme); bunlar
+geçici yamayla değil, yapıyı ikizin içine tutarlı yerleştirip (öğrenici, eksik güç, initial_state, çapa) ölçülebilir —
+gerçek model değişikliği, kabul kapısı. Araç: `benchmark/structure_cartridge_loss.py` (K_MAP ortam değişkeni).
+v0.3'e not: kalibrasyon baskısına baskı fan seviyelerinde (25/40/60/100 %) fan adımları + iki güç sınırlı rampa şart.

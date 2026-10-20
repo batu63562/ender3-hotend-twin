@@ -548,3 +548,11 @@ uyumlu (ısınmada biriken ek enerji varıştan sonra bloğa döner → ısıtı
 90 s yanlış 26 (sınav 8 → 4), yakalanan 14/17 (kaçan yalnız düşük güvenli 1310 bakım etiketi; çorapsız 78 → 134 s);
 150 s yanlış 23, 13/17 (deney1 mandalı da kaçar). 90 s alarm kuralı adayı — kabul kapısından geçmeli; ama tolerans
 genişletmek kök nedeni gizler: fiziksel çözüm K36'nın ısınma deposu (v0.3 R31(T)). Karar kullanıcıda.
+**Ek (20.10 akşam): enerji korunumu sınaması (`soguma/store.py`) — depo DEĞİL, rampada kayıp.** Rampada (>120 °C)
+eksik enerji ∫(P − L − C_soğuma·dT/dt)dt: 40 W rampalarda 80–180 J (14a A1 179, A5 125; deney9 60–131), 14b B1 751 J
+(193 s'lik yavaş rampa). Varıştan sonraki temiz tutmada geri dönen ∫(P_ss − P)dt (kalan sıcaklık değişimi düzeltilmiş):
+−128…+−4 J, yani ≈ 0 ya da tersi (ilk 30 s ısıtıcı kararlıdan 0.6–1.5 W FAZLA). Kartuşta depo (c) olsaydı PID 40 W'tan
+tutma gücüne inerken ~100–200 J geri verirdi; görülmüyor → ek ısı rampada kaybolan ısı (heat break/heatsink'e?), basit
+R31(T) adayı zayıfladı (ROADMAP v0.3 notu düzeltildi). Modelin eksik gücü de temiz tutmalarda varıştan sonra ±1.2 W
+(14a, deney9) → K37'deki ilk katman tümseği (+1.4…+4.3 W) ısınmadan DEĞİL, ilk katmanın kendisinden (tabla yakınlığı,
+ekstrüzyon başlangıcı, prime). K37'deki "K36 deposu" bağlantısı geri alındı.

@@ -111,12 +111,14 @@ in thermal resistances they do not know. The printer measures itself, like Klipp
      R31(T) = R31₀ + β·(T − T₀), replacing today's temperature-dependent heat capacity (same parameter count).
      The aluminium block expands about twice as much as the steel cartridge, so the gap and the contact
      resistance grow with temperature. At full power the cartridge then has to run further above the block the
-     hotter it gets, storing energy that exists only while the heater is on and vanishes in cooling. This fits
-     experiment 14 in direction, not fully in size: it needs a larger cartridge capacity than today's 0.83 J/K
-     (else the cartridge would run ~300 K above the block), and part of the extra energy scales with heating
-     rate rather than power (heat break?). Judged on a second printer as well, so that it is not an Ender 3
-     artefact. A possible side benefit: the +1.2–1.4 W missing-power bump ~2 min into many first layers may be
-     this store settling after heat-up.
+     hotter it gets, storing energy that exists only while the heater is on and vanishes in cooling. Caveats
+     from experiment 14: it needs a larger cartridge capacity than today's 0.83 J/K (else the cartridge would
+     run ~300 K above the block), part of the extra heat scales with heating rate rather than power, and an
+     energy balance of the holds right after arrival finds no return of the 80–180 J missing during the ramp
+     (a store in the cartridge would give back ~100–200 J when the PID drops from 40 W to the hold power). So
+     the extra heat looks like a loss that happens only while ramping, not a store: the candidate in this
+     simple form is weak, and the heat path into the heat break / heatsink during a ramp is the other lead.
+     Judged on a second printer as well, so that it is not an Ender 3 artefact.
 3. **Online learning = fine tuning.** `k` and `k_fil` keep adapting, as today.
 
 Materials: a material table (density, heat capacity, typical temperature) from which the filament heating

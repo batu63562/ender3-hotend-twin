@@ -335,8 +335,9 @@ The twin never sends G-code to the printer. The only possible command is the pau
   prints differ by 0.4–0.9 W. The twin learns it slowly by design.
 - **Heat-up and cool-down see different heat capacities; the model is fitted to heat-up.** Measured without the
   model (experiments 9 and 14): in free cooling the hotend behaves as a constant ~6.3 J/K, the same with the part
-  fan off and at 100 %. While the heater is on, an extra energy store appears that grows with temperature (about
-  +1.5–2 J/K at 200–230 °C at full power) and scales with both heater power and heating rate. The model's
+  fan off and at 100 %. While the heater ramps at full power, extra heat is needed that grows with temperature
+  (6–8 W at 230 °C, as if the capacity were 1.5–2 J/K larger) and scales with both heater power and heating
+  rate; it does not come back after arrival, so it is lost rather than stored. The model's
   temperature-dependent capacity copies the heat-up behaviour, so it cools 5–13 % too slowly: cool-down is the
   weakest phase (September core set RMSE 6.4 °C, model too warm). A heater power that falls when hot was ruled
   out. This affects neither the alarms (missing power is evaluated only in holds ≥ 230 °C) nor the learning of

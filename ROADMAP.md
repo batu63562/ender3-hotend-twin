@@ -41,8 +41,9 @@ Release tasks:
       printer: three demo recordings with plans and toolpaths (`ender3-twin-sample-data-v0.1.zip`), and
       every log behind the scores (`ender3-twin-eval-data-v0.1.zip`, reproduces `evaluate.py` exactly).
 - [x] README score table regenerated with documented commands (`evaluate.py --live-start`).
-- [ ] A ready-to-run Windows build of the Unity viewer in the release, opening the sample dataset.
-      `Twin/Toolpath` and `Twin/Ghost` in *Always Included Shaders*.
+- [x] A ready-to-run Windows build of the Unity viewer in the release, opening the sample dataset.
+      `Twin/Toolpath` and `Twin/Ghost` in *Always Included Shaders*. (Built 2026-10-19; the scene's data folder
+      must be emptied again before any rebuild, it now points at the Pi.)
 - [x] Remaining Turkish runtime messages in the Unity start menu translated to English.
 - [x] The build looks for `sample_data` next to the exe when no data folder is set (else Desktop/dt).
 - [ ] README: short demo clip of a real fault being caught, results table, "try it without a printer".
@@ -60,11 +61,21 @@ Release tasks:
   is fitted to heat-up. No alarm impact. The structural fix moves to v0.3 (see the calibration print below).
 - Bed: the `k` learned while printing carries into cool-down (+1…+4 °C).
 - Heat-up: the ~0.5–1 s heater-to-thermistor lag (`deney9` showed the mirror signature; not yet modelled).
-- Induced faults on purpose, to grow the labelled library: filament cut, partial clog, extruder slip,
-  sock removed, fan duct misaligned.
+- Induced faults on purpose, to grow the labelled library. **Done** (experiments 10–13, 2026-10-20): extruder
+  latch open (caught, shadow pause at 173 s), part-fan duct blocked at 60 % fan (caught, 172 s) and at 25 % fan
+  (below threshold), draft on the hotend (caught), overhang tulip (no contact-loss signature). Filament cut,
+  partial clog and sock removal were dropped: same thermal signature as the latch, unsafe on an all-metal
+  hotend, or already covered by the September experiments.
 
 **Shadow → active pause.** Follow 10–20 prints in shadow mode, report the false-pause rate and detection
 delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 7 prints, 0 shadow pauses.)
+- [x] Report script (`benchmark/report_v02.py`). 2026-10-20: 136 logs, 59.9 print hours; 13 of 15 labelled
+      faults caught (median delay 26 s), 3 shadow pauses, all on real faults; no false pause.
+- [ ] Hand-label the remaining unlabelled alarms (proposals with evidence in
+      `benchmark/ariza_ornekleri/etiket_onerileri.csv`). Most of them are one kind: a short missing-power bump
+      right after heat-up at the start of the first layer.
+- [ ] One real Pause/Resume with the new park position (X0 Y220, in `printer.cfg` since 2026-10-20).
+- [ ] 10–20 normal prints on the Pi in shadow mode.
 
 **Continuous (24/7) operation:**
 - [x] Split logs per print instead of only at start-up.
@@ -74,7 +85,11 @@ delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 
       2026-10-19; the service waits for clock sync at boot (the Pi has no battery clock). First day: 7 prints,
       no restart, no alarm.
 - [x] Unity on the PC reads the CSV from the Pi over the network (read-only share).
+- [x] Survives Klipper restarts, emergency stop and a power cut of the Pi (re-subscribes, atomic state file,
+      clock-sync wait verified after a real power loss; 2026-10-20).
+- [x] Finished logs copied to the PC with `sync_pi_logs.py`.
 - [ ] A few days of unattended running, including a power cycle of the printer.
+- [ ] A retention rule for idle logs (an idle night is ~43 MB; the Pi has room for ~100 such nights).
 
 **Done when:** false-alarm rate per print hour and detection delay are reported on a held-out set, and the
 pause is active.

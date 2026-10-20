@@ -567,3 +567,16 @@ bu yüzden zayıf (eski hatayı gizler, bugünkü sistemde sorunu yok). v0.2 rap
 29 log, 15.6 baskı saati (ayar 8.8, sınav 6.8): yanlış alarm 0, yanlış duraklatma 0; etiketli 3 kasıtlı arızanın 3'ü
 yakalandı (medyan 26 s), 2'si gölge duraklatmaya vardı (171–173 s; deney12 cereyanı ~50 s sürdü, duraklatma gerekmez).
 v0.2 iddiasının asıl ölçüsü bu satır; saat sayısı küçük, normal baskılarla büyümeli.
+
+## K38 — Log hacmi ve saklama (2026-10-20, v0.2, ÖNERİ, KARAR KULLANICIDA, MODEL DIŞI)
+Ölçüm (Pi'nin 24 arşiv parçası, 28.9 saat): boşta (hedef 0, T < 40 °C, baskı yok) 3.26 MB/saat, 3.7 satır/s; baskıda
+4.43 MB/saat, 4.0 satır/s. 7/24 açık Pi günde ~80–100 MB yazar; kartta 4.7 GB boş → ~50 gün (önceki "~100 gece"
+tahmini yalnız geceyi sayıyordu). Journal 200 MB ile sınırlı (sorun değil). Seçenekler:
+- A) Boşta seyreltme: boştayken en çok 1 satır/s yaz (model her mesajı işlemeye devam eder, yalnız CSV seyrekleşir).
+  Boşta ~3.7× az (~0.9 MB/saat); Unity'nin "veri yok" eşiği 3 s, "script çalışıyor" 5 s → 1 Hz ikisini de karşılar.
+  Silme yok. Yeniden oynatmada yalnız boşta (oda sıcaklığı) adım aralığı büyür. Veri sözleşmesi notu: "her mesaj bir
+  satır" kuralı boşta gevşer (UNITY_ARAYUZ.md'ye yazılmalı).
+- B) N günden eski arşivleri gzip'le (~8–10×). Unity kayıt listesi yalnız .csv görür → eski oturumlar listeden düşer;
+  `sync_pi_logs.py` N günden önce çalıştırılırsa PC'de .csv kopyası kalır.
+- C) N günden eski, yalnız boşta parçaları sil. Önerilmez (geri dönüşsüz; bilgi değeri düşük ama sıfır değil: oda sıcaklığı).
+Öneri: A (basit, silme yok, 7/24 boşta ağırlıklı kullanımda ~4 aya çıkarır); gerekirse sonra B. Deploy `sudo` ister.

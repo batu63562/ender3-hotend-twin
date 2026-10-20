@@ -10,14 +10,17 @@ print_state was logged count as printing). Logs, sets (benchmark/setler.csv) and
 timestamp of the log, so a copy under another name is the same session. Analysis only: touches neither the model
 nor the alarms. KARARLAR [K28] is the first, hand-made version of this report.
 
-Usage (in dt/):   py benchmark/report_v02.py [--extra FOLDER] [--list]
+Usage (in dt/):   py benchmark/report_v02.py [--extra FOLDER] [--list] [--since YYYY-MM-DD]
   --extra   another folder of logs (e.g. new logs copied from the Pi)
   --list    print every alarm, not only the false and unlabelled ones
+  --since   only sessions that start on or after this date (e.g. 2026-10-18: the current system, after the k_fil
+            anchor; older logs replay with the k their twin had then, which was often far off [K37])
 """
 import argparse
 import glob
 import os
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -104,11 +107,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--extra", help="another folder of logs")
     ap.add_argument("--list", action="store_true", help="print every alarm")
+    ap.add_argument("--since", help="only sessions starting on or after this date (YYYY-MM-DD, local time)")
     a = ap.parse_args()
 
     m = ev.load_model()
     confirm = m.ENERGY_CONFIRM
     sessions = collect(a.extra)
+    if a.since:
+        t_since = time.mktime(time.strptime(a.since, "%Y-%m-%d"))
+        sessions = [s for s in sessions if span(s["path"])[0] >= t_since]
+        print(f"sessions since {a.since}: {len(sessions)}", file=sys.stderr)
     logs, alarms, faults = [], [], []
     for s in sessions:
         r = replay_log(s["path"], m)

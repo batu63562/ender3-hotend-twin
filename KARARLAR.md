@@ -563,3 +563,7 @@ canlıda öğrenilmiyordu; gerçek fansız k ~0.92, bkz. ilk katman = k ölçer)
 0. → Sınav yanlış alarm oranı büyük ölçüde k öğrenmesi olgunlaşmadan önceki logların ürünü; `ENERGY_SETTLE` 90 s önerisi
 bu yüzden zayıf (eski hatayı gizler, bugünkü sistemde sorunu yok). v0.2 raporu için öneri: "bugünkü sistem" dönemi
 (k_fil çapası, K27, 18.10 sonrası) ayrı satır olarak raporlansın.
+**Bugünkü sistem karnesi (20.10, `report_v02.py --extra loglar/pi --since 2026-10-18`, yeni `--since` seçeneği):**
+29 log, 15.6 baskı saati (ayar 8.8, sınav 6.8): yanlış alarm 0, yanlış duraklatma 0; etiketli 3 kasıtlı arızanın 3'ü
+yakalandı (medyan 26 s), 2'si gölge duraklatmaya vardı (171–173 s; deney12 cereyanı ~50 s sürdü, duraklatma gerekmez).
+v0.2 iddiasının asıl ölçüsü bu satır; saat sayısı küçük, normal baskılarla büyümeli.

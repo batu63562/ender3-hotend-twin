@@ -70,7 +70,9 @@ Release tasks:
 **Shadow → active pause.** Follow 10–20 prints in shadow mode, report the false-pause rate and detection
 delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 7 prints, 0 shadow pauses.)
 - [x] Report script (`benchmark/report_v02.py`). 2026-10-20: 136 logs, 59.9 print hours; 13 of 15 labelled
-      faults caught (median delay 26 s), 3 shadow pauses, all on real faults; no false pause.
+      faults caught (median delay 26 s), 3 shadow pauses, all on real faults; no false pause. The current system
+      alone (`--since 2026-10-18`, after the `k_fil` anchor): 15.6 print hours, 0 false alarms, 3 of 3 induced
+      faults caught; older logs replay with the starting `k` their twin had then, which was often far off.
 - [ ] Hand-label the remaining unlabelled alarms (proposals with evidence in
       `benchmark/ariza_ornekleri/etiket_onerileri.csv`). Most of them are one kind: a short missing-power bump
       right after heat-up at the start of the first layer.

@@ -580,6 +580,23 @@ tahmini yalnız geceyi sayıyordu). Journal 200 MB ile sınırlı (sorun değil)
   `sync_pi_logs.py` N günden önce çalıştırılırsa PC'de .csv kopyası kalır.
 - C) N günden eski, yalnız boşta parçaları sil. Önerilmez (geri dönüşsüz; bilgi değeri düşük ama sıfır değil: oda sıcaklığı).
 Öneri: A (basit, silme yok, 7/24 boşta ağırlıklı kullanımda ~4 aya çıkarır); gerekirse sonra B. Deploy `sudo` ister.
+**Uygulama (20.10 akşam, kullanıcı onayı; DEPLOY EDİLMEDİ):** `IDLE_LOG_INTERVAL` 1 s, `idle_row`: iki ısıtıcının da
+hedefi ve gücü 0, ikisi < `IDLE_T_MAX` 40 °C, baskı/duraklatma yok, kafa hareketsiz; alarm ya da baskı durumu değişince
+satır her hâlükârda yazılır; aralık ikizin zamanıyla (Klipper eventtime) ölçülür, saat geri giderse yazılır.
+Çevrimdışı (24 Pi logu): 108 → 68 MB, boşta gece 43.6 → 11.5 MB; sıcak önce gelen loglarda yeniden oynatma birebir.
+Sahte Moonraker (gece boşta 20 dk + deney10): aktif satır 7312 = 7312, ilk aktif satır aynı an, boşta aralık 1.00 s
+(en çok 1.51), alarm aynı saniyede. Yeniden oynatmada k farkı ~2e-5, model bir yerde en çok 0.30 °C: öğrenici
+pencereleri (20/60 s) bir öncekinin bittiği mesajda başladığı için seyreltme pencere ızgarasını < 1 s kaydırıyor.
+CANLI ikizi etkilemez (her mesaj işlenir), yalnız logun yeniden oynatılmasını. Doğrulama (20.10 akşam): model
+sıcaklıkları baskıya geçişte ve sonrasında birebir aynı; ilk ayrışma baskının 486. s'sinde bir öğrenme penceresinin
+kapanışında (önce k / k_fil, sonra model): pencere 20 s'yi geçen ilk mesajda kapandığı için boşta 1 s aralıklı mesajlar
+ızgarayı ≤ 1 s kaydırıyor. Replay'i 1–3 satır geç başlatmak fark YARATMIYOR (0.25 s'lik kayma ilk pencerelerde aynı
+mesajlara oturup sönüyor), 1 s'lik kayma sönmüyor. Büyüklük: k_fil geçici en çok 0.02 (sonda 2e-5), k 0.0012, model en
+çok 0.30 °C (%99 0.25), alarm aynı saniyede. Tam eşitlik istenirse öğrenici pencereleri mutlak zaman ızgarasına
+bağlanabilir (model kodu → kabul kapısı); şimdilik gerek görülmedi.
+**? (hocalara sorulacak):** "Olay yokken seyrek, olay olunca tam hız" kaydın gözlemleri bozmadığı argümanı (CFD'de çıktı
+yazma sıklığı benzetmesi; boşta tek gözlem oda sıcaklığı, saatlik ölçekte; her etkinlik seyreltmeyi anında bitirir;
+yeniden oynatmada öğrenme penceresi fazının kayması kabul edilebilir mi?).
 **Düzeltme (20.10 gece, `scan_subthreshold.py --extra loglar/pi`):** "ilk katman tümseği ısınmadan değil" sonucu yalnız
 HIZLI rampalara (%100 güç; 14a, deney9) dayanıyordu. 14b'nin yavaş rampasından (%60, 193 s) sonra, z 50'de baskısız
 tutmada da +1.46 W / 71 s eşik altı sapma var → ısınma sonrası geçici en azından yavaş rampada var; ilk katmanla ayrımı

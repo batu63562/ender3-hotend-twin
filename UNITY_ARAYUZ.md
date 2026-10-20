@@ -15,6 +15,10 @@ Unity görselleştirmesi (`Ender3_Twin/`) Python ikizine **ağ üzerinden değil
 - **2026-10-20'den itibaren (K35) ikiz kapanırken de** son parça arşivlenir: ikiz çalışmıyorken `realtime_log_ws.csv`
   yoktur (Unity bunu "dosya bulunamadı" olarak görür), son oturum hemen kayıt listesinde çıkar. Yalnız başlıktan
   oluşan dosya (veri gelmeden çöken açılış) arşivlenmez, bir sonraki açılış üstüne yazar.
+- **K38 (2026-10-20, deploy sonrası geçerli): boşta seyreltme.** İki ısıtıcı da kapalı ve soğuk, baskı yok, kafa
+  hareketsizken saniyede en çok 1 satır yazılır ("her mesaj bir satır" kuralı yalnız boşta gevşer). Herhangi bir
+  etkinlik (hedef, güç, sıcaklık ≥ 40 °C, baskı, hareket, alarm değişimi) anında tam hıza döndürür. Unity'nin 3 s
+  "no data" ve 5 s "script çalışıyor" eşikleri 1 Hz ile karşılanır.
 - Dosyanın son yazılma zamanı 5 s'den yeniyse menü "script çalışıyor" der. Bu yüzden `FLUSH_INTERVAL` 5 s'nin altında kalmalı (şu an 1 s).
 - Canlı veri 3 s'den uzun gelmezse Unity üst çubukta "no data" uyarısı gösterir.
 - Unity canlı görüntüyü verinin `liveDelay` = 1.5 s gerisinden oynatır (Playhead), böylece paketler arasında ara değer alabilir.

@@ -967,6 +967,24 @@ LOG_FIELDS = [
     "print_state", "z_offset", "z_endstop", "malzeme", "duraklat", "code_version"
 ]
 ROTATE_MIN_ROWS = 240       # a log part shorter than this (~1 min at 4 Hz) is not split off at a print start
+IDLE_LOG_INTERVAL = 1.0     # s - while idle, at most one CSV row per interval; the twin still processes every message.
+                            # 0: a row for every message. Idle nights were ~43 MB, 24/7 filled the card in ~50 days [K38]
+IDLE_T_MAX = 40.0           # C - idle only while nozzle and bed are both below this
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def idle_row(row):
+    """Nothing happening: both heaters off (no target, no power) and cold, no print, head still [K38]."""
+    return (_num(row["target"]) <= 0 and _num(row["bed_target"]) <= 0
+            and _num(row["pwm"]) <= 0 and _num(row["bed_pwm"]) <= 0
+            and _num(row["T1_real"]) < IDLE_T_MAX and _num(row["bed_T"]) < IDLE_T_MAX
+            and row["print_state"] not in ("printing", "paused") and _num(row["head_v"]) == 0)
 
 
 def archive_log():
@@ -1002,12 +1020,21 @@ class LogFile:
         self.writer = csv.DictWriter(self.fh, fieldnames=LOG_FIELDS)
         self.writer.writeheader()
         self.rows = 0
+        self.last_t, self.last_key = None, None
 
-    def write(self, row):
+    def skip_idle(self, row, t):
+        """True if this row may be left out (idle thinning, K38): idle, less than IDLE_LOG_INTERVAL after the last
+        written row (t: the twin's time) and the alarms / print state unchanged. Any activity is written at once."""
+        return (IDLE_LOG_INTERVAL > 0 and self.rows > 0 and idle_row(row)
+                and (row["ariza"], row["print_state"]) == self.last_key
+                and self.last_t is not None and 0 <= t - self.last_t < IDLE_LOG_INTERVAL)
+
+    def write(self, row, t=None):
         if self.rows == 0:
             row = dict(row, code_version=CODE_VERSION)
         self.writer.writerow(row)
         self.rows += 1
+        self.last_t, self.last_key = t, (row["ariza"], row["print_state"])
 
     def flush(self):
         self.fh.flush()
@@ -1642,7 +1669,8 @@ async def main():
                                 "malzeme": twin.material or "",
                                 "duraklat": PAUSE_MODE if r["duraklat"] and pstat.get("state") == "printing" else "",
                             }
-                            log.write(row)
+                            if not log.skip_idle(row, now):
+                                log.write(row, now)
 
                             # phone page (read-only copy)
                             live.update(T=twin.T1_real, M=twin.T1_model, pwm=twin.pwm, fan=twin.fan,

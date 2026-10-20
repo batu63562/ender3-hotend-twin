@@ -59,6 +59,11 @@ def read_log(path):
 
 def prepare_log(df):
     """Prepares the table coming from a CSV or from the live script's in-memory rows."""
+    # a power cut can leave a NUL-filled block at the end of the file: a row without any time is dropped
+    has_time = pd.to_numeric(df.time, errors="coerce").notna()
+    if "eventtime" in df:
+        has_time |= pd.to_numeric(df.eventtime, errors="coerce").notna()
+    df = df[has_time]
     if "eventtime" in df:
         df["eventtime"] = pd.to_numeric(df.eventtime, errors="coerce")
     klipper = "eventtime" in df and df.eventtime.notna().all()

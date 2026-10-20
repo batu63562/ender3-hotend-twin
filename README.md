@@ -333,6 +333,9 @@ The twin never sends G-code to the printer. The only possible command is the pau
   Cool-down is the weakest phase (model cools too slowly).
 - **Validated range:** PETG and TPU, 235–245 °C. Above 245 °C, PLA at 100 % fan and enclosed materials are
   untested.
+- **Detectability scales with the heat path.** A full filament stop is seen only above ~1.6 mm/s of filament
+  (~3.8 mm³/s); slow, thin features stay below the 2.5 W threshold. A blocked part-fan duct is caught at 60 %
+  fan (+4 W, induced test 2026-10-20) but stays within ±1 W at 25 % fan, where the blower barely cools.
 - **Single maintenance event** behind the maintenance advice thresholds.
 - **Portability:** the structure is generic for FFF hotends; the parameters are specific to this hotend and
   must be re-fitted (a ~1 h calibration print: holds at several temperatures, fan steps, free cooling).

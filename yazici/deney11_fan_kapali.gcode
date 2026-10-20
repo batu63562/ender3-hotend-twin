@@ -411,7 +411,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: cover the part-fan intake (25 %), then Resume =====
 M117 A1 COVER fan>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 A1 fault: fan 25% covered
 ;LAYER_CHANGE
 ;Z:8.10
@@ -653,7 +653,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: remove the cover, then Resume =====
 M117 A1 UNCOVER>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 A1 control
 ;LAYER_CHANGE
 ;Z:13.20
@@ -1079,7 +1079,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: cover the part-fan intake (60 %), then Resume =====
 M117 A2 COVER fan>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 A2 fault: fan 60% covered
 ;LAYER_CHANGE
 ;Z:22.20
@@ -1321,7 +1321,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: remove the cover, then Resume =====
 M117 A2 UNCOVER>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 A2 control
 ;LAYER_CHANGE
 ;Z:27.30

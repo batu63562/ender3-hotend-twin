@@ -407,7 +407,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: switch the desk fan on, then Resume =====
 M117 C FAN ON>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 C fault: draft
 ;LAYER_CHANGE
 ;Z:8.10
@@ -649,7 +649,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: switch the desk fan off, then Resume =====
 M117 C FAN OFF>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 C control
 ;LAYER_CHANGE
 ;Z:13.20

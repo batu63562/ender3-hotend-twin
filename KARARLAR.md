@@ -379,7 +379,7 @@ Pi'de ilk gün (servis 11:46–20:21, yeniden başlama 0): 7 baskı (PETG), her 
 telefon adresi Pi'de `<bilgisayar-IP>` yazıyordu (yazıcı adresi `127.0.0.1:7125`: port + loopback); düzeltildi, 21:39'da
 deploy edildi.
 
-## K32 — Kasıtlı arıza deneyleri PLANLANDI (2026-10-19, v0.2, MODEL DIŞI: veri)
+## K32 — Kasıtlı arıza deneyleri: plan (2026-10-19) ve sonuçlar (2026-10-20) (v0.2, MODEL DIŞI: veri)
 Neden: eylül deneyleri (deney1–4) baskı değildi; `print_state`, gölge duraklatma (150 s) ve k_fil çapası/öğrenmesi ile
 arıza etkileşimi hiç denenmedi. Bugünkü kodla yeniden oynatma: çorapsız GUC_ARTTI 332 s (güçlü), folyolu kanal yalnız
 KAYIP_AZALDI_FAN (+0.2 W), mandal açık GUC_AZALDI 29–35 s (1.65 mm/s: eşik sınırında, duraklatmaya varmaz).
@@ -392,6 +392,27 @@ Elenenler: filaman kesme (deney10 ile aynı ısıl imza), kısmi tıkanma (`M221
 konumundan okur; gerçek tıkanma all-metal + PETG'de riskli), çorap çıkarma (Pi'deki k'yı kirletir; eylülde zaten
 yakalanıyor), kanal çevirme (deney11 aynı fizik, daha güvenli). Etiket ve set satırları deneylerden sonra, set ataması
 mekanik dönüşümle.
+**Sonuçlar (20.10, Pi'deki canlı ikiz, gölge mod):**
+- deney10 mandal açık (fan %25): +4.0…4.7 W, GUC_AZALDI Resume'dan 28 s sonra, **gölge duraklatma 173 s**, sınıflandırıcı B.
+- deney11 fan %25'te kanal ağızları (emiş kanala bakıyor, ulaşılamadı; tek/iki ağız, sıra karışık): hep ±0.5…+1 W,
+  alarm yok → **%25 fanda kanal/fan arızası eşik altı** (model fan soğutması %25'te ~1.5 W; eşik %19). Etiketsiz.
+- deney11b fan %60, iki ağız folyolu: +3.9…4.2 W, GUC_AZALDI 26 s, **gölge duraklatma 172 s**; sınıflandırıcı A|B|C
+  (fan sabitken A/B/C aynı şekil, kod bunu söylüyor).
+- deney12 cereyan (vantilatör bozuk → saç kurutma soğuk, en güçlü ayar, 50 cm, ~50 s): −4…−5.7 W, GUC_ARTTI ~20 s,
+  sınıflandırıcı C. Baskı içindeki ilk GUC_ARTTI.
+- deney13 çıkıntı lalesi 0 → 70° (çökmeden tamamlandı): eksik güç düz −0.3 W; k_fil 1.33 → 1.49. k_fil 1.33'te sabit
+  sayılırsa −0.16 → −0.8 W: baskıya DAHA FAZLA ısı (aday: katman süresi 12.5 → 26 s, alttaki katman soğuyor).
+  **Temas kaybı imzası yok**; deney10'daki havaya baskı da ±0.7 W → Pencil Topper +1.5 W'ın kaynağı başka (topak?).
+- Arızasız duraklat/devam pencereleri (5): resmi alarm 0, yanlış gölge duraklatma 0.
+- Park sorunu: Mainsail `PAUSE` varsayılanı X230 Y230; her Resume'da baskı sola kaydı (araba gövdeye çarpıp adım
+  kaçırıyor olmalı; END_PRINT'in X0 Y220'si sorunsuz). Üretici `PAUSE X=0 Y=220` yazıyor (deney12 bununla basıldı).
+  Mainsail Pause düğmesi için kalıcı çözüm (`_CLIENT_VARIABLE` özel park) kullanıcı kararıyla sonra.
+- Etiketler (8 satır, hepsi sınav; setler dönüşümü 10 sınav, 11 ayar, 11b sınav, 13 ayar, 12 sınav):
+  `fault_classifier --labels` sınav 5/12 doğru, 4 kısmen, 3 yanlış. Üç yanlışın üçü de arızasız pencere ve sebep
+  sınıflandırıcının referansı: pencereden önceki 180 s arızayı (11b +3.3 W, 12 −3.1 W) ya da fansız ilk katmanları
+  (10) içeriyor, arızanın KALKMASINI arıza sanıyor. Canlı ikiz bu pencerelerde alarm vermedi. Etiketler araca göre
+  kaydırılmadı (sınıflandırıcının sınırı olarak kayıtlı; bakımda tutulan modül, değişiklik ayrı karar).
+- Duraklatma kararına katkı: iki gerçek B/A arızasında duraklatma ~172 s'de, kontrollerde yanlış duraklatma yok.
 
 ## K33 — Klipper yeniden başlayınca yeniden abonelik + sessizlik bekçisi (2026-10-20, v0.2, MODEL DIŞI)
 Olay: 20.10 13:32'de park makrosu için Klipper RESTART (Moonraker `POST /printer/restart`). Websocket açık kaldı,
@@ -415,7 +436,8 @@ ready → 5 s bekleme → yeniden abone, 10.2 s veri boşluğu, ikiz yeniden otu
 Yazıcı şalterini kapatıp açma (13:46–13:48, Pi ayrı adaptörde): Klipper kopmadı — kart USB'den beslenip açık kaldı
 (klippy.log'da "Lost communication" yok, ikiz bu arada 417 satır yazdı; şalter kapalıyken MCU ve termistör çalışıyor,
 yalnız ısıtıcı/motor gücü yok). Ardından FIRMWARE_RESTART: disconnected → ready → yeniden abone, 11.3 s boşluk.
-`notify_klippy_shutdown` yolu (MCU iletişimi kopunca) gerçekte denenmedi; sahte testte aynı bayrak yolu.
+`notify_klippy_shutdown` yolu 14:05 M112 (acil durdurma, boşta) ile denendi: shutdown → 43 s (Klipper shutdown durumunda da durum mesajı göndermeye devam etti, 125 satır; yeniden
+bağlanma döngüsü yok) → FIRMWARE_RESTART → disconnected → ready → yeniden abone, 11.1 s veri boşluğu.
 
 ## K34 — Durum dosyası atomik yazılır; bozuk durumda çökme yok (2026-10-20, v0.2, MODEL DIŞI)
 Olay (K33'ün USB testi, 13:49:59): yazıcı–Pi USB kablosu çekilince **Pi'nin kendisi** anında kapandı (günlük son

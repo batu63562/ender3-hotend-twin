@@ -410,7 +410,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: open the extruder latch, then Resume =====
 M117 B OPEN latch>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 B fault: latch OPEN
 ;LAYER_CHANGE
 ;Z:8.10
@@ -636,7 +636,7 @@ G1 X82.500 Y152.500 E5.11292 F2400
 G1 X82.500 Y82.500 E5.11292 F2400
 ; ===== PAUSE: close the extruder latch, then Resume =====
 M117 B CLOSE latch>Resume
-PAUSE
+PAUSE X=0 Y=220
 M117 B control
 ;LAYER_CHANGE
 ;Z:8.10

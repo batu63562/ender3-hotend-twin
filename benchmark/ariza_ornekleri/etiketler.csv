@@ -21,3 +21,11 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 2026-10-15_2009_klipper_gyroid_kup_ariza_yok.csv,1170,1240,"TPU duvarsiz gyroid kup, periyodik eksik guc tumsegi (baski sorunsuz; yanlis GUC_AZALDI)",-,ayar
 2026-10-16_1619_klipper_tpu_feet_ariza_yok.csv,327,453,"TPU feet ilk katman tek nesnede isi azalmasi, baski saglam (golge duraklatma tetiklendi)",-,ayar
 2026-10-16_2005_klipper_tpu_kup_4lu_1_ariza_yok.csv,119,265,"TPU kup ilk katman basi isi azalmasi, baski saglam (golge duraklatma tetiklendi)",-,sinav
+2026-10-20_1059_klipper_deney10_mandal_acik.csv,480,820,"deney10 normal baski (arizadan once; fan %25, 7 mm3/s)",-,sinav
+2026-10-20_1059_klipper_deney10_mandal_acik.csv,1040,1282,"baski icinde ekstruder mandali acik (deney10; baslangic=Resume; golge duraklatma 173 s)",B,sinav
+2026-10-20_1059_klipper_deney10_mandal_acik.csv,1464,1719,"deney10 kontrol: mandal kapali; park carpmasi ile parca kaymis, kismen havaya baski",-,sinav
+2026-10-20_1153_klipper_deney11b_fan60_kanal_kapali.csv,751,995,"baski icinde fan %60, kanalin iki agzi folyoyla kapali (deney11b; baslangic=Resume; golge duraklatma 172 s)",A,sinav
+2026-10-20_1153_klipper_deney11b_fan60_kanal_kapali.csv,1013,1268,"deney11b kontrol: folyo cikarildi",-,sinav
+2026-10-20_1252_klipper_deney12_cereyan_sac_kurutma.csv,895,1080,"deney12 duraklat/devam sonrasi arizasiz (kurutma henuz acilmamis)",-,sinav
+2026-10-20_1252_klipper_deney12_cereyan_sac_kurutma.csv,1085,1138,"sac kurutma soguk en guclu ayar 50 cm onden ~50 s (deney12; baslangic=isitici sicramasi)",C,sinav
+2026-10-20_1252_klipper_deney12_cereyan_sac_kurutma.csv,1148,1400,"deney12 kontrol: kurutma kapali",-,sinav

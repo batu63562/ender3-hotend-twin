@@ -134,10 +134,18 @@ def retrace_for(g, seconds):
     return n                       # Z is NOT advanced: the next normal layer is printed at the same z_next
 
 
-def pause(g, lcd, note):
+def pause(g, lcd, note, fan_restore=None):
+    """fan_restore: part fan stops while paused (taping next to a running blower is hard, 20.10) and is set back
+    to this M106 value after Resume."""
     g.add(f"; ===== PAUSE: {note} =====")
     g.add(f"M117 {lcd}")
-    g.add("PAUSE")
+    if fan_restore is not None:
+        g.add("M107")
+    # Park where END_PRINT parks (X0 Y220, safe on this printer). Mainsail's default park is max - 5 = X230 Y230;
+    # in deney10/11/11b (20.10) every Resume came back shifted to the left -> the carriage likely hit the frame there.
+    g.add("PAUSE X=0 Y=220")
+    if fan_restore is not None:
+        g.add(f"M106 S{fan_restore}")
 
 
 def finish(g):
@@ -236,6 +244,36 @@ Labels: Resume 1 -> Pause 2 (A, fan 25 %), Resume 3 -> Pause 4 (A, fan 60 %), th
     pause(g, "A2 UNCOVER>Resume", "remove the cover, then Resume")
     g.add("M117 A2 control")
     print_for(g, 180)
+    finish(g)
+    return g
+
+
+def make_fan60():
+    g = GcodeWriter()
+    start(g, f"""
+Experiment 11b - both duct outlets covered at fan 60 % (category A), repeat of deney11's A2 window
+Why: in deney11 (20.10) the intake faces the duct (not reachable), covers were put on/taken off at the wrong
+pauses next to a running blower, and the part came loose. Fan 25 % stayed within +-1 W with one or both outlets
+covered: at the user's normal fan a duct fault is sub-threshold.
+Expected at 60 %: ~+5 W (fan loss ~4 W + the fan share of k_fil ~1.1 W) -> GUC_AZALDI and a shadow pause.
+The part fan STOPS during each pause (easier taping) and comes back to 60 % after Resume.
+{COMMON}
+Steps:
+ 0. Before starting: cut two pieces of aluminium foil for the two duct outlets. Do NOT touch the part.
+ 1. Start the print. Fan 60 % from layer 3, ~6 min normal.
+ 2. PAUSE 1 (LCD "A COVER outlets>Resume"): cover BOTH duct outlets with the foil (foil must not touch the
+    heater block or the sock), press Resume. 4 min fault.
+ 3. PAUSE 2 (LCD "A UNCOVER>Resume"): remove the foil, Resume. 4 min control.
+Labels: Resume 1 -> Pause 2 (A, fan 60 %), Resume 2 -> end (-).
+""")
+    carrier_start(g)
+    print_for(g, 360 - 2 * layer_time(), fan=FAN_HIGH)
+    pause(g, "A COVER outlets>Resume", "cover both duct outlets, then Resume", fan_restore=FAN_HIGH)
+    g.add("M117 A fault: outlets covered")
+    print_for(g, 240)
+    pause(g, "A UNCOVER>Resume", "remove the foil, then Resume", fan_restore=FAN_HIGH)
+    g.add("M117 A control")
+    print_for(g, 240)
     finish(g)
     return g
 
@@ -358,7 +396,7 @@ Safety: low; cancel early rather than late.
 
 
 def main():
-    for name, fn in (("deney10_mandal_acik", make_latch), ("deney11_fan_kapali", make_fan),
+    for name, fn in (("deney10_mandal_acik", make_latch), ("deney11_fan_kapali", make_fan), ("deney11b_fan60_kanal_kapali", make_fan60),
                      ("deney12_cereyan", make_draft), ("deney13_cikinti_lale", make_tulip)):
         g = fn()
         path = os.path.join(HERE, name + ".gcode")

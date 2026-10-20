@@ -1,69 +1,63 @@
 # Baskı kuyruğu
 
-Yazıcıyla yapılacak her şey tek yerde: bekleyen normal baskılar, deneyler ve neye yaradıkları.
-Güncellik: 2026-10-20. Bir madde bitince işaretle (ya da Claude'a söyle, işaretlesin).
+Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-10-21 (yarın başlanıyor).
+Bir madde bitince Claude'a söyle; işaretler, logu alır ve inceler.
 
-## Her deneyden önce ve sonra
+## Kurallar (her seferinde)
 
-- **Önce:** Claude'a haber ver; Pi'deki öğrenilmiş durumu (k, k_fil) kaydeder.
-- **Fanlı tutma içeren deneylerden sonra** (deney15, kalibrasyon baskısı): öğrenilmiş k oynar (deney14a'da 1.007 → 0.959).
-  Durumu geri yükle (sudo ister; Claude yedeğin adını verir):
-  ```
-  ssh -t batu63562@192.168.0.25 "sudo systemctl stop ender3-twin && cp ~/ender3-twin/durum_yedek/<YEDEK>.json ~/ender3-twin/twin_state.json && sudo systemctl start ender3-twin"
-  ```
-- Deney logları Pi'de kendiliğinden ayrı dosya olur; `py sync_pi_logs.py` ile PC'ye gelir.
+- **İkiz hep açık** (Pi'de servis): ayrıca bir şey başlatma. Her baskı kendi log dosyası olur.
+- **Görünür bir kusur olursa** (kalkma, sünme, topak, kayma): saatini ya da Z yüksekliğini not et → etiket olur.
+- **Deneylerden (bölüm B) önce Claude'a haber ver**: Pi'deki öğrenilmiş k / k_fil'i kaydeder. Fanlı tutmalar k'yı
+  oynatır (deney14a'da 1.007 → 0.959); deneyden sonra geri yükleme komutunu verir (sudo, sende):
+  `ssh -t batu63562@192.168.0.25 "sudo systemctl stop ender3-twin && cp ~/ender3-twin/durum_yedek/<YEDEK>.json ~/ender3-twin/twin_state.json && sudo systemctl start ender3-twin"`
+- Deneyler filament harcamaz (ekstrüzyon yok, nozzle 50 mm havada); yazıcının başında durman gerekmez.
 
-## 1. v0.2 — normal baskılarla kendiliğinden birikenler
+## A. Normal baskılar (v0.2 gölge mod: hedef 10–20, şu an 7)
 
-- [ ] **Pause/Resume denemesi** (bir sonraki normal baskıda, ilk katmandan sonra):
-  Mainsail → Pause → kafa X0 Y220'ye gitmeli (eskiden X230 Y230'da gövdeye çarpıyordu) → ~30 s bekle → Resume →
-  baskı kaymadan devam etmeli. Saati not et. (park makrosu 20.10'da `printer.cfg`'de; K32)
-- [ ] **Gölge modda normal baskılar:** hedef 10–20, şu an Pi'de 7 normal baskı (19.10). Sonra aktif duraklatma kararı.
-  Ne basacağını bulamıyorsan, ikize en çok şey öğretenler (yararlı bir şey basmak da serbest; çeşitlilik önemli):
-  - **Sıcaklık kulesi** (PETG, 235→250 ya da 250→230, katman başına 5 °C): baskı içinde hedef değişimi → ikizin
-    ısınma/varış davranışı ve k_fil'in sıcaklıkla değişimi baskı koşulunda (K36/K40 ısınma sorusuna doğrudan veri).
-  - **Farklı fan seviyesiyle bir baskı** (%40 ve %60, aynı parça): fan eğrisinin baskıdaki karşılığı (K39: %100'de
-    ölçülen çarpan %25–40'a taşınmıyor).
-  - **Uzun bir baskı (> 2 saat):** k_fil ve k'nın uzun süre kararlılığı; gölge mod saati.
-  - **Çıkıntı / köprü testi:** sarı aday (eşik altı 1–2.5 W) için; hata görürsen Z yüksekliğini not et.
-  - **İlk katmanı geniş bir parça:** ilk katmanın ~2. dakikasındaki +1.2–1.4 W sarı adayı (K37).
-  - **Bir TPU baskı:** malzeme çeşitliliği (çapa 1.33'ün TPU'da da tuttuğunu doğrulamak).
-  Her baskıda görünür bir kusur olursa (kalkma, sünme, topak) saatiyle / Z'siyle not et → etiket.
+Ne basacağını bulamıyorsan: Orca Slicer'ın kendi kalibrasyon baskıları (Kalibrasyon menüsü) hem yazıcın için yararlı
+hem ikize en çok şeyi öğretenler.
 
-## 2. Deneyler (yazıcı boşken; baskı malzemesi harcamaz, ekstrüzyon yok)
+| # | Baskı | Filament | Süre | İkize ne öğretir |
+|---|---|---|---|---|
+| 1 | **İlk katmanı geniş herhangi bir parça + Pause/Resume denemesi** | PETG | ne olursa | İlk katman ~2. dk sarı adayı (K37); park X0 Y220 ilk kez gerçek duraklatmada (K32) |
+| 2 | **Sıcaklık kulesi 250 → 230** (Orca: Kalibrasyon → Sıcaklık) | PETG | ~1 sa | Baskı içinde hedef değişimi: ısınma/varış, k_fil'in sıcaklıkla değişimi |
+| 3 | **TPU sıcaklık kulesi 235 → 215** | TPU | ~1 sa | **230 °C altında baskı** = PLA'daki durumun elindeki filamentle karşılığı (K42); log sonra yeni kodla yeniden oynatılır |
+| 4 | **Aynı parça iki kez: fan %40 ve %60** | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |
+| 5 | **Uzun baskı (> 2 sa)**, gece de olur | PETG | > 2 sa | k ve k_fil'in uzun süre kararlılığı; gölge mod saati |
+| 6 | **Çıkıntı / köprü testi** (Orca: Kalibrasyon) | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi not et |
+| 7 | **Bir TPU baskı daha** (normal sıcaklıkta) | TPU | ne olursa | k_fil çapası 1.33 TPU'da tutuyor mu |
+| 8+ | Ne istersen | PETG/TPU | — | Gölge mod sayacı (10–20'ye tamamlamak) |
 
-- [ ] **deney15 — fan eğrisi** (`yazici/deney15_fan_egrisi.gcode`, ~45 dk): fan 0/15/20/25/40/60/100 ve geri, 245 +
-  215 °C. Eylül'deki fan ölçümünün bakım ve kanal montajı sonrası tekrarı (K39, K40). Sonra durum geri yükleme.
-- [ ] **v0.3 kalibrasyon baskısı — ilk deneme** (`yazici/calibration_245.gcode`, ~55 dk; `yazici/calibration_print.py`
-  ile üretildi): tam güç + yavaş rampa (hedef merdiveni, `max_power` değişmez), serbest soğuma, fan merdiveni,
-  ±10 °C adımlar, inen tutmalar, farklı sıcaklıklardan tam güç adımları. deney9 + 14 + 15'in tek baskıda genelleştirilmiş hâli. Sanal yazıcıda denendi
-  (`yazici/virtual_print.py`). deney15'ten SONRA (fan adımlarını ayrıca karşılaştırmak için). Sonra durum geri yükleme.
+**Pause/Resume denemesi (1. baskıda, ilk katmandan sonra):** Mainsail → Pause → kafa X0 Y220'ye gitmeli (eskiden
+X230 Y230'da gövdeye çarpıp baskıyı kaydırıyordu) → ~30 s bekle → Resume → baskı kaymadan devam etmeli. Saati not et.
 
-## 3. v0.3c — malzemeler (v0.3a refactor'undan ve PETG kalibrasyonundan SONRA)
+## B. Deneyler (filamentsiz; yazıcı boşken)
 
-PETG'ye bağlı yerler ve çözümleri yol haritası notunda (KARARLAR K42). PLA'nın asıl engeli kodda (öğrenme ve alarm
-yalnız 230 °C üstünde) — o baskısız çözülür; aşağıdakiler ondan sonra anlamlı.
-Elde yalnız PETG ve TPU var (20.10). Kalibrasyon baskısında ekstrüzyon olmadığı için modelin başka sıcaklıklarda
-doğrulanması filament istemez; yalnız baskı içi kısım (k_fil çapası, %100 fanla baskı) gerçek PLA/ABS ister.
-- [ ] **Düşük sıcaklık kalibrasyonu** (PLA aralığı, filamentsiz): `py yazici/calibration_print.py --temp 210 --mid 130
-  --holds 190,170,150` (~55 dk). Model 235–245 dışında ilk kez.
-- [ ] **Yüksek sıcaklık kalibrasyonu** (ABS/ASA aralığı, filamentsiz): `--temp 255 --holds 225,195,160` (`max_temp` 260).
-- [ ] **TPU'yu 220–235 °C arasında basmak** (ör. TPU sıcaklık kulesi 235 → 220, ya da bir parça 225 °C'de): 230'un
-  ALTINDA baskı = PLA'daki durumun elimizdeki filamentle karşılığı. Göreli eşik (v0.3a) bununla gerçek donanımda sınanır.
-- [ ] **PETG sıcaklık kulesi** (230 → 250): baskı içi hedef değişimi, k_fil'in sıcaklıkla değişimi (bölüm 1'deki öneriyle aynı baskı).
-- [ ] **1–2 TPU baskı daha** (çapanın TPU'da tuttuğunu tekrar görmek).
-- PLA / ABS ile gerçek baskı: elde yok. Baskı içi doğrulama (k_fil çapası, %100 fan, tespit hassasiyeti) v0.4'teki
-  test kullanıcılarına kalır; README'de "PLA/ABS baskı içi davranışı bu yazıcıda doğrulanmadı" diye yazılır.
+| # | Deney | Dosya | Süre | Neden |
+|---|---|---|---|---|
+| 1 | **Fan eğrisi** | `yazici/deney15_fan_egrisi.gcode` | ~45 dk | Fan 0/15/20/25/40/60/100 ve geri, 245 + 215 °C; bakım ve kanal montajından sonra fan ölçümü (K39/K40) |
+| 2 | **Kalibrasyon baskısı, PETG sıcaklığı** | `yazici/calibration_245.gcode` | ~55 dk | v0.3'ün ilk gerçek kalibrasyon verisi; deney15'ten SONRA |
+| 3 | Kalibrasyon baskısı, PLA sıcaklığı | `py yazici/calibration_print.py --temp 210 --mid 130 --holds 190,170,150` | ~55 dk | Model 235–245 dışında ilk kez (filament gerekmez) |
+| 4 | Kalibrasyon baskısı, ABS/ASA sıcaklığı | `py yazici/calibration_print.py --temp 255 --holds 225,195,160` | ~55 dk | Üst uç (`max_temp` 260) |
 
-## 4. Yazıcı başında, baskı değil
+Önerilen sıra: B1 → B2 aynı gün arka arkaya olabilir (arada geri yükleme gerekmez, ikisinden sonra bir kez). B3, B4
+acelesiz.
 
-- [ ] **K38 deploy** (log seyreltme): `powershell -ExecutionPolicy Bypass -File .\deploy.ps1 -PiUser batu63562`
-  (baskı yokken). Deploy'dan sonraki ilk gece dosyası ~12 MB olmalı (önce ~43 MB).
-- [ ] **İki belirsiz etiket** (K37, `benchmark/ariza_ornekleri/etiket_onerileri.csv`): 08.10 19:56 "X takıldı" baskısı
-  (Mainsail History'de 19:55 civarı başlayan iş; X takılması alarmdan önce mi sonra mı?), 13.10 11:03 bakım testi
-  (C mi "-" mi?).
+## Önerilen ilk günler
+
+- **Gün 1:** A1 (Pause/Resume ile) → boşta B1 (deney15) → A2 (PETG sıcaklık kulesi).
+- **Gün 2:** A3 (TPU sıcaklık kulesi) → B2 (kalibrasyon 245) → durum geri yükleme → A4 (fan %40 / %60).
+- **Sonra:** A5 gece, A6, A7; B3/B4 boş bir günde.
+A1–A7 bitince gölge mod 14 baskıya çıkar → aktif duraklatma kararı için yeterli.
+
+## Elde olmayan
+
+PLA / ABS ile gerçek baskı yok: baskı içi doğrulama (k_fil çapası, %100 fanla baskı, PLA'da tespit hassasiyeti)
+v0.4 test kullanıcılarına kalır (K42).
 
 ## Bitenler
 
 - [x] deney10–13 kasıtlı arızalar (20.10, K32)
 - [x] deney14a/b ısınma kapasitesi (20.10, K36)
+- [x] K38 deploy: boşta log seyreltme (21.10)
+- [x] Etiketler: 08.10, 15.10, 29.09, 13.10 bakım testi (21.10, K43)

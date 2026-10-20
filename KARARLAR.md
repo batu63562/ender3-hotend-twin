@@ -524,3 +524,11 @@ Deney öncesi Pi durumu: k 1.0073, k_fil 1.3175, k_ref 1.045 (fan %100 tutmalar�
   hem güçle ölçekleniyor → ısıtıcı–blok arayüzü (kartuş sıcaklığı ölçülemiyor) baş şüpheli; tek mekanizmaya oturmuyor.
 - Yan etki: fan %100 tutmaları Pi'de k'yı 1.007 → 0.959 indirdi, KAYIP_AZALDI; deney öncesi durum geri yüklenecek
   (`durum_yedek/twin_state_20261020_144115.json`).
+- Pi durumu 16:06'da geri yüklendi (k 1.007, k_fil 1.317, KAYIP_AZALDI kapandı).
+**Karar (20.10, kullanıcı):** soğuma çekirdek için önemli değil (alarm, k öğrenmesi, plan kullanmıyor; yalnız görüntü
+ve TÜMÜ puanı) → v0.2'de SINIRLAMA (README Limitations, ROADMAP v0.2). Yapısal aday v0.3 kalibrasyon baskısına not
+edildi (ROADMAP v0.3 madde 2): C(T) yerine R31(T) = R31₀ + β·(T − T₀) (alüminyum blok çelik kartuştan ~2× genleşir →
+temas boşluğu/direnci sıcaklıkla artar → tam güçte kartuş bloğun üstünde giderek daha sıcak, enerji yalnız ısıtıcı
+açıkken birikir). Açık sorunlar: C3 0.83 J/K ile ~300 K kartuş farkı gerekir (gerçek kartuş ~1.5–2 J/K olmalı), ΔP'nin
+bir kısmı hızla ölçekleniyor (heat break?). Olası yan kazanç: ilk katmanların ~2. dakikasındaki +1.2–1.4 W sarı aday
+(19.10) bu deponun varıştan sonra oturması olabilir — sarı seviyeye geçince bu gözle yeniden açılacak.

@@ -329,8 +329,15 @@ The twin never sends G-code to the printer. The only possible command is the pau
   maintenance advice.
 - **First-layer level uncertainty.** Fan-off first layers depend on the exact `k` of the day; consecutive
   prints differ by 0.4–0.9 W. The twin learns it slowly by design.
-- **Heat-up lag** of ~0.5–1 s between heater and thermistor is not modelled (adding it hurt cool-down).
-  Cool-down is the weakest phase (model cools too slowly).
+- **Heat-up and cool-down see different heat capacities; the model is fitted to heat-up.** Measured without the
+  model (experiments 9 and 14): in free cooling the hotend behaves as a constant ~6.3 J/K, the same with the part
+  fan off and at 100 %. While the heater is on, an extra energy store appears that grows with temperature (about
+  +1.5–2 J/K at 200–230 °C at full power) and scales with both heater power and heating rate. The model's
+  temperature-dependent capacity copies the heat-up behaviour, so it cools 5–13 % too slowly: cool-down is the
+  weakest phase (September core set RMSE 6.4 °C, model too warm). A heater power that falls when hot was ruled
+  out. This affects neither the alarms (missing power is evaluated only in holds ≥ 230 °C) nor the learning of
+  `k`. A structural candidate (temperature-dependent cartridge contact resistance) is listed under v0.3 in the
+  [roadmap](ROADMAP.md). The ~0.5–1 s heater-to-thermistor lag is not modelled either (adding it hurt cool-down).
 - **Validated range:** PETG and TPU, 235–245 °C. Above 245 °C, PLA at 100 % fan and enclosed materials are
   untested.
 - **Detectability scales with the heat path.** A full filament stop is seen only above ~1.6 mm/s of filament

@@ -710,3 +710,21 @@ eşiğe daha geç ulaşır; `printer.cfg` `max_temp: 260` → üst sınır ~255 
 **K42 ek:** elde yalnız PETG ve TPU (kullanıcı, 20.10). Kalibrasyon baskısı ekstrüzyonsuz → 210 ve 255 °C kalibrasyonu
 filamentsiz yapılır (model doğrulaması). 230 °C altı baskı durumu TPU'yu 220–235 °C'de basarak sınanır (göreli eşik).
 PLA/ABS baskı içi doğrulaması (k_fil çapası, %100 fanla baskı, tespit hassasiyeti) v0.4 test kullanıcılarına kalır.
+
+## K43 — Etiketler, ENERGY_SETTLE reddi, closed_loop PID geçmişi (2026-10-21, kullanıcı onayları)
+- **Etiketler** (`etiketler.csv` 30 → 37, göreli yolla orijinal loglara): 0810_sonunda_basarili, 0810_2135, 0810_1804
+  (16 s ve 486 s), 1510 goofy bust → "-"; 0810_duz_baski_x_takildi → "-" (kullanıcı: 19:53 işi tamamlandı; alarm
+  19:56:22, ilk katman başı; X takılmasının zamanı bilinmiyor); 2909 havada baskı → B (ayar). 1310 bakım testi (C mi
+  "-" mi) kullanıcı kararını bekliyor (`etiket_onerileri.csv`'de tek satır). Rapor (`--extra loglar/pi`): etiketli
+  arıza 14/16 yakalandı (medyan 26 s), duraklatma 4/16, **yanlış duraklatma her sette 0**; sınav yanlış alarm
+  0.155 / baskı saati (değişmedi; 10'un 8'i artık doğrulanmış "-", 2'si 1310).
+- **`ENERGY_SETTLE` 90 s adayı REDDEDİLDİ** (K37; kullanıcı onayı): yanlış alarmlar eski logların yanlış başlangıç
+  k'sından; bugünkü sistemde (18.10+) bu tip alarm yok; tolerans genişletmek kök nedeni gizlerdi.
+- **`closed_loop.py` PID geçmişi** (bakımda tutulan modül, hata düzeltmesi, kullanıcı onayı): 28.09'dan beri hep
+  40.262 / 12.201 / 33.216 varsayılıyordu. Pi'deki SAVE_CONFIG yedeklerinden (printer-YYYYMMDD_HHMMSS.cfg, kaydetmeden
+  ÖNCEKİ içerik): 08.10 17:50:33'e kadar 40.837 / 13.612 / 30.628, 13.10 11:06:51'e kadar 40.262 / 12.201 / 33.216,
+  sonra 38.530 / 12.232 / 30.342 (bakım). `PID_HISTORY` + `pid_gains_at(t)` (yerel saat, Europe/Istanbul);
+  `simulate` logun başlangıç zamanının katsayılarını kullanır; varsayılan = güncel. Etki: ayar seti kapalı çevrim
+  doğrulaması değişmedi (güç rms 1.47 W, sıcaklık rms 1.11 °C; katsayılar ~%5 farklı, kapalı çevrim duyarsız).
+  `gcode_plan.py` katsayıları printer.cfg'den kendisi verdiği için etkilenmez. (deney14b ısınma 96 / 47 s: closed_loop
+  `max_power` 1.0 varsayar, o deneyde 0.6 — bilinen istisna.)

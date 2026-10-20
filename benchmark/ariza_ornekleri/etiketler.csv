@@ -29,3 +29,10 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 2026-10-20_1252_klipper_deney12_cereyan_sac_kurutma.csv,895,1080,"deney12 duraklat/devam sonrasi arizasiz (kurutma henuz acilmamis)",-,sinav
 2026-10-20_1252_klipper_deney12_cereyan_sac_kurutma.csv,1085,1138,"sac kurutma soguk en guclu ayar 50 cm onden ~50 s (deney12; baslangic=isitici sicramasi)",C,sinav
 2026-10-20_1252_klipper_deney12_cereyan_sac_kurutma.csv,1148,1400,"deney12 kontrol: kurutma kapali",-,sinav
+../../loglar/baskilar/0810_sonunda_basarili.csv,200,275,"isinma sonrasi ilk katman basi gecici eksik guc (+2.9 W, 4 dk'da sifira); baski basarili",-,sinav
+../../loglar/baskilar/isimsiz/0810_2135_bitis.csv,40,110,"isinma sonrasi ilk katman basi gecici eksik guc (+1.4 W, azaliyor)",-,sinav
+../../loglar/baskilar/isimsiz/0810_1804_bitis.csv,0,60,isinma sonrasi ilk katman basi gecici eksik guc (+4.3 W -> +1.7),-,sinav
+../../loglar/baskilar/isimsiz/0810_1804_bitis.csv,470,506,"baski sonu: son saniyelerde eksik guc +1.3 -> +3.7 W, ardindan Z kalkti ve isitici kapandi",-,sinav
+../../loglar/baskilar/1510_1105_goofy_bust_filaman_bitti.csv,480,570,"ilk katman (destek baslangici) eksik guc +2.5 W, 4 dk'da azaliyor; kullanici: filaman cikiyordu, sebep belirsiz",-,sinav
+../../loglar/baskilar/0810_duz_baski_x_takildi.csv,20,85,isinma sonrasi ilk katman basi +3.2 W; kullanici: 19:53 isi tamamlandi (X takilmasinin zamani bilinmiyor) - 08.10 isinma sonrasi ilk katman imzasi,-,sinav
+../../loglar/baskilar/2909_nozzle_filament_havada_baski.csv,6290,6600,"nozzle'da filaman topagi / havaya baski, eksik guc +3.5 W kesintisiz 286 s",B,ayar

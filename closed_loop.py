@@ -31,8 +31,24 @@ import pandas as pd
 
 import evaluate as d
 
-# printer.cfg SAVE_CONFIG block (PID tuning of 2026-09-26, from the user 2026-10-09)
-PID_KP, PID_KI, PID_KD = 40.262, 12.201, 33.216
+# Hotend PID history from the SAVE_CONFIG backups on the Pi (printer-YYYYMMDD_HHMMSS.cfg keeps the content BEFORE a
+# save at that time) [K43]: (from, (Kp, Ki, Kd)). The first set is assumed from PID_SINCE (backups show it from
+# 2026-10-07 22:33); before this table only 40.262/12.201/33.216 was used for every log.
+PID_HISTORY = [
+    (pd.Timestamp("2026-09-28").timestamp(), (40.837, 13.612, 30.628)),
+    (pd.Timestamp("2026-10-08 17:50:33", tz="Europe/Istanbul").timestamp(), (40.262, 12.201, 33.216)),
+    (pd.Timestamp("2026-10-13 11:06:51", tz="Europe/Istanbul").timestamp(), (38.530, 12.232, 30.342)),   # after the maintenance
+]
+PID_KP, PID_KI, PID_KD = PID_HISTORY[-1][1]   # current gains (default)
+
+
+def pid_gains_at(t):
+    """Hotend PID gains in use at wall time t (s)."""
+    gains = PID_HISTORY[0][1]
+    for since, g in PID_HISTORY:
+        if t >= since:
+            gains = g
+    return gains
 PID_PARAM_BASE = 255.0
 SMOOTH_TIME = 1.0          # [extruder] smooth_time (not in printer.cfg -> Klipper default)
 MAX_POWER = 1.0
@@ -93,7 +109,7 @@ def simulate(df, m, k=1.0, kfil=1.0):
     grid, tg, fan, ext, bp, idx = inputs(df)
     T0 = float(df.T1_real.iloc[0])
     T1, T2, T3 = m.initial_state(T0, float(df.pwm.iloc[0]), float(df.fan_state.iloc[0]))
-    pid = KlipperPID(T0, float(df.pwm.iloc[0]), float(tg[0]))
+    pid = KlipperPID(T0, float(df.pwm.iloc[0]), float(tg[0]), gains=pid_gains_at(float(df.time.iloc[0])))
     Ts, Ps = np.empty(len(grid)), np.empty(len(grid))
     for i, t in enumerate(grid):
         pwm = pid.update(t, T1, tg[i])          # thermistor = the model's T1 node

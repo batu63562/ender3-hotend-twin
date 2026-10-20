@@ -392,3 +392,46 @@ Elenenler: filaman kesme (deney10 ile aynı ısıl imza), kısmi tıkanma (`M221
 konumundan okur; gerçek tıkanma all-metal + PETG'de riskli), çorap çıkarma (Pi'deki k'yı kirletir; eylülde zaten
 yakalanıyor), kanal çevirme (deney11 aynı fizik, daha güvenli). Etiket ve set satırları deneylerden sonra, set ataması
 mekanik dönüşümle.
+
+## K33 — Klipper yeniden başlayınca yeniden abonelik + sessizlik bekçisi (2026-10-20, v0.2, MODEL DIŞI)
+Olay: 20.10 13:32'de park makrosu için Klipper RESTART (Moonraker `POST /printer/restart`). Websocket açık kaldı,
+servis "active", hata yok ama CSV 13:32:38'de durdu; servis elle yeniden başlatılana kadar ikiz verisizdi. Sebep:
+Moonraker Klippy koptuğunda nesne aboneliklerini düşürür ve `notify_klippy_disconnected` / `_shutdown` / `_ready`
+gönderir; ikiz bunları yok sayıyordu. Yazıcının elektriği kesilip açılınca (v0.2 hedefi) aynısı olurdu.
+Çözüm (`main()`, model sınıfları dokunulmadı):
+- `notify_klippy_ready` → bağlantı kapatılır, mevcut yeniden bağlanma yolu abone olur (ilk cevabın anlık görüntüsüyle
+  baskı durumu, konum, hedefler, fan tazelenir — kopuştaki değişiklikler kaçmaz). Ayrı bir yeniden abonelik kodu yok.
+- `notify_klippy_disconnected` / `_shutdown` → yalnız konsola yazılır, "Klipper yok" bayrağı.
+- Bağlanırken abonelik cevabı hata ise (Klipper henüz hazır değil) aynı bayrak; `ready` gelince yeniden abone olunur.
+- **Bekçi:** Klipper hazırken 60 s (`STATUS_TIMEOUT`) durum mesajı gelmezse yeniden abone olunur (bildirimi kaçan
+  bilinmeyen durumlar için). Boşta bile mesaj aralığı ≤ 1.3 s (19.10 logları, sıcaklık gürültüsü) → yanlış tetik
+  beklenmez; Klipper yokken bekçi kapalı (gece kapalı yazıcıda dakikada bir yeniden bağlanma olmasın).
+Test (sahte Moonraker, coffee buddy logu 30×, bekçi testte 5 s): %30'da disconnected → 3 s → ready, eski soket
+sessiz; ikinci bağlantıda abonelik hatası, 2 s sonra ready; %60'ta bildirimsiz sessizlik. 4 bağlantı, 9117 / 9117 satır
+yazıldı, Klipper zamanında boşluk 0.5 s'yi geçmedi, alarm 0. AST: yalnız `main` değişti + yeni `STATUS_TIMEOUT`;
+Twin, KLossLearner, EnergyMonitor, FaultMonitor, model_step aynı. Eylül TÜMÜ 3.62.
+Pi'de doğrulandı (20.10 13:44 deploy, 13:45:17 `curl -X POST …/printer/restart`, boşta): disconnected → 5 s sonra
+ready → 5 s bekleme → yeniden abone, 10.2 s veri boşluğu, ikiz yeniden oturdu, CSV akmaya devam etti.
+Yazıcı şalterini kapatıp açma (13:46–13:48, Pi ayrı adaptörde): Klipper kopmadı — kart USB'den beslenip açık kaldı
+(klippy.log'da "Lost communication" yok, ikiz bu arada 417 satır yazdı; şalter kapalıyken MCU ve termistör çalışıyor,
+yalnız ısıtıcı/motor gücü yok). Ardından FIRMWARE_RESTART: disconnected → ready → yeniden abone, 11.3 s boşluk.
+`notify_klippy_shutdown` yolu (MCU iletişimi kopunca) gerçekte denenmedi; sahte testte aynı bayrak yolu.
+
+## K34 — Durum dosyası atomik yazılır; bozuk durumda çökme yok (2026-10-20, v0.2, MODEL DIŞI)
+Olay (K33'ün USB testi, 13:49:59): yazıcı–Pi USB kablosu çekilince **Pi'nin kendisi** anında kapandı (günlük son
+satıra kadar normal veri, Klipper kopma bildirimi yok, kapanma kaydı yok; sebep bilinmiyor — çekme/takma anında 5 V
+geçici olayı adayı, yeni açılışta `get_throttled` 0x0). Açılışta `twin_state.json` 0 bayttı: `save_state` dosyayı
+yerinde yazıyordu (`open("w")` önce sıfırlar, 5 s'de bir) ve kesinti o pencereye denk geldi. Sonuç: `load_state`
+JSON hatasıyla çöktü, systemd 10 s'de bir yeniden başlattı ve her açılışta `backup_state` BOŞ dosyanın kopyasını
+`durum_yedek/`'e ekledi — son 30 yedek tutulduğu için ~5 dk'da tüm sağlam yedekler silinecekti. Elle kurtarıldı
+(13:52, 13:43:58 yedeği geri kondu; k = 1.007, k_fil = 1.317 kayıpsız).
+Çözüm (üç küçük değişiklik):
+- `save_state`: geçici dosyaya yaz + `fsync` + `os.replace` (atomik; bakım durumu dosyası zaten böyle yazılıyordu).
+- `load_state`: bozuk dosyada çökme yerine uyarı + sıfırdan başlangıç (diğer yükleyiciler zaten böyleydi); uyarı
+  sağlam yedeğin yerini söyler. Yedekten otomatik geri yükleme EKLENMEDİ (atomik yazmayla olmaması gerekir).
+- `backup_state`: okunamayan/bozuk dosyayı yedeklemez (kötü kopya sağlam yedekleri döndürüp silemez).
+Test: boş dosyayla `backup_state` yedek eklemedi, `load_state` (24, 24, 24) döndü, `save_state` sonrası `.tmp`
+kalmadı; sahte Moonraker döngüsü boş durum dosyasıyla başladı, K33 senaryoları yine 9117 / 9117 satır, çıkışta durum
+sağlam yazıldı. AST: model sınıfları aynı (değişen: `load_state`, `backup_state`, `save_state`, `main`). Eylül 3.62.
+`notify_klippy_shutdown` (MCU kopması) gerçekte hâlâ görülmedi: USB çekilince Pi de kapandı.
+Pi'de 20.10 13:58 deploy (kod sürümü `34ffc9b9`): durum her 5 s atomik yazılıyor, `.tmp` kalmıyor, k/k_fil devralındı.

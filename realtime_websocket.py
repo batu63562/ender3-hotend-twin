@@ -274,6 +274,9 @@ WEB_HISTORY = 900.0      # s - chart length on the page (15 min, at most 1 point
 PING_INTERVAL = 20.0
 PING_TIMEOUT = 60.0
 RECONNECT_DELAY = 5.0
+# Klipper sends a status update at least every ~1 s even when idle (temperature noise); a longer silence while
+# Klippy is reported ready means a lost subscription (2026-10-20: Klipper RESTART, socket open, no data) [K33]
+STATUS_TIMEOUT = 60.0
 
 STATE_SAVE_INTERVAL = 5.0   # s - twin_state.json is written at most this often (not on every message)
 FLUSH_INTERVAL = 1.0        # s - the CSV is forced to disk at most this often
@@ -304,9 +307,15 @@ def initial_state(T1, pwm, fan):
 
 def load_state(current_T1, pwm=0.0, fan=0.0):
     """T1 ALWAYS starts from the real measurement. Only T2/T3 are inherited from the previous run."""
-    if os.path.exists(STATE_FILE):
+    try:
         with open(STATE_FILE) as f:
             saved = json.load(f)
+    except OSError:
+        saved = None
+    except ValueError:
+        saved = None
+        print(f"[UYARI: {STATE_FILE} bozuk - sifirdan baslaniyor; ogrenilmis k icin son saglam yedek {STATE_BACKUP_DIR}]")
+    if saved is not None:
         age = time.time() - saved["time"]
         if saved.get("model") != MODEL_VERSION:
             print("[Kayitli durum baska model surumunden - sifirdan baslaniyor]")
@@ -370,8 +379,11 @@ def load_last_material():
 
 def backup_state():
     """Dated copy of twin_state.json at start-up; the newest STATE_BACKUPS are kept."""
-    if not os.path.exists(STATE_FILE):
-        return
+    try:
+        with open(STATE_FILE) as f:
+            json.load(f)
+    except (OSError, ValueError):
+        return   # missing or corrupt: never let a bad copy rotate out the good backups [K34]
     try:
         os.makedirs(STATE_BACKUP_DIR, exist_ok=True)
         dst = os.path.join(STATE_BACKUP_DIR, time.strftime("twin_state_%Y%m%d_%H%M%S.json"))
@@ -393,8 +405,13 @@ def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None):
         data["k_ref"] = k_ref
     if material is not None:
         data["malzeme"] = material
-    with open(STATE_FILE, "w") as f:
+    # atomic: a power cut during an in-place write left an empty file and a crash loop (2026-10-20) [K34]
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(data, f)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, STATE_FILE)
 
 
 def natural_loss(T1):
@@ -1386,10 +1403,34 @@ async def main():
                                 if val is not None:
                                     setattr(twin, key, val)
 
-                        async for message in ws:
+                        # Klippy not ready at connect (printer off, restarting): the subscription answer is an error,
+                        # no status will come until notify_klippy_ready -> the silence watchdog stays off meanwhile
+                        klippy_down = "error" in first_response
+                        if klippy_down:
+                            print(f"[Klipper hazir degil: {first_response['error'].get('message', '?')} - "
+                                  f"hazir olunca yeniden abone olunacak]")
+                        while True:
+                            try:
+                                message = await asyncio.wait_for(ws.recv(),
+                                                                 None if klippy_down else STATUS_TIMEOUT)
+                            except websockets.exceptions.ConnectionClosedOK:
+                                break
+                            except asyncio.TimeoutError:
+                                print(f"\n[{STATUS_TIMEOUT:.0f} s durum mesaji yok - yeniden abone olunuyor]")
+                                break
                             data = json.loads(message)
 
-                            if data.get("method") != "notify_status_update":
+                            method = data.get("method")
+                            if method in ("notify_klippy_disconnected", "notify_klippy_shutdown"):
+                                klippy_down = True
+                                print(f"\n[Klipper baglantisi kesildi ({method}) - hazir olunca yeniden abone olunacak]")
+                                continue
+                            if method == "notify_klippy_ready":
+                                # Moonraker drops object subscriptions when Klippy restarts: resubscribe through
+                                # the reconnect path (fresh snapshot of print state, position, targets) [K33]
+                                print("\n[Klipper hazir - yeniden abone olunuyor]")
+                                break
+                            if method != "notify_status_update":
                                 continue
 
                             params = data["params"]
@@ -1625,7 +1666,7 @@ async def main():
                             if time.strftime("%Y-%m-%d", time.localtime(wall_time)) != today:   # 24/7: once a day
                                 today = time.strftime("%Y-%m-%d", time.localtime(wall_time))
                                 daily_jobs(live)
-                    print("\n[baglanti sunucu tarafindan kapatildi]")
+                    print("\n[baglanti kapandi]")
                 except (websockets.exceptions.WebSocketException, OSError, asyncio.TimeoutError) as e:
                     print(f"\n[baglanti koptu: {type(e).__name__}: {e}]")
                 log.flush()

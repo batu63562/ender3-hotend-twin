@@ -406,7 +406,9 @@ mekanik dönüşümle.
 - Arızasız duraklat/devam pencereleri (5): resmi alarm 0, yanlış gölge duraklatma 0.
 - Park sorunu: Mainsail `PAUSE` varsayılanı X230 Y230; her Resume'da baskı sola kaydı (araba gövdeye çarpıp adım
   kaçırıyor olmalı; END_PRINT'in X0 Y220'si sorunsuz). Üretici `PAUSE X=0 Y=220` yazıyor (deney12 bununla basıldı).
-  Mainsail Pause düğmesi için kalıcı çözüm (`_CLIENT_VARIABLE` özel park) kullanıcı kararıyla sonra.
+  Mainsail Pause düğmesi için kalıcı çözüm: Pi'deki `printer.cfg`'ye `_CLIENT_VARIABLE` (özel park X0 Y220, dz 2)
+  20.10 13:32'de eklendi (yedek `printer.cfg.bak_20261020_park`, Klipper yüklü; PC kopyası `yazici/printer.cfg`).
+  Gerçek bir Pause/Resume ile henüz denenmedi (aktif duraklatmadan önce bir deneme baskısında doğrulanacak).
 - Etiketler (8 satır, hepsi sınav; setler dönüşümü 10 sınav, 11 ayar, 11b sınav, 13 ayar, 12 sınav):
   `fault_classifier --labels` sınav 5/12 doğru, 4 kısmen, 3 yanlış. Üç yanlışın üçü de arızasız pencere ve sebep
   sınıflandırıcının referansı: pencereden önceki 180 s arızayı (11b +3.3 W, 12 −3.1 W) ya da fansız ilk katmanları

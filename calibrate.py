@@ -23,6 +23,7 @@ Usage (in dt/):   py calibrate.py LOG [LOG ...] [--params C1,C3,R31,...] [--rate
 import argparse
 import os
 import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -33,7 +34,13 @@ sys.path.insert(0, HERE)
 import evaluate as ev  # noqa: E402
 import realtime_websocket as rw  # noqa: E402
 
-DEFAULT_PARAMS = ["C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "CAP_T_COEF"]
+ALL_PARAMS = ["C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "CAP_T_COEF"]
+# the set the data can pin down (K39): one factor for all capacities, R31 with C3 fixed (= the cartridge time
+# constant), R_HB, the loss shape over T (CRAD; the level is each log's k), the fan term, C(T)
+DEFAULT_PARAMS = ["C_ALL", "R31", "R_HB", "CRAD", "HA2_FAN", "CAP_T_COEF"]
+BASE_C = {c: float(getattr(rw, c)) for c in ("C1", "C2", "C3")}
+SIGMA_DATA = 1.0        # C - typical open-loop model error, scales the data term against the prior
+CORR_TIME = 60.0        # s - open-loop errors are correlated over about this long: one independent value per window
 BOUND = np.log(4.0)     # each factor may move between /4 and x4 of its current value
 K_BOUND = np.log(1.3)   # per-log k between 1/1.3 and 1.3
 
@@ -68,7 +75,22 @@ def simulate(d, k=1.0):
 
 def set_params(names, base, x):
     for n, b, xi in zip(names, base, x):
-        setattr(rw, n, b * np.exp(xi))
+        if n == "C_ALL":                       # pseudo parameter: all three heat capacities by one factor
+            for c, bc in BASE_C.items():
+                setattr(rw, c, bc * np.exp(xi))
+        else:
+            setattr(rw, n, b * np.exp(xi))
+
+
+def overrides(names, base, x):
+    """The fitted values as evaluate.py overrides (C_ALL expanded)."""
+    out = {}
+    for n, b, xi in zip(names, base, x):
+        if n == "C_ALL":
+            out.update({c: bc * float(np.exp(xi)) for c, bc in BASE_C.items()})
+        else:
+            out[n] = b * float(np.exp(xi))
+    return out
 
 
 def main():
@@ -77,13 +99,22 @@ def main():
     ap.add_argument("--params", default=",".join(DEFAULT_PARAMS), help="comma-separated model constants to fit")
     ap.add_argument("--rate", type=float, default=1.0, help="resampling step in s (default 1)")
     ap.add_argument("--synthetic", action="store_true", help="fit the current model's own output (tool check)")
+    ap.add_argument("--prior", type=float, default=0.0,
+                    help="profile uncertainty of each parameter as a log-factor (e.g. 0.3 = about +-35 %%); "
+                         "0 = no prior (free fit)")
+    ap.add_argument("--score", action="store_true",
+                    help="afterwards score phase by phase, current vs fitted: the September core set and the "
+                         "calibration-set logs of the same hardware state (evaluate.py)")
+    ap.add_argument("--score-since", default="2026-10-14",
+                    help="first day of the current hardware state for --score (default 2026-10-14, after the "
+                         "13.10 maintenance)")
     a = ap.parse_args()
 
     names = [n.strip() for n in a.params.split(",") if n.strip()]
     for n in names:
-        if not hasattr(rw, n):
+        if n != "C_ALL" and not hasattr(rw, n):
             sys.exit(f"unknown parameter: {n}")
-    base = np.array([float(getattr(rw, n)) for n in names])
+    base = np.array([1.0 if n == "C_ALL" else float(getattr(rw, n)) for n in names])
     data = [(os.path.basename(p), load(p, a.rate)) for p in a.logs]
     nP = len(names)
 
@@ -95,17 +126,25 @@ def main():
         x0 = np.zeros(nP)
     x0 = np.r_[x0, np.zeros(len(data))]                 # per-log log k, starts at k = 1
 
-    def residuals(x):
+    def data_residuals(x):
         set_params(names, base, x[:nP])
         return np.concatenate([simulate(d, np.exp(xk)) - d["T"].values for (_, d), xk in zip(data, x[nP:])])
 
+    n_samples = sum(len(d) for _, d in data)
+    n_eff = sum(d.t.iloc[-1] for _, d in data) / CORR_TIME
+    w = np.sqrt(n_eff / n_samples) / SIGMA_DATA          # data weight: n_eff independent values of SIGMA_DATA
+
+    def residuals(x):
+        r = data_residuals(x) * w
+        return np.r_[r, x[:nP] / a.prior] if a.prior > 0 else r
+
     rms = lambda r: float(np.sqrt(np.mean(r ** 2)))   # noqa: E731
-    r_start = residuals(np.zeros(nP + len(data)))
-    print(f"{sum(len(d) for _, d in data)} samples from {len(data)} logs; rms with current values, k = 1: "
-          f"{rms(r_start):.3f} C")
+    r_start = data_residuals(np.zeros(nP + len(data)))
+    print(f"{n_samples} samples from {len(data)} logs (~{n_eff:.0f} independent); rms with current values, k = 1: "
+          f"{rms(r_start):.3f} C" + (f"; prior +-{a.prior:.2f} (log-factor)" if a.prior > 0 else "; no prior"))
     lo = np.r_[np.full(nP, -BOUND), np.full(len(data), -K_BOUND)]
     fit = least_squares(residuals, x0, bounds=(lo, -lo), x_scale=0.1, diff_step=1e-3, verbose=0)
-    r_fit = fit.fun
+    r_fit = data_residuals(fit.x)
     set_params(names, base, fit.x[:nP])
     k_logs = np.exp(fit.x[nP:])
 
@@ -114,16 +153,16 @@ def main():
         for (name, d), k, i in zip(data, k_logs, np.cumsum([0] + [len(d) for _, d in data])):
             print(f"  {name:45s} {rms(r_start[i:i + len(d)]):6.3f} -> {rms(r_fit[i:i + len(d)]):6.3f} C   k {k:.3f}")
         return
-    # identifiability of the physical parameters: covariance of the log-factors from the Jacobian
-    J = fit.jac[:, :nP]
-    dof = max(1, len(r_fit) - len(fit.x))
-    s2 = max(float(r_fit @ r_fit) / dof, 1e-6)
+    # identifiability of the physical parameters: covariance of the log-factors from the Jacobian of the weighted
+    # system (data as n_eff independent values of SIGMA_DATA, plus the prior rows), the per-log k marginalised
+    J = fit.jac
     # a parameter the residual does not react to (e.g. the fan term in a fan-off log) carries no information
-    sens = np.sqrt((J ** 2).mean(axis=0))                 # C per unit log-factor
-    info = sens > 1e-3 * max(sens.max(), 1e-12)
-    cov = np.full((nP, nP), np.nan)
+    sens = np.sqrt(((J[:n_samples, :nP] / w) ** 2).mean(axis=0))     # C per unit log-factor
+    info = np.r_[sens > 1e-3 * max(sens.max(), 1e-12), np.ones(len(data), bool)]
+    cov_all = np.full((len(fit.x), len(fit.x)), np.nan)
     Ji = J[:, info]
-    cov[np.ix_(info, info)] = np.linalg.pinv(Ji.T @ Ji) * s2
+    cov_all[np.ix_(info, info)] = np.linalg.pinv(Ji.T @ Ji)
+    cov, info = cov_all[:nP, :nP], info[:nP]
     se = np.sqrt(np.abs(np.diag(cov)))
     corr = cov / np.outer(se, se)
 
@@ -142,6 +181,25 @@ def main():
         n = len(d)
         print(f"  {name:45s} {rms(r_start[i:i + n]):6.3f} -> {rms(r_fit[i:i + n]):6.3f} C   k {k:.3f}")
         i += n
+
+    if a.score:
+        # does it carry over? (1) September core set (evaluate.py default, fresh k) - the structure test of the
+        # acceptance gate, but from an older hardware state (before the 13.10 maintenance and duct re-mount);
+        # (2) calibration-set prints of the same hardware state as the calibration logs (from --score-since,
+        # live start: each log with the k / k_fil it was recorded with)
+        ov = overrides(names, base, fit.x[:nP])
+        since = time.mktime(time.strptime(a.score_since, "%Y-%m-%d"))
+        same = [p for p in ev.set_paths("ayar") if os.path.basename(p) not in {n for n, _ in data}
+                and ev.read_log(p).time.iloc[0] >= since]
+        for title, kw in (("September core set (older hardware state)", {}),
+                          (f"calibration-set logs since {a.score_since} ({len(same)}, live start)",
+                           dict(paths=same, live=True))):
+            cur, new = ev.pooled(ev.evaluate(**kw)).set_index("faz"), ev.pooled(ev.evaluate(ov, **kw)).set_index("faz")
+            print(f"\n{title}, RMSE (bias) C: current -> fitted")
+            for ph in ev.PHASES + ["TUMU"]:
+                if ph in cur.index:
+                    print(f"  {ph:12s} {cur.rmse[ph]:5.2f} ({cur.bias[ph]:+5.2f}) -> "
+                          f"{new.rmse[ph]:5.2f} ({new.bias[ph]:+5.2f})")
 
 
 if __name__ == "__main__":

@@ -623,3 +623,20 @@ seçilen sabitleri T1 farkının en küçük kareleriyle fit eder (scipy; canlı
   (3) parametre sayısı tanılanabilir olanlara indirilmeli; (4) 3 log az, her aday Eylül + ayar setinde puanlanmadan
   kabul kapısına gelmez. Sıradaki: önselli fit + azaltılmış parametre seti, sonra kalibrasyon G-code'u bu
   tanılanabilirliğe göre tasarlanır.
+**K39 ek — azaltılmış + önselli fit ve genelleme (20.10 gece):** varsayılan set C_ALL (üç kapasite tek çarpan), R31 (C3
+sabit = kartuş τ), R_HB, CRAD (kayıp şekli; seviye log başına k), HA2_FAN, CAP_T_COEF. Veri ağırlığı dürüst: açık çevrim
+hatası ~60 s ilişkili → 5444 örnek ≈ 91 bağımsız değer. Sonuç: ayrılamayan çift yok, se %0.5–9, sınırda değer yok;
+C_ALL 0.925 (= deney14 soğuma ölçümü 6.3 J/K), HA2_FAN ×1.20 (= deney8'in 1.2–1.4×), R31 ×1.37, R_HB ×1.14, CRAD ×1.01,
+CAP_T_COEF ×1.31; kalibrasyon logları 3.59 → 2.27 °C. ±%30 önsel neredeyse hiç değiştirmiyor (veri baskın).
+Genelleme (`--score`):
+| fit | Eylül TÜMÜ (ısınma / varış / soğuma) | 14.10+ ayar 22 log, canlı baş. TÜMÜ (ısınma / varış / soğuma) |
+| bugünkü | 3.53 (2.32 / 1.79 / 6.44) | 2.88 (3.76 / 5.26 / 4.55) |
+| 6 param | 3.82 (7.24 / 8.02 / 4.54) | 3.12 (4.78 / 3.78 / 4.21) |
+| yalnız fan ×1.22 | 4.43 (2.32 / 1.79 / 8.40) | 3.20 (3.64 / 5.21 / 4.42) |
+| C_ALL 0.93 + C(T) ×1.39 | 3.65 (9.26 / 8.25 / 2.78) | 2.80 (6.57 / 3.94 / 4.31) |
+Hiçbiri bugünkü baskılarda açık kazanç vermiyor. (1) Kapasite: soğumaya göre inen C baskıların hızlı ısınmasını bozuyor
+— K36 asimetrisi v0.3 kalibrasyonunun ASIL ENGELİ (yapı değişmeden kalibrasyon ısınma ile soğuma arasında bir yer seçer).
+(2) Fan: %100'de ölçülen çarpan %25–40 baskı fanına genellenmiyor → eğri şekli (FAN_F0, FAN_EXP) de ölçülmeli,
+kalibrasyon G-code'u fanı baskıda kullanılan seviyelerde adımlamalı. (3) Eylül seti eski donanım durumu (13.10 bakım,
+kanal yeniden takıldı): yapı sınaması için doğru, bugünkü parametrelerin sınaması için değil → kalibrasyon aynı
+donanım dönemindeki loglarla sınanmalı (`--score-since`).

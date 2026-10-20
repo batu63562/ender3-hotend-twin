@@ -728,3 +728,7 @@ PLA/ABS baskı içi doğrulaması (k_fil çapası, %100 fanla baskı, tespit has
   doğrulaması değişmedi (güç rms 1.47 W, sıcaklık rms 1.11 °C; katsayılar ~%5 farklı, kapalı çevrim duyarsız).
   `gcode_plan.py` katsayıları printer.cfg'den kendisi verdiği için etkilenmez. (deney14b ısınma 96 / 47 s: closed_loop
   `max_power` 1.0 varsayar, o deneyde 0.6 — bilinen istisna.)
+**K43 ek (21.10, kullanıcı):** 1310 bakım testi → C (ikiz ısıl yoldaki gerçek değişimi 29 s'de yakaladı). Etiketler 38;
+rapor: etiketli arıza 15/17 yakalandı (medyan 26 s), duraklatma 4/17, yanlış duraklatma 0; sınav yanlış alarm
+0.155 → 0.093 / baskı saati (8 yanlış, hepsi doğrulanmış "-"), tümü 0.100. Etiketsiz olay kalmadı (sınav ve ayar
+baskılarında); `etiket_onerileri.csv` boşaltıldı.

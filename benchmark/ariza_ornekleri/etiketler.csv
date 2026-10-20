@@ -36,3 +36,4 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 ../../loglar/baskilar/1510_1105_goofy_bust_filaman_bitti.csv,480,570,"ilk katman (destek baslangici) eksik guc +2.5 W, 4 dk'da azaliyor; kullanici: filaman cikiyordu, sebep belirsiz",-,sinav
 ../../loglar/baskilar/0810_duz_baski_x_takildi.csv,20,85,isinma sonrasi ilk katman basi +3.2 W; kullanici: 19:53 isi tamamlandi (X takilmasinin zamani bilinmiyor) - 08.10 isinma sonrasi ilk katman imzasi,-,sinav
 ../../loglar/baskilar/2909_nozzle_filament_havada_baski.csv,6290,6600,"nozzle'da filaman topagi / havaya baski, eksik guc +3.5 W kesintisiz 286 s",B,ayar
+../../loglar/baskilar/1310_gece_ve_bakim.csv,-30930,-30840,"bakim sonrasi 245 testi: eksik guc -2.9..-3.5 W, isi kaybi gercekten artti (k 0.876 bayatti; sonra ~1.05) - ikiz isil yoldaki gercek degisimi yakaladi (kullanici: C)",C,sinav

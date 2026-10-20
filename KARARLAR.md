@@ -336,6 +336,14 @@ ayrı, etiketli arızaların alarm ve duraklatma gecikmesi, gölge duraklatmalar
 19.10 dahil: 129 log, 57.4 baskı saati, GUC_AZALDI 46 (medyan 37 s), duraklatma 2 (stand2 + 2909 havada baskı),
 etiketli 12 arızadan 10'u yakalandı (medyan gecikme 28 s), yanlış alarm 0.14 / baskı saati (etiketsizler dahil).
 2909 havada baskı ve 08.10 olayları etiketsiz: betik "false?" listeler, elle etiketlenene kadar yanlış sayılır.
+**20.10 yeniden koşum** (19.10'un 7 Pi baskısı setlere eklendi, dönüşüm deney12 = sınavdan devam: 1122 ayar, 1148
+sınav, 1238 ayar, 1600 sınav, 1731 ayar, 1809 sınav, 1909 ayar; deney10–13 dahil): 134 log, 59.3 baskı saati.
+19.10 baskılarında alarm 0, duraklatma 0 (Pencil ve LCD Case sarı adayları eşik altında kaldı). Etiketli 15 arızadan
+13'ü yakalandı (medyan gecikme 26 s; kaçanlar deney2 kanal folyo — yalnız KAYIP — ve 1210 tabla kirli ilk katman),
+duraklatma 3/15 (stand2 167 s, deney10 173 s, deney11b 171 s). Yanlış alarm / baskı saati: ayar 0.111, sınav 0.155
+(sınavın 10 "yanlışı"nın 7'si etiketsiz 08.10/13.10 olayı, gerçek oranın üst sınırı; etiketli "arızasız" yanlışlar
+yalnız 16.10 TPU ilk katman olayları). Tek "yanlış" duraklatma 2909 havada baskı (286 s) — gerçek arıza, etiketsiz
+(yukarıda). Gerçek yanlış duraklatma hâlâ 0. v0.2 bitti ölçütü için kalan: etiketsiz sınav olaylarını elle etiketlemek.
 
 
 ## K29 — 7/24 çalışma: baskı başına log, günlük işler, kod sürümü (2026-10-19, v0.2 gün 1, MODEL DIŞI)

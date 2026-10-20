@@ -556,3 +556,10 @@ tutma gücüne inerken ~100–200 J geri verirdi; görülmüyor → ek ısı ram
 R31(T) adayı zayıfladı (ROADMAP v0.3 notu düzeltildi). Modelin eksik gücü de temiz tutmalarda varıştan sonra ±1.2 W
 (14a, deney9) → K37'deki ilk katman tümseği (+1.4…+4.3 W) ısınmadan DEĞİL, ilk katmanın kendisinden (tabla yakınlığı,
 ekstrüzyon başlangıcı, prime). K37'deki "K36 deposu" bağlantısı geri alındı.
+**K37 ek (20.10 akşam): tümseğin büyük kısmı başlangıç k'sı.** 08.10 loglarının ilk satırındaki k 1.000 (o dönem k
+canlıda öğrenilmiyordu; gerçek fansız k ~0.92, bkz. ilk katman = k ölçer) → yeniden oynatmada model ilk katmanda
+~1.4 W fazla kayıp bekliyor (17.8 W / birim k × 0.08); 1510 goofy bust k 1.080 ile başladı (gerçek ~0.98, +1.8 W).
+Üstüne binen küçük geçici sapma eşiği aşıyor. Bugünkü sistemde (k doğru taşınıyor) 19.10'un 7 Pi baskısında bu tip alarm
+0. → Sınav yanlış alarm oranı büyük ölçüde k öğrenmesi olgunlaşmadan önceki logların ürünü; `ENERGY_SETTLE` 90 s önerisi
+bu yüzden zayıf (eski hatayı gizler, bugünkü sistemde sorunu yok). v0.2 raporu için öneri: "bugünkü sistem" dönemi
+(k_fil çapası, K27, 18.10 sonrası) ayrı satır olarak raporlansın.

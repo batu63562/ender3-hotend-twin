@@ -694,3 +694,16 @@ Kullanıcı isteği: v0.3 için onay gerektirmeyenleri yap; baskı gerektirenler
   farkları listeler. v0.3 refactor'unun "v0.2 skorlarını birebir üret" şartı bununla. Sınav yalnız özdeşlik denetimi.
 - **`yazici/BASKI_KUYRUGU.md`**: bekleyen tüm baskı/deneyler (Pause/Resume, gölge mod baskıları + ikize yararlı baskı
   önerileri, deney15, kalibrasyon baskısı, K38 deploy, iki etiket) ve deney öncesi/sonrası durum yedekleme.
+
+## K42 — Yol haritası: baskılar ve diğer filamentler (2026-10-20 gece, PLAN)
+Sıra: v0.2 kapanış (Pause/Resume, 5–10 PETG, deney15, K38 deploy, 2 etiket, `v0.2` etiketi) → v0.3a refactor (baskısız:
+profil + kalibrasyon dosyası, İngilizce adlar, göreli sıcaklık eşikleri; `baseline_snapshot --check` IDENTICAL) → v0.3b
+PETG kalibrasyon baskısı (fit + kapı, S3d kararı) → v0.3c malzemeler → v0.4 ikinci yazıcı. Baskı listesi:
+`yazici/BASKI_KUYRUGU.md`.
+Kodun PETG'ye bağlı yerleri: (1) `ADAPT_TMIN` / `ENERGY_TMIN` 230 °C → PLA (200–215) için ikiz hiç öğrenmez ve alarm
+vermez; öneri: hedefe göreli (ör. hedef − 15 °C), eski loglarla sınanır (baskısız); (2) model 235–245 °C'de doğrulandı
+→ malzeme başına kalibrasyon baskısı (`calibration_print.py --temp 210 / 255`); (3) fan modeli %20–40'ta → deney15 +
+kalibrasyon fan merdiveni %100'ü ölçer (PLA); (4) `K_FIL` PETG ısı kapasitesine sabit, k_fil çapası 1.33 (PETG/TPU
+≈ aynı, K27) → PLA/ABS'de 3–5 baskıyla doğrulanır, malzeme tablosu v0.3; (5) `T_AMB` 25 sabit → kapalı kasada ABS/ASA
+kapsam dışı. Fiziksel sınırlar: PLA'da filaman ısısı (T − T_oda) 210 °C'de 245'in ~%84'ü → aynı akışta tam kesinti
+eşiğe daha geç ulaşır; `printer.cfg` `max_temp: 260` → üst sınır ~255 °C (PC, naylon kapsam dışı).

@@ -39,7 +39,18 @@ Güncellik: 2026-10-20. Bir madde bitince işaretle (ya da Claude'a söyle, işa
   ±10 °C adımlar, inen tutmalar, farklı sıcaklıklardan tam güç adımları. deney9 + 14 + 15'in tek baskıda genelleştirilmiş hâli. Sanal yazıcıda denendi
   (`yazici/virtual_print.py`). deney15'ten SONRA (fan adımlarını ayrıca karşılaştırmak için). Sonra durum geri yükleme.
 
-## 3. Yazıcı başında, baskı değil
+## 3. v0.3c — malzemeler (v0.3a refactor'undan ve PETG kalibrasyonundan SONRA)
+
+PETG'ye bağlı yerler ve çözümleri yol haritası notunda (KARARLAR K42). PLA'nın asıl engeli kodda (öğrenme ve alarm
+yalnız 230 °C üstünde) — o baskısız çözülür; aşağıdakiler ondan sonra anlamlı.
+- [ ] **PLA kalibrasyon baskısı** (`py yazici/calibration_print.py --temp 210 --mid 130 --holds 190,170,150`, ~55 dk).
+- [ ] **3–5 PLA baskı, fan %100** (k_fil çapası 1.33 PLA'da tutuyor mu; %100 fan baskıda).
+- [ ] **1–2 TPU baskı** (çapanın TPU'da da tuttuğunu tekrar görmek).
+- [ ] **ABS/ASA küçük parçalar, açık yazıcı** (250–255 °C; `max_temp` 260): kalibrasyon baskısı `--temp 255` + 2–3
+  baskı. Kapalı kasa kapsam dışı (oda sıcaklığı sabit varsayımı).
+Elinde hangi filamentler var? Olmayanlar bu bölümden çıkar.
+
+## 4. Yazıcı başında, baskı değil
 
 - [ ] **K38 deploy** (log seyreltme): `powershell -ExecutionPolicy Bypass -File .\deploy.ps1 -PiUser batu63562`
   (baskı yokken). Deploy'dan sonraki ilk gece dosyası ~12 MB olmalı (önce ~43 MB).

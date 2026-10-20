@@ -34,9 +34,9 @@ Güncellik: 2026-10-20. Bir madde bitince işaretle (ya da Claude'a söyle, işa
 
 - [ ] **deney15 — fan eğrisi** (`yazici/deney15_fan_egrisi.gcode`, ~45 dk): fan 0/15/20/25/40/60/100 ve geri, 245 +
   215 °C. Eylül'deki fan ölçümünün bakım ve kanal montajı sonrası tekrarı (K39, K40). Sonra durum geri yükleme.
-- [ ] **v0.3 kalibrasyon baskısı — ilk deneme** (`yazici/calibration_245.gcode`, ~50 dk; `yazici/calibration_print.py`
+- [ ] **v0.3 kalibrasyon baskısı — ilk deneme** (`yazici/calibration_245.gcode`, ~55 dk; `yazici/calibration_print.py`
   ile üretildi): tam güç + yavaş rampa (hedef merdiveni, `max_power` değişmez), serbest soğuma, fan merdiveni,
-  ±10 °C adımlar, inen tutmalar. deney9 + 14 + 15'in tek baskıda genelleştirilmiş hâli. Sanal yazıcıda denendi
+  ±10 °C adımlar, inen tutmalar, farklı sıcaklıklardan tam güç adımları. deney9 + 14 + 15'in tek baskıda genelleştirilmiş hâli. Sanal yazıcıda denendi
   (`yazici/virtual_print.py`). deney15'ten SONRA (fan adımlarını ayrıca karşılaştırmak için). Sonra durum geri yükleme.
 
 ## 3. Yazıcı başında, baskı değil

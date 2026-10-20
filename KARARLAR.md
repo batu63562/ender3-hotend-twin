@@ -502,3 +502,9 @@ geçici ısı akışı (dT/dt ile ölçeklenir), (c) kartuş–blok temas direnc
 enerji). Ayırıcı deney: aynı sıcaklık aralığında farklı sabit güçlerle (ör. `max_power` 1.0 / 0.6) rampa + aynı
 tutmalardan serbest soğuma. Alarm etkisi yok (GUC yalnız ≥230 °C tutmada). Ayrıca oda sıcaklığı ölçüldü (uzun boşta
 nozzle + tabla): Eylül sonu 24.4–24.8 °C (T_AMB = 25 doğru), 16–20.10 20.6–22.3 °C → Ekim/kış için ayrı aday.
+**deney14 planı (20.10):** `yazici/deney14a_kapasite_fan.gcode` (yazıcı değişmeden, ~35 dk): odadan 245'e %100 fan
+kapalı (A1), 245 tutma, serbest soğuma → 100 (A2), 150/200 tutmalar fan kapalı (A3) ve fan %100 (A4), 150 → 245 %100
+fan %100 (A5: aynı güç, ~%30 yavaş rampa), 245 tutma fan %100, serbest soğuma fan %100 (A6).
+`yazici/deney14b_kapasite_guc60.gcode` (`max_power: 0.6`, ~20 dk): odadan 235'e %60 (B1), tutma, soğuma → 120, 120 → 200
+%60 (B3). Okuma: ΔP(T) = (C_ısınma − C_soğuma)·dT/dt; A1 = A5 ise (a), ΔP ∝ hız ise (b), ΔP ∝ güç × hız ise (c).
+Deney öncesi Pi durumu: k 1.0073, k_fil 1.3175, k_ref 1.045 (fan %100 tutmaları k'yı oynatabilir; sonra kontrol).

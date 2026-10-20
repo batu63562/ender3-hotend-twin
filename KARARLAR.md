@@ -707,3 +707,6 @@ kalibrasyon fan merdiveni %100'ü ölçer (PLA); (4) `K_FIL` PETG ısı kapasite
 ≈ aynı, K27) → PLA/ABS'de 3–5 baskıyla doğrulanır, malzeme tablosu v0.3; (5) `T_AMB` 25 sabit → kapalı kasada ABS/ASA
 kapsam dışı. Fiziksel sınırlar: PLA'da filaman ısısı (T − T_oda) 210 °C'de 245'in ~%84'ü → aynı akışta tam kesinti
 eşiğe daha geç ulaşır; `printer.cfg` `max_temp: 260` → üst sınır ~255 °C (PC, naylon kapsam dışı).
+**K42 ek:** elde yalnız PETG ve TPU (kullanıcı, 20.10). Kalibrasyon baskısı ekstrüzyonsuz → 210 ve 255 °C kalibrasyonu
+filamentsiz yapılır (model doğrulaması). 230 °C altı baskı durumu TPU'yu 220–235 °C'de basarak sınanır (göreli eşik).
+PLA/ABS baskı içi doğrulaması (k_fil çapası, %100 fanla baskı, tespit hassasiyeti) v0.4 test kullanıcılarına kalır.

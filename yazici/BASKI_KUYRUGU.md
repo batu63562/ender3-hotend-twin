@@ -43,12 +43,17 @@ Güncellik: 2026-10-20. Bir madde bitince işaretle (ya da Claude'a söyle, işa
 
 PETG'ye bağlı yerler ve çözümleri yol haritası notunda (KARARLAR K42). PLA'nın asıl engeli kodda (öğrenme ve alarm
 yalnız 230 °C üstünde) — o baskısız çözülür; aşağıdakiler ondan sonra anlamlı.
-- [ ] **PLA kalibrasyon baskısı** (`py yazici/calibration_print.py --temp 210 --mid 130 --holds 190,170,150`, ~55 dk).
-- [ ] **3–5 PLA baskı, fan %100** (k_fil çapası 1.33 PLA'da tutuyor mu; %100 fan baskıda).
-- [ ] **1–2 TPU baskı** (çapanın TPU'da da tuttuğunu tekrar görmek).
-- [ ] **ABS/ASA küçük parçalar, açık yazıcı** (250–255 °C; `max_temp` 260): kalibrasyon baskısı `--temp 255` + 2–3
-  baskı. Kapalı kasa kapsam dışı (oda sıcaklığı sabit varsayımı).
-Elinde hangi filamentler var? Olmayanlar bu bölümden çıkar.
+Elde yalnız PETG ve TPU var (20.10). Kalibrasyon baskısında ekstrüzyon olmadığı için modelin başka sıcaklıklarda
+doğrulanması filament istemez; yalnız baskı içi kısım (k_fil çapası, %100 fanla baskı) gerçek PLA/ABS ister.
+- [ ] **Düşük sıcaklık kalibrasyonu** (PLA aralığı, filamentsiz): `py yazici/calibration_print.py --temp 210 --mid 130
+  --holds 190,170,150` (~55 dk). Model 235–245 dışında ilk kez.
+- [ ] **Yüksek sıcaklık kalibrasyonu** (ABS/ASA aralığı, filamentsiz): `--temp 255 --holds 225,195,160` (`max_temp` 260).
+- [ ] **TPU'yu 220–235 °C arasında basmak** (ör. TPU sıcaklık kulesi 235 → 220, ya da bir parça 225 °C'de): 230'un
+  ALTINDA baskı = PLA'daki durumun elimizdeki filamentle karşılığı. Göreli eşik (v0.3a) bununla gerçek donanımda sınanır.
+- [ ] **PETG sıcaklık kulesi** (230 → 250): baskı içi hedef değişimi, k_fil'in sıcaklıkla değişimi (bölüm 1'deki öneriyle aynı baskı).
+- [ ] **1–2 TPU baskı daha** (çapanın TPU'da tuttuğunu tekrar görmek).
+- PLA / ABS ile gerçek baskı: elde yok. Baskı içi doğrulama (k_fil çapası, %100 fan, tespit hassasiyeti) v0.4'teki
+  test kullanıcılarına kalır; README'de "PLA/ABS baskı içi davranışı bu yazıcıda doğrulanmadı" diye yazılır.
 
 ## 4. Yazıcı başında, baskı değil
 

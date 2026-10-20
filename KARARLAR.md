@@ -508,3 +508,19 @@ fan %100 (A5: aynı güç, ~%30 yavaş rampa), 245 tutma fan %100, serbest soğu
 `yazici/deney14b_kapasite_guc60.gcode` (`max_power: 0.6`, ~20 dk): odadan 235'e %60 (B1), tutma, soğuma → 120, 120 → 200
 %60 (B3). Okuma: ΔP(T) = (C_ısınma − C_soğuma)·dT/dt; A1 = A5 ise (a), ΔP ∝ hız ise (b), ΔP ∝ güç × hız ise (c).
 Deney öncesi Pi durumu: k 1.0073, k_fil 1.3175, k_ref 1.045 (fan %100 tutmaları k'yı oynatabilir; sonra kontrol).
+**deney14 sonuçları (20.10, ayar; modelden bağımsız, `scratchpad soguma/d14.py`):**
+- Serbest soğuma kapasitesi C = L/|dT/dt| fan kapalı ve %100'de AYNI (130–210 °C 5.8–6.5 / 5.7–6.1 J/K; 14b 5.9–6.5) →
+  gerçek bir kapasite, ~6.3 J/K; model 140 °C'de 6.86, 210 °C'de ~7.4.
+- Tutma kaybı (oda 24.4 °C): 245 °C fan kapalı 18.13 W (model k=1 18.74 → k ≈ 0.97), fan %100 25.77 W; 150 °C 8.27 / 12.20 W.
+- Rampalarda eksik güç ΔP = P − L(T) − C_soğuma·dT/dt (W) ve ek kapasite ΔC = ΔP/(dT/dt):
+  | T (°C) | A1 40 W fan kapalı | A5 40 W fan %100 | B1 24 W fan kapalı |
+  | 170–190 | 4.90 (3.78 K/s, ΔC 1.30) | 2.68 (3.39, 0.79) | 1.58 (1.77, 0.89) |
+  | 190–210 | 6.18 (3.25, 1.90) | 3.74 (2.80, 1.34) | 2.04 (1.35, 1.51) |
+  | 210–230 | 5.72 (2.98, 1.92) | 4.05 (2.26, 1.79) | 1.64 (1.08, 1.52) |
+  ΔP 90–110 °C'de ~0.4 W, sıcaklıkla 6–8 W'a büyüyor.
+- (a) güç düşüşü REDDEDİLDİ: aynı 40 W'ta fanla yavaşlayan rampada ΔP ~0.6×, %60 güçte ~0.3× (a 1.0× / 0.6× der).
+- (b) ile (c) arası: B1/A1 ΔC oranı 0.69–0.79; (b) saf hız 1.0, (c) saf güç 0.6 der. A5'in ΔP'si düşük taraflı (fanın
+  rampadaki kaybı tutmadan küçük: T2 geride). Ek enerji yalnız ısıtıcı açıkken var, sıcaklıkla büyüyor, kabaca hem hız
+  hem güçle ölçekleniyor → ısıtıcı–blok arayüzü (kartuş sıcaklığı ölçülemiyor) baş şüpheli; tek mekanizmaya oturmuyor.
+- Yan etki: fan %100 tutmaları Pi'de k'yı 1.007 → 0.959 indirdi, KAYIP_AZALDI; deney öncesi durum geri yüklenecek
+  (`durum_yedek/twin_state_20261020_144115.json`).

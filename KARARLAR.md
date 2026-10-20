@@ -457,3 +457,21 @@ kalmadı; sahte Moonraker döngüsü boş durum dosyasıyla başladı, K33 senar
 sağlam yazıldı. AST: model sınıfları aynı (değişen: `load_state`, `backup_state`, `save_state`, `main`). Eylül 3.62.
 `notify_klippy_shutdown` (MCU kopması) gerçekte hâlâ görülmedi: USB çekilince Pi de kapandı.
 Pi'de 20.10 13:58 deploy (kod sürümü `34ffc9b9`): durum her 5 s atomik yazılıyor, `.tmp` kalmıyor, k/k_fil devralındı.
+
+## K35 — Kapanışta son log arşivlenir; boş log arşivlenmez (2026-10-20, v0.2, MODEL DIŞI)
+Olay (20.10 Pi kontrolü): `twin_gecmis.csv`'de kapanışta yazılan 5 özet satırı (19.10 19:09; 20.10 12:52, 13:36,
+13:52, 13:57) dosya olarak `realtime_log_ws.csv` gösteriyordu: özet kapanışta canlı dosyanın adıyla yazılıyor, bir
+sonraki açılış o dosyayı `_onceki_<son yazma>` adına taşıyordu → özet artık var olmayan bir adı gösteriyordu (veri
+kaybı yok). Ayrıca K34'teki çökme döngüsü, her açılışta yalnız başlıklı canlı dosyayı arşivleyip 4 boş (275 bayt) log
+bırakmıştı.
+Çözüm: (1) kapanışta (`main` finally) son parça önce kapatılıp arşivlenir (`LogFile.close_archive`), özet arşivin
+adıyla yazılır; arşivlenemezse eski davranış (canlı adla). Çökmede (finally çalışmaz) açılıştaki `archive_log` eskisi
+gibi taşır. Yan etki: ikiz çalışmıyorken `realtime_log_ws.csv` yok, son oturum hemen Unity'nin kayıt listesinde
+(UNITY_ARAYUZ.md). (2) `archive_log` yalnız başlık satırı olan dosyayı taşımaz; yeni `LogFile` üstüne yazar.
+Test (sahte Moonraker, 14.10 cap/chain/glass 60×, başlangıçta yalnız başlıklı canlı dosya): boş arşiv yok, 3 parça
+2148 + 2302 + 4215 = 8665 satır (K29 ile aynı), kapanış özeti `_1416.csv`'yi gösteriyor ve dosya var, kapanıştan sonra
+canlı dosya yok. AST: değişen `archive_log`, `LogFile`, `main`; model sınıfları aynı.
+Pi'de 20.10 14:41 deploy (kod sürümü `5c7029fb`; eski kod kapanırken son kez yanlış adla yazdı). Pi verisi elle
+düzeltildi (yedek `durum_yedek/twin_gecmis_K35_oncesi.csv`): Pi dönemindeki 8 satır arşivin ilk satır zamanıyla
+eşlenip doğru adı aldı, 4 boş log silindi. 26.09–18.10 arasındaki 115 eski satır (PC dönemi, `-WithState` ile gelen
+geçmiş) aynı hatayı taşıyor; o loglar PC'de `loglar/` altında başka adlarla, Pi'de eşlenemedi, olduğu gibi bırakıldı.

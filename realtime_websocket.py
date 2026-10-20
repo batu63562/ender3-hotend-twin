@@ -974,6 +974,10 @@ def archive_log():
     part in the same minute gets seconds in its name so nothing is overwritten. Returns the new path or None."""
     if not (os.path.exists(LOG_FILE) and os.path.getsize(LOG_FILE) > 0):
         return None
+    with open(LOG_FILE, newline="") as f:   # header only (a start that crashed before any data): nothing to keep,
+        f.readline()                        # the next LogFile overwrites it [K35]
+        if not f.readline():
+            return None
     mt = time.localtime(os.path.getmtime(LOG_FILE))
     old = os.path.join(os.path.dirname(LOG_FILE), f"realtime_log_ws_onceki_{time.strftime('%Y%m%d_%H%M', mt)}.csv")
     if os.path.exists(old):
@@ -1016,6 +1020,12 @@ class LogFile:
         old = archive_log()
         self._open()
         return old
+
+    def close_archive(self):
+        """At exit: close and archive the last part, so the session summary names its final file [K35].
+        Returns the archived path (None if empty or the move failed)."""
+        self.fh.close()
+        return archive_log()
 
     def __enter__(self):
         return self
@@ -1686,9 +1696,9 @@ async def main():
                     print(f"  {code}: {sure} - {FAULT_TEXT[code]}")
                 if events:
                     print(f"  kategoriler (hesaplandiysa): {REPORT_FILE}")
-                # session-to-session trend: the summary of the current (last) log part to twin_gecmis.csv
-                log.flush()
-                msg = summarize_session(LOG_FILE)
+                # session-to-session trend: the last log part is archived first, so its summary in twin_gecmis.csv
+                # names the file that stays (the next start used to rename it afterwards) [K35]
+                msg = summarize_session(log.close_archive() or LOG_FILE)
                 if msg:
                     print(msg)
 

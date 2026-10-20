@@ -12,6 +12,9 @@ Unity görselleştirmesi (`Ender3_Twin/`) Python ikizine **ağ üzerinden değil
   dönüş hariç) Python canlı dosyayı kapatır, `realtime_log_ws_onceki_...` adıyla arşivler ve aynı adla yeni bir dosya
   açar (ilk satırı baskının ilk mesajı). Unity'nin canlı görüntüsü baskı başında sıfırlanır (kullanıcı onayı). 1 dk'dan
   kısa bir parça (ör. ikiz baskıdan hemen önce açıldıysa) ayrılmaz, yeni baskı aynı dosyada devam eder.
+- **2026-10-20'den itibaren (K35) ikiz kapanırken de** son parça arşivlenir: ikiz çalışmıyorken `realtime_log_ws.csv`
+  yoktur (Unity bunu "dosya bulunamadı" olarak görür), son oturum hemen kayıt listesinde çıkar. Yalnız başlıktan
+  oluşan dosya (veri gelmeden çöken açılış) arşivlenmez, bir sonraki açılış üstüne yazar.
 - Dosyanın son yazılma zamanı 5 s'den yeniyse menü "script çalışıyor" der. Bu yüzden `FLUSH_INTERVAL` 5 s'nin altında kalmalı (şu an 1 s).
 - Canlı veri 3 s'den uzun gelmezse Unity üst çubukta "no data" uyarısı gösterir.
 - Unity canlı görüntüyü verinin `liveDelay` = 1.5 s gerisinden oynatır (Playhead), böylece paketler arasında ara değer alabilir.

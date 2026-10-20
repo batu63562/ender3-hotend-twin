@@ -4,3 +4,4 @@
 websockets>=17.0
 numpy>=2.0
 pandas>=3.0
+# Offline tools only (not needed by the live twin): calibrate.py needs scipy>=1.11

@@ -602,3 +602,24 @@ HIZLI rampalara (%100 güç; 14a, deney9) dayanıyordu. 14b'nin yavaş rampasın
 tutmada da +1.46 W / 71 s eşik altı sapma var → ısınma sonrası geçici en azından yavaş rampada var; ilk katmanla ayrımı
 henüz kesin değil. Bugünkü sistemde (19.10, k doğru) 7 baskının 5'inde ilk katman ~2. dk +1.2…+1.4 W, 76–138 s (sarı
 aday, eşik altı). Sarı seviye incelemesinde ikisi birlikte ele alınmalı.
+
+## K39 — Fit aracı (`calibrate.py`) ve ilk tanılama sonucu (2026-10-20, v0.3 hazırlığı, ANALİZ, MODEL DEĞİŞMEDİ)
+v0.3'ün asıl iş yükü kalibrasyon logundan parametre çıkaran araç; v0.2 baskıları beklenirken paralel başlandı
+(kullanıcı isteği). `calibrate.py`: canlı ikizin `model_step`'i logdaki ısıtıcı gücü + fanla açık çevrimde koşar,
+seçilen sabitleri T1 farkının en küçük kareleriyle fit eder (scipy; canlı ikiz gerektirmez), her loga kendi k'sını verir
+(oturum seviyesi), tanılanabilirliği raporlar (Jacobian'dan ±1 se, bilgisiz parametreler, |r| > 0.9 çiftler).
+- **Araç doğrulaması (sentetik):** bugünkü modelin kendi çıktısı (0.01 °C yuvarlama) rastgele bozulmuş başlangıçtan fit
+  edildi: deney9 + 14a + 14b ile 10 parametrenin hepsi %1 içinde geri bulundu (yalnız deney9: fan yok → HA2_FAN bilgisiz).
+- **Ayrılamayanlar (gürültüsüz bile):** HA1~HA2 −1.00 (blok yüzeyi ve heat break kaybı ikisi de T − T_oda ile orantılı,
+  T2 ≈ T1), HA2~HA2_FAN, C2~kayıplar. Gerçek veride ayrıca C3~R31 −1.00 (yalnız τ = C3·R31 belirlenebiliyor), C1~C3,
+  C1~R31. → kalibrasyon için parametre azaltma: tek toplam kayıp (HA1 + HA2), kartuş için yalnız τ.
+- **Gerçek veri (3 log, her log kendi k'sıyla):** bugünkü parametreler 3.59 °C (k: deney9 1.102, 14a 1.015, 14b 0.975);
+  10 parametre fit 2.19 °C (deney9 2.39 → 1.62, 14a 4.63 → 2.88, 14b 3.65 → 1.57). AMA 4 parametre sınırda ve fiziksel
+  değil: C1 2 → 5.06, C2 4.03 → 1.35, C3 0.83 → 0.21 (sınır), R_HB 1.8 → 7.2 (sınır), HA2 /4 (sınır), CAP_T_COEF
+  0.0012 → 0.0017. τ_kartuş = C3·R31: 2.5 → 0.59 s (deney9'un ~0.5–1 s gecikme bulgusuyla uyumlu). Fit, yapıdaki
+  eksiği (K36 ısınma–soğuma asimetrisi) telafi ediyor → değerler modele ALINMADI.
+- **v0.3'e dersler:** (1) oturum k'sı her zaman ayrı fit edilmeli; (2) serbest fit fiziksel olmayan değerlere kaçıyor →
+  ROADMAP'teki "profil = başlangıç tahmini + belirsizlik" doğrudan önsel (prior) olarak fit'e girmeli (cezalı/MAP fit);
+  (3) parametre sayısı tanılanabilir olanlara indirilmeli; (4) 3 log az, her aday Eylül + ayar setinde puanlanmadan
+  kabul kapısına gelmez. Sıradaki: önselli fit + azaltılmış parametre seti, sonra kalibrasyon G-code'u bu
+  tanılanabilirliğe göre tasarlanır.

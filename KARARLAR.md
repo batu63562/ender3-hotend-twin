@@ -485,3 +485,20 @@ Pi'de 20.10 14:41 deploy (kod sürümü `5c7029fb`; eski kod kapanırken son kez
 düzeltildi (yedek `durum_yedek/twin_gecmis_K35_oncesi.csv`): Pi dönemindeki 8 satır arşivin ilk satır zamanıyla
 eşlenip doğru adı aldı, 4 boş log silindi. 26.09–18.10 arasındaki 115 eski satır (PC dönemi, `-WithState` ile gelen
 geçmiş) aynı hatayı taşıyor; o loglar PC'de `loglar/` altında başka adlarla, Pi'de eşlenemedi, olduğu gibi bırakıldı.
+
+## K36 — Soğuma hatasının teşhisi: ısınma ile soğuma farklı kapasite görüyor (2026-10-20, v0.2, ANALİZ, MODEL DEĞİŞMEDİ)
+Eylül soğuma 6.44 (bias −6.1). Şekil: ısıtıcı kapanınca residual 10–20 s −1.3, 1–2 dk −7.5 (tepe), 4–8 dk −5.0 → hata
+dakikalar boyunca birikiyor, ilk saniyelerin sıçraması değil (kartuş enerjisi τ = C3·R31 ≈ 2.5 s'de boşalır, elendi).
+Aynı sıcaklıkta gerçek/model soğuma hızı (27 log, Eylül + ayar, fansız): 40–160 °C ~1.05, 160–220 °C 1.08–1.13.
+Model bağımsız kapasite (deney9, ayar): tutma gücü = kayıp L(T); C_soğuma = L/|dT/dt| 100–220 °C'de DÜZ ~6.2–6.5 J/K;
+C_ısınma = (P − L)/(dT/dt) sıcaklıkla artıyor (80–100 °C 6.49 → 220–240 °C 7.98). Model C(T) (K, 13.10 `CAP_T_COEF`)
+ısınmaya fit edilmişti, ısınmanın eğimini kopyalıyor: 140 °C'de 6.87, 200–220 °C'de 7.44 → soğumada %7–15 fazla.
+Tanı taraması (Eylül, taze k): `CAP_T_COEF` 0.0006 / 0 soğumayı yalnız 6.44 → 6.25 / 6.30 yapıyor (seviye de yüksek);
+düz C ×0.93 (ölçülen seviye) soğuma 6.44 → 3.47 AMA ısınma 2.32 → 7.22, varış 1.79 → 10.13. Tek kapasite ikisini
+tutturamaz: ısınmada %100 güçte sıcaklıkla büyüyen, soğumada geri gelmeyen bir enerji akışı/eksiği var. Adaylar:
+(a) tam güçte ısıtıcı gücü sıcakken düşüyor (230 °C'de ~%10 gerekir; deney9 tutma k'sı 120 → 245 °C 1.07 → 1.13, bu
+kısmen buna uyar — 15.10'daki "P(T) çürüdü" sonucu bu gözle yeniden incelenmeli), (b) hızlı rampada heat break'e
+geçici ısı akışı (dT/dt ile ölçeklenir), (c) kartuş–blok temas direnci sıcaklıkla artıyor (güçle ölçeklenir, gradyanda
+enerji). Ayırıcı deney: aynı sıcaklık aralığında farklı sabit güçlerle (ör. `max_power` 1.0 / 0.6) rampa + aynı
+tutmalardan serbest soğuma. Alarm etkisi yok (GUC yalnız ≥230 °C tutmada). Ayrıca oda sıcaklığı ölçüldü (uzun boşta
+nozzle + tabla): Eylül sonu 24.4–24.8 °C (T_AMB = 25 doğru), 16–20.10 20.6–22.3 °C → Ekim/kış için ayrı aday.

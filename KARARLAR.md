@@ -730,5 +730,6 @@ PLA/ABS baskı içi doğrulaması (k_fil çapası, %100 fanla baskı, tespit has
   `max_power` 1.0 varsayar, o deneyde 0.6 — bilinen istisna.)
 **K43 ek (21.10, kullanıcı):** 1310 bakım testi → C (ikiz ısıl yoldaki gerçek değişimi 29 s'de yakaladı). Etiketler 38;
 rapor: etiketli arıza 15/17 yakalandı (medyan 26 s), duraklatma 4/17, yanlış duraklatma 0; sınav yanlış alarm
-0.155 → 0.093 / baskı saati (8 yanlış, hepsi doğrulanmış "-"), tümü 0.100. Etiketsiz olay kalmadı (sınav ve ayar
-baskılarında); `etiket_onerileri.csv` boşaltıldı.
+0.155 → 0.093 / baskı saati (8 yanlış, hepsi doğrulanmış "-"), tümü 0.100. Sınavda etiketsiz olay kalmadı; ayarda
+3 kısa olay etiketsiz (2909 benchy1 1410 s / 17 s, 1510 gyroid küp 305 s / 20 s ve 345 s / 29 s; dosya adları
+"ariza_yok", baskılar sağlam — etiketlenirse "-"). `etiket_onerileri.csv` boşaltıldı.

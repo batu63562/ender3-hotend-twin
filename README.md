@@ -301,6 +301,10 @@ on the PC (needs SSH access to the Pi):
 read-only so the Unity viewer can read it (`\\<pi>\ender3-twin` as its data folder). The phone page moves to
 port 8090 (8080 is usually the webcam). Logs: `journalctl -u ender3-twin -f`.
 
+To copy the finished logs from the Pi to the PC (one way, never deletes; the live file is skipped), set
+`pi_share` in `config.toml` and run `python sync_pi_logs.py` (`--plans` also copies `tahminler/`). They land in
+`loglar/pi/` and can be added to the v0.2 report with `python benchmark/report_v02.py --extra loglar/pi`.
+
 The twin never sends G-code to the printer. The only possible command is the pause in `aktif` mode
 (off by default).
 
@@ -316,7 +320,7 @@ The twin never sends G-code to the printer. The only possible command is the pau
 | `ariza_raporlari.txt` | Alarm reports, classifications, shadow-pause and maintenance messages. |
 | `tahminler/` | G-code plans (`tahmin_*.csv`) and toolpaths (`yol_*.bin`). |
 | `benchmark/` | Calibration runs, set split, fault library. |
-| `loglar/` | Archived logs (`baskilar/` prints, `deneyler/` experiments). |
+| `loglar/` | Archived logs (`baskilar/` prints, `deneyler/` experiments, `pi/` raw copies from the Pi by `sync_pi_logs.py`). |
 | `KARARLAR.md` | Decision log (Turkish). |
 | `UNITY_ARAYUZ.md` | Python ↔ Unity data contract. |
 

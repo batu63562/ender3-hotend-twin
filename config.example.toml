@@ -6,3 +6,7 @@ printer_host = "192.168.1.50"
 
 # Port of the phone status page (http://<this computer>:<port>). 0 turns it off.
 # web_port = 8080
+
+# The twin's folder on the Raspberry Pi as this PC sees it (the Samba share of pi/install.sh); used by
+# sync_pi_logs.py to copy finished logs here. Forward slashes work on Windows too.
+# pi_share = "//192.168.1.60/ender3-twin"

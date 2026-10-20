@@ -580,3 +580,8 @@ tahmini yalnız geceyi sayıyordu). Journal 200 MB ile sınırlı (sorun değil)
   `sync_pi_logs.py` N günden önce çalıştırılırsa PC'de .csv kopyası kalır.
 - C) N günden eski, yalnız boşta parçaları sil. Önerilmez (geri dönüşsüz; bilgi değeri düşük ama sıfır değil: oda sıcaklığı).
 Öneri: A (basit, silme yok, 7/24 boşta ağırlıklı kullanımda ~4 aya çıkarır); gerekirse sonra B. Deploy `sudo` ister.
+**Düzeltme (20.10 gece, `scan_subthreshold.py --extra loglar/pi`):** "ilk katman tümseği ısınmadan değil" sonucu yalnız
+HIZLI rampalara (%100 güç; 14a, deney9) dayanıyordu. 14b'nin yavaş rampasından (%60, 193 s) sonra, z 50'de baskısız
+tutmada da +1.46 W / 71 s eşik altı sapma var → ısınma sonrası geçici en azından yavaş rampada var; ilk katmanla ayrımı
+henüz kesin değil. Bugünkü sistemde (19.10, k doğru) 7 baskının 5'inde ilk katman ~2. dk +1.2…+1.4 W, 76–138 s (sarı
+aday, eşik altı). Sarı seviye incelemesinde ikisi birlikte ele alınmalı.

@@ -665,3 +665,9 @@ eksikleri olabilir (fan eğrisi yalnız %100'de ölçüldü, k_fil çapası 1.33
 geçici yamayla değil, yapıyı ikizin içine tutarlı yerleştirip (öğrenici, eksik güç, initial_state, çapa) ölçülebilir —
 gerçek model değişikliği, kabul kapısı. Araç: `benchmark/structure_cartridge_loss.py` (K_MAP ortam değişkeni).
 v0.3'e not: kalibrasyon baskısına baskı fan seviyelerinde (25/40/60/100 %) fan adımları + iki güç sınırlı rampa şart.
+**K40 karar ve sıra (20.10, kullanıcı):** S3d yolu sürdürülecek; ölçüt soğuma DEĞİL (çekirdeğe hizmet etmiyor):
+fanlı baskı aynı ya da daha iyi, ısınma/varış daha iyi; asıl değer v0.3 (ısınma + soğuma aynı parametrelerle →
+kalibrasyon başka yazıcıya taşınabilir). Sıra: (1) `yazici/deney15_fan_egrisi.gcode` (fan 0/15/20/25/40/60/100 ve geri,
+245 + 215 °C, ~45 dk; Eylül deney5/6'nın bakım sonrası tekrarı) — v0.2 beklenirken alınabilir, sonra Pi durumu geri
+yüklenir; (2) v0.2 kapanınca S3d ayrı dalda ikizin içine tutarlı yerleştirilir (öğrenici, eksik güç, initial_state,
+k_fil çapası) ve kabul kapısından geçirilir.

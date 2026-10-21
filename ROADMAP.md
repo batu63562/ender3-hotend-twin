@@ -152,16 +152,23 @@ Materials: a material table (density, heat capacity, typical temperature) from w
 term is computed. `k_fil` itself turned out to depend on the print, not the material: every print starts
 from one anchor (v0.1, [K27]).
 
-English identifiers, done together with this refactor since it touches the same code (public names and
-comments were already translated before v0.1). It must be behaviour-neutral, so replaying the logs gives
-exactly the same scores before and after. CSV columns and alarm codes stay as they are (data contract).
-
-Learning and alarms work only above 230 °C today (tied to PETG). They become relative to the print temperature,
-so that PLA (200–215 °C) is covered; a TPU print below 230 °C checks it on this printer.
+Progress (2026-10-22, all on the Pi):
+- [x] Printer numbers from `profile.toml` + `calibration.json`, reproducing v0.2 exactly ([K52]).
+- [x] English identifiers, done together with this refactor since it touches the same code (public names and
+      comments were already translated before v0.1). Behaviour-neutral: replaying the logs gives exactly the
+      same scores before and after. CSV columns and alarm codes stay as they are (data contract) ([K53]).
+- [x] Learning and alarms were tied to 230 °C (PETG); they now follow the print target (target − 15 °C, not
+      below 180 °C), so that PLA (200–215 °C) is covered ([K54]). Passed the gate on replays; **open:** a real
+      TPU print below 230 °C on this printer.
+- [x] Synthetic slow-fault test kept as a tool (`benchmark/slow_fault_test.py`); the early-print detection
+      limit is documented, not tuned away ([K55]).
+- [ ] `calibrate.py` writes `calibration.json` directly.
+- [ ] Structural candidate + new part-fan curve through the gate (below).
 
 Carried over from v0.2: a few days of unattended running (ongoing on the Pi), and the demo clip of v0.1.
 
-**Done when:** the Ender 3 runs from a profile + calibration file and reproduces the v0.2 scores exactly.
+**Done when:** the Ender 3 runs from a profile + calibration file and reproduces the v0.2 scores exactly
+(the profile step did; later changes are deliberate, gated, and get a new frozen scorecard at the end of v0.3).
 
 ---
 

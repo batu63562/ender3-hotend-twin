@@ -952,3 +952,9 @@ Yalnız log ortasında baskı başlayan üç eski çok baskılı logda (1310, 14
 baş.) TÜMÜ 3.32 = 3.32, arıza 26 = 26 (yalnız soğuma bias −2.31 → −2.30); sınav 3.54 = 3.54, 19 = 19; Eylül yapı gereği
 aynı (print_state yok); `report_v02` etiket raporu birebir; yapay yavaş arıza 8/20, 13/13, 17/18, 6/6 aynı. Canlıda
 etkisi: her baskı gerçekten P0_FIL belirsizliğiyle başlar (önceden gece boyunca biriken Q_FIL eklenerek).
+**K55 ek — sol-üst (21.10) k_fil düşüşü yutma mı? (22.10 gece):** baskıda fan açıldıktan sonra k_fil 1.375 → 1.152
+(14:00 → 15:20) indi, eksik güç +0.1…+0.4 W kaldı. 10 dk'lık dilimlerde: düşüşün ilk yarısı fanın %25 → %40–46'ya
+çıktığı 14:30–14:50'ye, ikinci yarısı akışın 2.1 → 3.9 mm/s'ye çıktığı 15:00 sonrasına denk geliyor; ikisi de bilinen
+meşru yön (K48: fan ↑ → k_fil ↓; SpeedTest: akış ↑ → k_fil ↓). Köşelerin kalkmasına bağlamak için ayırıcı bir iz yok
+→ gerçek bir yutma örneği SAYILMADI (etiket değişmedi). Belge: README sınırlamaları ve "Not detected" tablosu
+(baskı başı yavaş arıza, nozzle'ı parçanın yanında bırakan kayma görünür), ROADMAP v0.3 ilerleme listesi.

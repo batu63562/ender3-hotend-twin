@@ -69,7 +69,8 @@ removes or adds heat load changes heater power by watts.
 
 | Not detected | Why |
 |---|---|
-| Part detaching from the bed, layer shifts, collisions | Mechanical; heat balance changes < 1 W. Needs an accelerometer or camera. |
+| Part detaching from the bed, collisions, layer shifts that keep the nozzle on the part | Mechanical; heat balance changes < 1 W. Needs an accelerometer or camera. (A shift that leaves the nozzle printing beside the part *is* seen: less heat goes into the print.) |
+| Slow faults that build up over ~10 min near the alarm threshold, at the start of a print | Indistinguishable from a print that simply needs less heat; `k_fil` learns them (see [Online learning](#online-learning-k-and-k_fil)). |
 | Print-quality issues (e.g. 0.1 mm layer defects, stringing) | Change heat flow < 1 W, same size as normal part-to-part variation. |
 | Thermistor offset vs. real loss change | Needs a second temperature sensor. |
 
@@ -149,7 +150,7 @@ The twin produces two comparisons with reality:
    It settles in ~15–20 s and does not accumulate model drift.
 
 Because the controller holds temperature constant, the heater power acts as a calorimeter: **missing power
-is the official alarm signal.** It is only evaluated at printing temperature (> 230 °C), with a stable
+is the official alarm signal.** It is only evaluated near the print target (above target − 15 °C), with a stable
 temperature and 30 s after a heat-up or set-point change. Industry practice for closed-loop systems is the
 same (monitor the controller effort, not the controlled variable).
 
@@ -176,7 +177,9 @@ model        y = k · (block + fan loss) + k_fil · K_FIL · flow · (T − T_am
 - **`k_fil` — heat-into-the-print factor**, only when the part fan is cooling. It is not just filament
   heating: the hot nozzle face also conducts heat into freshly laid plastic, which depends on fan speed,
   geometry and material. With the fan off, heat into the print = filament heating only (`k_fil` fixed at 1.0).
-- **Windows.** *Hold* windows (20 s, no extrusion, > 230 °C, stable T) teach `k`. *Print* windows (60 s,
+- **Windows.** *Hold* windows (20 s, no extrusion, near the print target, stable T) teach `k`. "Near the print
+  target" means above target − 15 °C and never below 180 °C (so a 150 °C preheat is never learned from); with no
+  target known it falls back to 230 °C. The same limit gates the missing-power alarm. *Print* windows (60 s,
   stable T, valid missing power, no alarm) teach `k` and `k_fil` together. Windows containing a fault
   (|missing power| > 2.5 W or an active alarm) are discarded so faults are not learned as "normal".
 - **Estimator.** A 2-state Kalman filter on `[k, k_fil]`. `k_fil` has process noise (it may change ~0.05 per
@@ -192,6 +195,15 @@ but also absorbs slow faults as the "new normal". This was tested by injecting s
 real logs (heater power reduced along a ramp): making `k_fil` 16× faster improved scores slightly but
 missed 3 of 5 ten-minute, 3 W faults. The chosen setting keeps the filter time constant and only shortens
 the window (`[K17]`). It is the same dilemma as numerical diffusion in CFD.
+
+The test is a permanent tool (`python benchmark/slow_fault_test.py`, part of the acceptance gate). Current
+detection limits on the calibration set: a 3 W fault ramping in over 10 min is caught mid-print (17 of 18,
+~9 min), but only 8 of 20 times when it starts as the part fan turns on, early in the print; a 4 W fault over
+30 min is always caught (~21–26 min). Early in a print the learner cannot tell a slow fault from a print that
+needs less heat: learned `k_fil` legitimately ranges 1.1–1.6 between prints (~±1 W), and a 3 W fault is only
+0.5 W above the threshold. Every setting that swallowed less (a tighter start uncertainty) raised false alarms on
+healthy fan-cooled prints, so it was not changed (`[K55]`). Fast faults (most real ones: jams, run-outs) are
+unaffected.
 
 ---
 
@@ -356,11 +368,12 @@ since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it
   rate; it does not come back after arrival, so it is lost rather than stored. The model's
   temperature-dependent capacity copies the heat-up behaviour, so it cools 5–13 % too slowly: cool-down is the
   weakest phase (September core set RMSE 6.4 °C, model too warm). A heater power that falls when hot was ruled
-  out. This affects neither the alarms (missing power is evaluated only in holds ≥ 230 °C) nor the learning of
+  out. This affects neither the alarms (missing power is evaluated only near the print target) nor the learning of
   `k`. A structural candidate (temperature-dependent cartridge contact resistance) is listed under v0.3 in the
   [roadmap](ROADMAP.md). The ~0.5–1 s heater-to-thermistor lag is not modelled either (adding it hurt cool-down).
 - **Validated range:** PETG and TPU, 235–245 °C. Above 245 °C, PLA at 100 % fan and enclosed materials are
-  untested.
+  untested. Printing below 230 °C (the learning and alarm limit now follows the target) is checked only by
+  replaying calibration experiments with 200–215 °C holds, not yet by a real print.
 - **Detectability scales with the heat path.** A full filament stop is seen only above ~1.6 mm/s of filament
   (~3.8 mm³/s); slow, thin features stay below the 2.5 W threshold. A blocked part-fan duct is caught at 60 %
   fan (+4 W, induced test 2026-10-20) but stays within ±1 W at 25 % fan, where the blower barely cools.

@@ -1,6 +1,6 @@
 # Baskı kuyruğu
 
-Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-10-21 (yarın başlanıyor).
+Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-10-22 gece (yarın köprü testiyle başlanıyor).
 Bir madde bitince Claude'a söyle; işaretler, logu alır ve inceler.
 
 ## Kurallar (her seferinde)
@@ -12,7 +12,11 @@ Bir madde bitince Claude'a söyle; işaretler, logu alır ve inceler.
   `ssh -t batu63562@192.168.0.25 "sudo systemctl stop ender3-twin && cp ~/ender3-twin/durum_yedek/<YEDEK>.json ~/ender3-twin/twin_state.json && sudo systemctl start ender3-twin"`
 - Deneyler filament harcamaz (ekstrüzyon yok, nozzle 50 mm havada); yazıcının başında durman gerekmez.
 
-## A. Normal baskılar (v0.2 gölge mod: hedef 10–20, şu an 7)
+## A. Normal baskılar
+
+Duraklatma 22.10'dan beri AKTİF (K50): GUC_AZALDI 150 s sürerse ikiz baskıyı kendisi duraklatır (park X0 Y220).
+Duraklatırsa iptal etme; Mainsail'de neden durduğuna bak (filaman, tıkanma), sonra Resume ya da Cancel, saati not et.
+Başlamadan önce son kod Pi'de olsun (K55 deploy).
 
 Ne basacağını bulamıyorsan: Orca Slicer'ın kendi kalibrasyon baskıları (Kalibrasyon menüsü) hem yazıcın için yararlı
 hem ikize en çok şeyi öğretenler.
@@ -23,10 +27,10 @@ hem ikize en çok şeyi öğretenler.
 | 2 | ~~Sıcaklık kulesi 250 → 230~~ (21.10 BİTTİ) (Orca: Kalibrasyon → Sıcaklık) | PETG | ~1 sa | Baskı içinde hedef değişimi: ısınma/varış, k_fil'in sıcaklıkla değişimi |
 | 3 | **TPU sıcaklık kulesi 235 → 215** | TPU | ~1 sa | **230 °C altında baskı** = PLA'daki durumun elindeki filamentle karşılığı (K42); log sonra yeni kodla yeniden oynatılır |
 | 4 | ~~Aynı parça iki kez: fan %40 ve %60~~ (21.10 BİTTİ: benchy, K48) | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |
-| 5 | **Uzun baskı (> 2 sa)**, gece de olur | PETG | > 2 sa | k ve k_fil'in uzun süre kararlılığı; gölge mod saati |
-| 6 | **Çıkıntı / köprü testi** (Orca: Kalibrasyon) | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi not et |
+| 5 | **Uzun baskı (> 2 sa)**, gece de olur | PETG | > 2 sa | k ve k_fil'in uzun süre kararlılığı; aktif duraklatmanın gözetimsiz saati. 21.10 sol-üst (2 sa 3 dk) kusurlu bitti → temiz biri hâlâ gerekli |
+| 6 | **Çıkıntı / köprü testi** (Orca: Kalibrasyon) — **23.10 ilk iş** | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi ya da saati not et (sarkan köprü, kopan çıkıntı) |
 | 7 | **Bir TPU baskı daha** (normal sıcaklıkta) | TPU | ne olursa | k_fil çapası 1.33 TPU'da tutuyor mu |
-| 8+ | Ne istersen | PETG/TPU | — | Gölge mod sayacı (10–20'ye tamamlamak) |
+| 8+ | Ne istersen | PETG/TPU | — | Gözetimsiz çalışma verisi, yeni etiketler |
 
 **Pause/Resume denemesi (1. baskıda, ilk katmandan sonra):** Mainsail → Pause → kafa X0 Y220'ye gitmeli (eskiden
 X230 Y230'da gövdeye çarpıp baskıyı kaydırıyordu) → ~30 s bekle → Resume → baskı kaymadan devam etmeli. Saati not et.
@@ -43,7 +47,12 @@ X230 Y230'da gövdeye çarpıp baskıyı kaydırıyordu) → ~30 s bekle → Res
 Önerilen sıra: B1 → B2 aynı gün arka arkaya olabilir (arada geri yükleme gerekmez, ikisinden sonra bir kez). B3, B4
 acelesiz.
 
-## Önerilen ilk günler
+## Önerilen sıra (23.10'dan)
+
+- A6 köprü testi → A3 TPU sıcaklık kulesi (en önemlisi: göreli eşiğin gerçek sınavı) → A7 → A5 bir gece.
+- B3/B4 boş bir günde, önce haber ver.
+
+## Önerilen ilk günler (21–22.10, geçmiş)
 
 - **Gün 1:** A1 (Pause/Resume ile) → boşta B1 (deney15) → A2 (PETG sıcaklık kulesi).
 - **Gün 2:** A3 (TPU sıcaklık kulesi) → B2 (kalibrasyon 245) → durum geri yükleme → A4 (fan %40 / %60).
@@ -61,3 +70,4 @@ v0.4 test kullanıcılarına kalır (K42).
 - [x] deney14a/b ısınma kapasitesi (20.10, K36)
 - [x] K38 deploy: boşta log seyreltme (21.10)
 - [x] Etiketler: 08.10, 15.10, 29.09, 13.10 bakım testi (21.10, K43)
+- [x] Aktif duraklatma + k_ref 1.007 (22.10, K50); v0.3 adım 1–3 deploy (22.10, K52–K54)

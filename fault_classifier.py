@@ -620,6 +620,10 @@ def evaluate_labels():
     for r in lab.itertuples():
         path = os.path.join(os.path.dirname(LABEL_FILE), r.dosya)
         end = r.bitis_s if pd.notna(r.bitis_s) else 1e9
+        if (np.diff(d.read_log(path).t.values) < 0).any():
+            # the clock went back in this log (Klipper restart): the even time grid cannot be built [K53]
+            rows.append((r.dosya[:40], r.gozlenen, str(r.beklenen), "-", "ATLANDI (saat geri)", getattr(r, "set", "ayar")))
+            continue
         rep = classify_log(path, m, (r.baslangic_s, end))[0]
         got = set(rep["kategori"]); exp = set(str(r.beklenen).split("|"))
         rows.append((r.dosya[:40], r.gozlenen, "|".join(sorted(exp)), "|".join(sorted(got)),

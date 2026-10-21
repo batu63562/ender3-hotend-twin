@@ -906,3 +906,18 @@ PLA davranışı bu yazıcıda doğrulanamaz (filament yok): TPU'yu 220–235 °
 ±0.01 (diğer tutmalar 4.37 → 4.36, soğuma 4.39 → 4.40, geçiş 5.24 → 5.23). Kapı tamam → `v03-refactor` `main`'e
 birleştirildi (adım 1–3). Not: adım 3 davranış değiştirdiği için `baseline_v0.2.json`'a karşı `--check` artık
 IDENTICAL vermez (beklenen); v0.2 karnesi v0.2 kodunun referansı olarak kalır, yeni karne v0.3 sonunda.
+**K54 yapay yavaş arıza (22.10, kapı 5'in eksik yarısı):** araç artık kalıcı: `benchmark/slow_fault_test.py` (K17/K27
+yöntemi: ölçülen ısıtıcı gücü X W rampayla azaltılır, baskı sonuna kadar sabit; canlı başlangıç; yakalama = temiz
+oynatmada olmayan yeni GUC olayı; noktalar fan açılınca ve baskı ortası, baskı rampa + 5 dk sürmüyorsa atlanır;
+`--variants new,old`, old = sabit 230 °C). Ayar seti, 57 senaryo:
+| yer | arıza | yeni (K54) | eski (230) |
+|---|---|---|---|
+| fan açılınca | 3 W / 10 dk | 8/20 | 7/20 |
+| fan açılınca | 4 W / 30 dk | 13/13 | 12/13 |
+| baskı ortası | 3 W / 10 dk | 17/18, 8.7 dk | 17/18, 9.0 dk |
+| baskı ortası | 4 W / 30 dk | 6/6, 20.8 dk | 6/6, 20.8 dk |
+Gerçek baskıların hepsi (PETG ve TPU) iki varyantta birebir aynı. Değişen yalnız düşük sıcaklık bölümü olan iki tanı
+deneyi ve ikisi de yeni lehine: deney15 4 W/30 dk yakalandı (33.8 dk; eski yutuyordu), kalibrasyon baskısı 3 W/10 dk fan
+açılınca yakalandı (44.9 dk, geç) ve ortada 22.3 → 18.7 dk. Eski yakalanıp yenide kaçan senaryo YOK → kapı 5 tamam.
+Fan açılınca 3 W/10 dk'nın 12/20 yutulması K27'deki ESKİ zayıflık (baskı başında k_fil belirsizliği büyük), K54'le
+ilgisi yok; aday (P0_FIL ↓ / boşta büyümeye tavan) hâlâ açık.

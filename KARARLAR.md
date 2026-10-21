@@ -945,5 +945,10 @@ baskı ortasında 3 W, baskı başında ~4 W. README sınırlamalarına yazılac
 Yan bulgu (hata, küçük): `anchor_kfil` P'yi P0_FIL'e döndürüyor ama Kalman saatini (`t_kal`) sıfırlamıyor → canlıda
 yeni baskının ilk penceresi önceki güncellemeden beri geçen boşta süre kadar Q_FIL ekliyor (gece ~+0.03, P0'dan büyük).
 Yeniden oynatmada görünmüyor (baskı başına loglar `t_kal = None` ile başlıyor); 12 sa'lik boşluk benzetimi 8 → 7/20.
-Düzeltme tek satır (`anchor_kfil` içinde `t_kal = None`), canlıyı yeniden oynatmayla aynı yapar; kullanıcı onayı bekliyor.
+Düzeltme tek satır (`anchor_kfil` içinde `t_kal = None`), canlıyı yeniden oynatmayla aynı yapar.
 Araç: scratchpad `yutma/variants.py` (geçici; varyant söz dizimi P0= Q= kmin= gap=).
+**K55 düzeltme UYGULANDI (22.10, kullanıcı onayıyla, hata düzeltmesi):** `anchor_kfil` Kalman saatini de sıfırlıyor.
+Yalnız log ortasında baskı başlayan üç eski çok baskılı logda (1310, 1410, 1710) ±0.002 düzeyinde fark; ayar (canlı
+baş.) TÜMÜ 3.32 = 3.32, arıza 26 = 26 (yalnız soğuma bias −2.31 → −2.30); sınav 3.54 = 3.54, 19 = 19; Eylül yapı gereği
+aynı (print_state yok); `report_v02` etiket raporu birebir; yapay yavaş arıza 8/20, 13/13, 17/18, 6/6 aynı. Canlıda
+etkisi: her baskı gerçekten P0_FIL belirsizliğiyle başlar (önceden gece boyunca biriken Q_FIL eklenerek).

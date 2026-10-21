@@ -833,6 +833,7 @@ class Twin:
         self.learner.kfil = min(K_FIL_MAX, max(K_FIL_MIN, K_FIL_ANCHOR))
         P = self.learner.P
         P[1][1], P[0][1], P[1][0] = P0_FIL, 0.0, 0.0
+        self.learner.t_kal = None          # idle time before the print adds no process noise on top of P0_FIL [K55]
 
     def set_material(self, name):
         """The print's material changed (read from the G-code shortly after the print starts): k_fil restarts from

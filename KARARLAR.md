@@ -749,3 +749,18 @@ Fit (ΔP = HA2_FAN·((f − F0)/(1 − F0))^EXP·(T2 − T_oda)): HA2_FAN 0.0293
 K39'un "%100 çarpanı %25–40'a taşınmıyor" bulgusu bununla açıklanıyor: eşik + genlik birlikte değişmiş (bakım, kanal).
 MODELE ALINMADI: baskıda k_fil fan hatasını kısmen telafi ediyor (çapa 1.33 değişir) → kabul kapısı; v0.3'te
 kalibrasyon baskısı + S3d ile birlikte (PROFILE_DESIGN: fan eşiği/üssü kalibrasyondan).
+
+## K45 — İlk gerçek kalibrasyon baskısı (2026-10-21, v0.3, ANALİZ, MODEL DEĞİŞMEDİ)
+`yazici/calibration_245.gcode` 12:08–13:01 basıldı (başlangıç k 0.926: önceki havada deneylerden; sonra durum
+13:05'te geri yüklendi, k 1.007). Log `loglar/deneyler/kalibrasyon_245_ilk.csv` (ayar). Aynı gün PETG sıcaklık kulesi
+(10:56–12:05, Pi `..._1208.csv`) ve deney15 (K44).
+`calibrate.py --params C_ALL,R31,R_HB,CRAD,HA2_FAN,FAN_F0,CAP_T_COEF`: 3419 örnek (~57 bağımsız), rms 5.88 → 1.83 °C
+(log k 0.957). C_ALL 0.947 ±0.8 %, R31 ×1.03 ±18 %, R_HB ×1.00 ±13 %, CRAD ×0.97 ±5 %, HA2_FAN ×1.30 ±3 %, FAN_F0 0.186
+±4 %, CAP_T_COEF ×1.25 ±10 %; ilişkili çift yok → tasarım gerçekte de sanal baskının öngördüğü gibi tanılanabilir
+(K41), değerler bağımsız ölçümlerle tutarlı (deney14 C ×0.92; deney15 fan ×1.26).
+Genelleme: Eylül TÜMÜ 3.53 → 4.31 (ısınma 2.32 → 7.29, varış 1.79 → 7.57; eski donanım); 14.10+ ayar 26 log (canlı
+başlangıç) TÜMÜ 3.05 → 3.08: varış 5.33 → 4.33, tutma245 4.55 → 3.89, soğuma 4.96 → 3.72, geçiş 5.20 → 4.09 iyi;
+ısınma 4.54 → 6.25, fanlı tutma 2.12 → 2.46 kötü. → K36 ödünleşimi gerçek kalibrasyonda da: ölçüm zinciri (baskı,
+araç, tanılanabilirlik) ÇALIŞIYOR; v0.3'ün kalan engeli yalnız yapı (ısınmadaki fazla ısı; K40 S3d yolu).
+Not: deney15'in tek başına fit'i FAN_F0 0.138 (FAN_EXP serbest) verdi, burada 0.186 (FAN_EXP sabit 0.508): eşik ile
+üs birbirine bağlı; fan eğrisi v0.3'te ikisi birlikte, deney15 + kalibrasyon logu ortak fit edilmeli.

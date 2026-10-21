@@ -840,3 +840,13 @@ k_ref 1.045 → 1.007 (kod değişmedi; sol-üst yeniden oynatma KAYIP %30 → %
 kural çalışıyor ama deney ve sorunlu baskı seviyelerini "yeni normal" sayabiliyor (ayrı konu: deneylerde KAYIP/öğrenmeyi
 dondurmak ya da kabulü yalnız sağlam baskılarla sınırlamak). Durum düzeltme yardımcısı `pi/set_kref.py` (servis
 durmuşken: `python3 ~/ender3-twin/set_kref.py 1.007`); PowerShell'den iç içe tırnaksız çalıştırılır.
+
+## K51 — v0.2 kapandı (2026-10-22, kullanıcı kararı); v0.3 başladı
+"Bitti" ölçütü karşılandı (ayrılmış sette yanlış alarm 0.11 / baskı saati ve gecikme raporlandı; duraklatma aktif, K50).
+Karne donduruldu: `benchmark/baseline_v0.2.json` (kod `1707732c`; Eylül 9, ayar 49, sınav 57 log). README tablosu
+(KLIPPER ZAMANLI TÜMÜ): Eylül 3.62 / 0 alarm, ayar 3.43 / 17, sınav 3.54 / 19 (setler v0.1'den büyüdü; model aynı).
+`baseline_v0.2-aday.json` kaldırıldı. Git etiketi `v0.2` (yerel; push kullanıcıda). Sürüm notu
+`release/RELEASE_NOTES_v0.2.md`. v0.3'e taşınanlar: gözetimsiz çalışma (Pi'de v0.2 koduyla sürüyor) ve v0.1 demo
+videosu (v0.3 sonunda; yeni gerçek olaylar daha iyi malzeme). v0.3 sırası: refactor (profil yükleyici, İngilizce
+tanımlayıcılar, göreli sıcaklık eşikleri; her adım `baseline_snapshot --check v0.2` IDENTICAL, ayrı dalda, Pi'ye
+ancak doğrulanınca), sonra kalibrasyon dosyası, sonra yapı (S3d + fan eğrisi) kabul kapısından.

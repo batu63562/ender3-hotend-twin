@@ -262,14 +262,17 @@ onsets). Each number is the `TUMU` row under *KLIPPER ZAMANLI LOGLAR* of the com
 | Set | Logs | Command | RMSE | Alarms |
 |---|---|---|---|---|
 | September calibration runs | 9 | `python evaluate.py` | 3.62 | 0 |
-| Calibration set (`ayar`) | 37 | `python evaluate.py --set calibration --live-start` | 3.48 | 12 |
-| Test set (`sınav`) | 48 | `python evaluate.py --set test --live-start` | 3.28 | 14 |
+| Calibration set (`ayar`) | 49 | `python evaluate.py --set calibration --live-start` | 3.43 | 17 |
+| Test set (`sınav`) | 57 | `python evaluate.py --set test --live-start` | 3.54 | 19 |
 
 `--live-start` starts each log from the `k` and `k_fil` the live twin had when it was recorded,
 as it really ran. Without it every log starts from `k = 1`, which is wrong for the October logs (the real
 `k` drifted to 0.87–1.06): the test set then scores 4.83. The logs are in the evaluation-data release
-asset; the September runs are in the repository. Earlier reports in `KARARLAR.md` (3.76 / 3.30) used the
-sets as of 15 Oct and the model before the `k_fil` anchor [K27].
+asset; the September runs are in the repository. These are the v0.2 scores (2026-10-22, frozen per log in
+`benchmark/baseline_v0.2.json`; `python benchmark/baseline_snapshot.py --check v0.2` compares any later code
+against them). The sets grew since v0.1 (37 / 48 logs: 3.48 / 3.28) with induced-fault experiments, calibration
+experiments and prints with real faults, so the numbers are not comparable across versions; the model is the
+same.
 
 Alarm performance (`python benchmark/report_v02.py`, 2026-10-22; every log replayed with the live twin's code,
 alarms matched against the labelled fault windows): 160 logs, 66.5 print hours; 17 of 20 labelled faults

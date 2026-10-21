@@ -921,3 +921,29 @@ deneyi ve ikisi de yeni lehine: deney15 4 W/30 dk yakalandı (33.8 dk; eski yutu
 açılınca yakalandı (44.9 dk, geç) ve ortada 22.3 → 18.7 dk. Eski yakalanıp yenide kaçan senaryo YOK → kapı 5 tamam.
 Fan açılınca 3 W/10 dk'nın 12/20 yutulması K27'deki ESKİ zayıflık (baskı başında k_fil belirsizliği büyük), K54'le
 ilgisi yok; aday (P0_FIL ↓ / boşta büyümeye tavan) hâlâ açık.
+
+## K55 — Baskı başında yavaş arıza yutma: tanımlanabilirlik sınırı, model değişikliği YOK (2026-10-22)
+Soru (K27'deki eski zayıflık): fan açılınca başlayan 3 W/10 dk yapay arızanın 20'de 12'si yutuluyor. Varyantlar
+`benchmark/slow_fault_test.py` yöntemiyle ayar setinde (fan açılınca 3 W/10 dk; diğer üç senaryo hep tam ya da ±1):
+| varyant | yakalanan | ayar TÜMÜ (canlı baş.) | arıza |
+|---|---|---|---|
+| bugünkü | 8/20 | 3.32 | 26 |
+| boşta saat birikimi 12 sa (canlıdaki durum, aşağıda) | 7/20 | – | – |
+| Q_FIL ×0.5 / ×0.25 | 8/20 / 8/20 | – | – |
+| P0_FIL 0.10² / 0.07² / 0.05² | 10 / 12 / 12 | – | – |
+| K_FIL_MIN 0.8 → 1.0 | 9/20 | 3.33 | 26 |
+| K_FIL_MIN 1.0 + P0 0.10² | 10/20 | 3.34 | 28 (fanlı tutma 7 → 9) |
+| K_FIL_MIN 1.0 + P0 0.07² | 12/20 | 3.36 | 29 (fanlı tutma 7 → 10) |
+İzleme (coffee buddy): arıza 10. dk'da tam 3 W'a varınca pencere yeniliği yalnız −2.1 W (k_fil ~0.3 W, k ~0.2 W
+yutmuş, baskının kendi başlangıç sapması ±0.5 W) → eşik 2.5 W'ın altında. Sonuç: 3 W, eşiğin yalnız 0.5 W üstünde;
+baskı başında bu kadar yavaş gelen bir sapma güç sinyalinde "farklı geometri" ile ayırt edilemiyor (çapadan sonraki
+gerçek baskılarda öğrenilen k_fil 1.11–1.60, yani meşru baskı farkı ~±1 W). Yutmayı azaltan her ayar (P0 ↓)
+fanlı baskılarda yanlış alarmı artırıyor — K17'deki Q_FIL ödünleşiminin aynısı. Fiziksel taban K_FIL_MIN = 1.0 (fan
+açıkken baskıya giden ısı filamanı ısıtmaktan az olamaz; yüksek akışta eritme sınırı hariç, maxflow 1.13) zararsız
+ama kazancı 1 senaryo → şimdilik UYGULANMADI. Tespit sınırı (ayar seti): hızlı arızalar ≥ 2.5 W; yavaş arızalar
+baskı ortasında 3 W, baskı başında ~4 W. README sınırlamalarına yazılacak (v0.3 belge adımı).
+Yan bulgu (hata, küçük): `anchor_kfil` P'yi P0_FIL'e döndürüyor ama Kalman saatini (`t_kal`) sıfırlamıyor → canlıda
+yeni baskının ilk penceresi önceki güncellemeden beri geçen boşta süre kadar Q_FIL ekliyor (gece ~+0.03, P0'dan büyük).
+Yeniden oynatmada görünmüyor (baskı başına loglar `t_kal = None` ile başlıyor); 12 sa'lik boşluk benzetimi 8 → 7/20.
+Düzeltme tek satır (`anchor_kfil` içinde `t_kal = None`), canlıyı yeniden oynatmayla aynı yapar; kullanıcı onayı bekliyor.
+Araç: scratchpad `yutma/variants.py` (geçici; varyant söz dizimi P0= Q= kmin= gap=).

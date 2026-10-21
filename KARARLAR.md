@@ -834,3 +834,9 @@ hepsi gerçek, yanlış 0; uçtan uca test 1 istek / 0 istek. Deploy kullanıcı
 izlenir; yanlış duraklatma olursa log + olay K'ye yazılır, gerekirse `"golge"`ya dönülür. (2) Pi durum dosyasında
 k_ref 1.045 → 1.007 (kod değişmedi; sol-üst yeniden oynatma KAYIP %30 → %0). Unity: `duraklat` sütunu zaman
 çubuğunda işaretlenecek (CLAUDE.md'deki not; ayrı iş).
+**K50 ek (22.10 00:15):** deploy (kod `1707732c`, aktif) ve k_ref 1.007 yapıldı; servis yeni referansla başladı (KAYIP bandı
+0.927–1.087). Not: kabul kuralı 21.10'da iki kez kendiliğinden tetiklenmişti — 11:32 havadaki deneylerin düşürdüğü k ile
+(0.933; 13:05 geri yüklemeyle geri alındı) ve 14:18 sol-üst baskısında kalkan köşelerin düşürdüğü k ile (0.956) →
+kural çalışıyor ama deney ve sorunlu baskı seviyelerini "yeni normal" sayabiliyor (ayrı konu: deneylerde KAYIP/öğrenmeyi
+dondurmak ya da kabulü yalnız sağlam baskılarla sınırlamak). Durum düzeltme yardımcısı `pi/set_kref.py` (servis
+durmuşken: `python3 ~/ender3-twin/set_kref.py 1.007`); PowerShell'den iç içe tırnaksız çalıştırılır.

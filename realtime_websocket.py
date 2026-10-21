@@ -73,6 +73,9 @@ ADAPT_TMIN = 230.0     # C - learn only in the printing temperature range [K11]
 ADAPT_TAU = 60.0       # s - learning time constant
 ADAPT_WINDOW = 20.0    # s - the energy balance is collected over windows of this length
 ADAPT_T_RANGE = 3.0    # C - a window counts as a "steady hold" if its T range is below this
+# "Printing temperature" follows the heater target, so other materials (PLA ~210 C) are covered too [K54]:
+HOT_FLOOR = 180.0          # C - never counts below this: the 150 C preheat hold stays out of learning [K11]
+HOT_BELOW_TARGET = 15.0    # C - within this of the target (PETG 245 -> 230, the old fixed value)
 K_LOSS_MIN, K_LOSS_MAX = 0.85, 1.15   # physical bounds of k
 PRINT_WINDOW = 60.0       # s - print window; a short window fits between transitions [K17]
 PRINT_TAU = 1800.0        # s - time constant of k while printing: faults (seconds-minutes) do not leak into k [K06]
@@ -140,6 +143,15 @@ def load_printer_numbers():
 
 
 PRINTER_SOURCES, PRINTER_NOTES = load_printer_numbers()
+
+def hot_threshold(target):
+    """Lowest temperature counted as printing temperature by the learner, the acceptance counters and the
+    missing-power alarm: the target minus HOT_BELOW_TARGET, not below HOT_FLOOR. Without a target (old logs, heater
+    off) the fixed ADAPT_TMIN as before [K54]."""
+    if target is None or target <= 0:
+        return ADAPT_TMIN
+    return max(HOT_FLOOR, target - HOT_BELOW_TARGET)
+
 
 def cap_scale(T):
     """Heat capacity factor at T (see CAP_T_COEF)."""
@@ -492,6 +504,7 @@ class KLossLearner:
 
     def __init__(self, k=1.0, kfil=1.0):
         self.k, self.kfil = k, kfil
+        self.t_hot = ADAPT_TMIN                    # printing temperature limit, set by the Twin from the target [K54]
         self.P = [[0.0, 0.0], [0.0, P0_FIL]]      # covariance of [k, k_fil] (k's comes from the floor)
         self.t_kal = None                          # last Kalman update (for process noise)
         self.windows = []                          # (time, kind, window's own k) - maintenance log, see MAINT_*
@@ -556,7 +569,7 @@ class KLossLearner:
         self.p_T_min, self.p_T_max = min(self.p_T_min, T1_real), max(self.p_T_max, T1_real)
         self.p_valid += dt if energy_ok else 0.0
         self.p_ext += dt if ext_v > 0.0 else 0.0
-        self.p_ok = self.p_ok and T1_real > ADAPT_TMIN and not blocked
+        self.p_ok = self.p_ok and T1_real > self.t_hot and not blocked
         span = now - self.p_t0
         if span >= PRINT_WINDOW:
             if (self.p_ok and self.p_T_max - self.p_T_min < PRINT_T_RANGE and self.p_E_loss > 0
@@ -575,7 +588,7 @@ class KLossLearner:
         self.ok = ok
 
     def update(self, now, dt, T1_real, pwm, fan, extruding):
-        ok = T1_real > ADAPT_TMIN and not extruding
+        ok = T1_real > self.t_hot and not extruding
         if self.t0 is None:
             self._start(now, T1_real, ok)
             return self.k
@@ -707,6 +720,7 @@ class EnergyMonitor:
 
     def __init__(self):
         self.T2 = self.T3 = None
+        self.t_hot = ENERGY_TMIN       # printing temperature limit, set by the Twin from the target [K54]
         self.reset()
 
     def reset(self):
@@ -752,7 +766,7 @@ class EnergyMonitor:
 
         span = sum(h[1] for h in self.hist)
         Ts = [h[5] for h in self.hist]
-        ok = (span >= 0.8 * ENERGY_WINDOW and T1_now > ENERGY_TMIN
+        ok = (span >= 0.8 * ENERGY_WINDOW and T1_now > self.t_hot
               and max(Ts) - min(Ts) < ENERGY_T_RANGE and now - self.last_sat >= ENERGY_SETTLE
               and now - self.last_target >= ENERGY_SETTLE)
         # target change: the heater switches off/on at once but the temperature follows with a lag; meanwhile the
@@ -880,8 +894,12 @@ class Twin:
                 self.T1_model, self.T2_model, self.T3_model = model_step(
                     self.T1_model, self.T2_model, self.T3_model,
                     self.pwm * scale, self.fan, ext_smoothed, dt, self.learner.k, k_fil=kfil_now)
+                hot = hot_threshold(self.target)
+                self.learner.t_hot = hot
+                if self.energy is not None:
+                    self.energy.t_hot = hot
                 self.learner.update(now, dt, T_now, self.pwm * scale, self.fan, ext_smoothed > 0.0)
-                if T_now > ADAPT_TMIN:      # acceptance counters advance only in hot operation, where k is meaningful
+                if T_now > hot:      # acceptance counters advance only in hot operation, where k is meaningful
                     k = self.learner.k
                     lo, hi = min(self.kst_lo, k), max(self.kst_hi, k)
                     if hi - lo > K_ACCEPT_RANGE:            # k is still changing: restart the steadiness window

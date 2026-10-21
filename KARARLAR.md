@@ -885,3 +885,20 @@ sütunlar aynı, kategori + duraklatma + tek pause isteği aynı.
 Ayrıca (ayrı commit): `fault_classifier --labels` saati geri giden logda (1310 bakım testi, Klipper yeniden başladı)
 zaman ızgarası boş kalıp çöküyordu → "ATLANDI (saat geri)". Sınıflandırıcı yeni etiketlerde zayıf (sınav 6/20 doğru,
 4 kısmen; ayar 13/21): bilinen sınır, bakımda tutulan modül, ayrı konu.
+
+## K54 — v0.3 adım 3: sıcaklık eşiği hedefe göreli (2026-10-22, dal `v03-refactor`, MODEL DEĞİŞİKLİĞİ — KAPI)
+`hot_threshold(target) = max(HOT_FLOOR 180, target − HOT_BELOW_TARGET 15)`; hedef yok / ≤ 0 ise eski sabit
+ADAPT_TMIN 230. Tutma öğrenmesi, baskı öğrenmesi (`KLossLearner.t_hot`), eksik güç (`EnergyMonitor.t_hot`) ve KAYIP
+kabul sayaçları bu eşiği kullanır (Twin her adımda hedeften ayarlar; metot imzaları değişmedi). PETG 245 → 230 (aynı),
+250 → 235, TPU 235 → 220, PLA 210 → 195; 150 °C ön ısıtma → 180 (K11'in reddettiği ön ısıtmadan öğrenme dışarıda).
+Kapı: (1) fiziksel: "baskı sıcaklığı" malzemeye bağlı, sabit 230 PLA'yı hiç kapsamıyordu (K42). (2) ayar (canlı
+başlangıç) TÜMÜ 3.43 → 3.32; boşta 1.84 → 1.83, ısınma 4.17 → 3.83, varış 4.91 → 4.66, tutma245 4.07 → 4.04, fanlı
+tutma 3.12 = 3.12, diğer tutmalar 3.95 → 3.45, soğuma 4.83 → 4.71, geçiş 4.75 → 4.46 — kötüleşen faz yok. (3) Eylül
+fazları birebir aynı (Eylül baskıları 245). (5) etiketli arızalar ayarda aynı (report_v02 yalnız ayar, eski eşik
+`hot_threshold → 230` yamasıyla: 13 GUC olayı, 10/12 yakalandı, yanlış duraklatma 0 — iki koşu birebir); yapay yavaş
+arıza testi KOŞULMADI (araç eski oturumun scratchpad'inde). (6) tek değişiklik. (4) sınav: kullanıcı onayından sonra.
+Yan etki: ayardaki "arıza" sayısı 17 → 26, artışın tamamı KAYIP ve dört tanı deneyinde (deney9 4 → 7, deney14b 1 → 4,
+deney15 2 → 4, kalibrasyon 1 → 2): ikiz artık 200–215 °C havadaki tutmalardan da k öğreniyor ve havadaki tutmalar k'yı
+çekiyor (K44/K47). GUC yok, duraklatma riski yok; deneylerde öğrenmeyi dondurma fikri (K50 notu) daha anlamlı.
+PLA davranışı bu yazıcıda doğrulanamaz (filament yok): TPU'yu 220–235 °C'de basmak (baskı kuyruğu) gerçek donanımda
+230 altı sınamasıdır.

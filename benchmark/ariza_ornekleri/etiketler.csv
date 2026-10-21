@@ -38,3 +38,5 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 ../../loglar/baskilar/2909_nozzle_filament_havada_baski.csv,6290,6600,"nozzle'da filaman topagi / havaya baski, eksik guc +3.5 W kesintisiz 286 s",B,ayar
 ../../loglar/baskilar/1310_gece_ve_bakim.csv,-30930,-30840,"bakim sonrasi 245 testi: eksik guc -2.9..-3.5 W, isi kaybi gercekten artti (k 0.876 bayatti; sonra ~1.05) - ikiz isil yoldaki gercek degisimi yakaladi (kullanici: C)",C,sinav
 ../../loglar/baskilar/2110_1320_petg_left_top_kayma.csv,7316,7377,"eksen kaymasi (kullanici: 15:22 'tarrr' sesi, 15:23 durdurdu) -> nozzle parcanin yanina/havaya basti; 15:17'deki +3.2 W olay olasi oncul (kalkmis koseye takilma?), etiketsiz",B,sinav
+../../loglar/baskilar/2110_2202_petg_benchy_deneme_topak.csv,500,660,"nozzle'a kocaman topak yapisti (kullanici; tutunmadi), 2.-6. katman eksik guc +1.6..1.9 W, ESIK ALTI (alarm yok) - sari seviye ornegi",A|C,ayar
+../../loglar/baskilar/2110_2307_petg_benchy_fan60_cati_bosluklu.csv,1840,2015,"benchy fan %60: cati (z 36-41) bosluklu, ustu duz degil (kullanici); GUC_AZALDI 23:38 47 s +3.1 W",B,ayar

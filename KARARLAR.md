@@ -785,3 +785,17 @@ nozzle'ı temassız bırakırsa ısıl iz var (kısa, < 150 s → gölge durakla
 Yan bulgu: KAYIP_AZALDI 13:38'den baskı sonuna kadar aktif (resmi alarm 9737 satır): k_ref 1.045 (13.10 bakım sonrası)
 eskimiş, bugünkü k 0.953–0.997, bant alt sınırı 0.965; kabul kuralı (30 dk, 0.02 aralık) k 0.04 gezindiği için
 devreye girmedi → normal baskıda sürekli kırmızı. Ayrı konu: referans yenileme (kabul aralığı / bakım onayı).
+
+## K48 — Benchy fan %40 / %60 çifti; çatı kusuru yakalandı, topak eşik altı (2026-10-21 akşam)
+22:02 1. deneme (fan %25): tutunmadı, nozzle'a kocaman topak (kullanıcı); 2.–6. katman eksik güç 60 s ortalaması
++1.6…+1.9 W, EŞİK ALTI, alarm yok → etiket A|C (ayar; 25.09 topak emsali): **sarı seviyenin ilk temiz, gözle doğrulanmış
+örneği** (gerçek, sürekli, ~1.5 dk). 22:14–22:30 üç kısa deneme ilk katmanda iptal (tutunma), iz yok (−0.6…0 W).
+22:30 benchy fan %40 (Orca min = max = %40), tamamlandı: alarm yok, eksik güç ±0.2 W, k_fil 1.16 (sınav).
+23:07 benchy fan %60, tamamlandı: çatı (z 36–41) boşluklu, üstü düz değil (kullanıcı) → GUC_AZALDI 23:38, 47 s,
++3.1 W (60 s ortalama en çok +2.52) → etiket B (ayar); ilk katman +1.7 W (kusur bildirilmedi, etiketsiz); k_fil 1.11.
+Aynı parça iki fan seviyesinde: k_fil %40 1.16, %60 1.11 (fan arttıkça k_fil biraz düşüyor; deney15'e göre model fan
+etkisini az tahmin ettiği halde — baskıda fan havasının parçaya/nozzle'a etkisi tutmadan farklı; fan eğrisi
+değişikliğinde (K44) bu çiftle sınanacak).
+Bugünkü sistem karnesi (`report_v02 --extra loglar/pi --since 2026-10-18`): 44 log, 22.2 baskı saati; etiketli arıza
+5/6 yakalandı (medyan 28 s; kaçan = eşik altı topak), duraklatma 2/6, yanlış duraklatma 0; sınav yanlış alarm
+0.106 / baskı saati (tek olay: sol-üst 15:17 öncülü, etiketsiz).

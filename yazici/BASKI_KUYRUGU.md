@@ -22,7 +22,7 @@ hem ikize en çok şeyi öğretenler.
 | 1 | ~~İlk katmanı geniş parça + Pause/Resume~~ (21.10 BİTTİ: park doğrulandı, eksen kayması yakalandı, K47) | PETG | ne olursa | İlk katman ~2. dk sarı adayı (K37); park X0 Y220 ilk kez gerçek duraklatmada (K32) |
 | 2 | ~~Sıcaklık kulesi 250 → 230~~ (21.10 BİTTİ) (Orca: Kalibrasyon → Sıcaklık) | PETG | ~1 sa | Baskı içinde hedef değişimi: ısınma/varış, k_fil'in sıcaklıkla değişimi |
 | 3 | **TPU sıcaklık kulesi 235 → 215** | TPU | ~1 sa | **230 °C altında baskı** = PLA'daki durumun elindeki filamentle karşılığı (K42); log sonra yeni kodla yeniden oynatılır |
-| 4 | **Aynı parça iki kez: fan %40 ve %60** | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |
+| 4 | ~~Aynı parça iki kez: fan %40 ve %60~~ (21.10 BİTTİ: benchy, K48) | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |
 | 5 | **Uzun baskı (> 2 sa)**, gece de olur | PETG | > 2 sa | k ve k_fil'in uzun süre kararlılığı; gölge mod saati |
 | 6 | **Çıkıntı / köprü testi** (Orca: Kalibrasyon) | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi not et |
 | 7 | **Bir TPU baskı daha** (normal sıcaklıkta) | TPU | ne olursa | k_fil çapası 1.33 TPU'da tutuyor mu |

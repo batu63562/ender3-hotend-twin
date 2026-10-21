@@ -19,7 +19,7 @@ hem ikize en çok şeyi öğretenler.
 
 | # | Baskı | Filament | Süre | İkize ne öğretir |
 |---|---|---|---|---|
-| 1 | **İlk katmanı geniş herhangi bir parça + Pause/Resume denemesi** | PETG | ne olursa | İlk katman ~2. dk sarı adayı (K37); park X0 Y220 ilk kez gerçek duraklatmada (K32) |
+| 1 | ~~İlk katmanı geniş parça + Pause/Resume~~ (21.10 BİTTİ: park doğrulandı, eksen kayması yakalandı, K47) | PETG | ne olursa | İlk katman ~2. dk sarı adayı (K37); park X0 Y220 ilk kez gerçek duraklatmada (K32) |
 | 2 | ~~Sıcaklık kulesi 250 → 230~~ (21.10 BİTTİ) (Orca: Kalibrasyon → Sıcaklık) | PETG | ~1 sa | Baskı içinde hedef değişimi: ısınma/varış, k_fil'in sıcaklıkla değişimi |
 | 3 | **TPU sıcaklık kulesi 235 → 215** | TPU | ~1 sa | **230 °C altında baskı** = PLA'daki durumun elindeki filamentle karşılığı (K42); log sonra yeni kodla yeniden oynatılır |
 | 4 | **Aynı parça iki kez: fan %40 ve %60** | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |

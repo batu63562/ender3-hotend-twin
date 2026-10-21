@@ -772,3 +772,16 @@ sınandı ve çalıştı (20.10'da dosya 0 bayta düşmüştü). Önceki log kor
 (left-top, PETG, 2 sa 7 dk) yeniden başlattı; ikiz baskı başladıktan sonra açıldığı için G-code planı üretilmedi
 (bilinen davranış). Donanım önerisi: USB'nin 5 V pinini bantla yalıtmak (kartın Pi'ye geri beslemesi / takma-çıkarma
 anında besleme düşmesi bilinen sebep) ya da Pi adaptörünü kontrol.
+
+## K47 — Gerçek baskıda Pause/Resume ve ilk eksen kayması yakalandı (2026-10-21)
+PETG left-top (`loglar/baskilar/2110_1320_petg_left_top_kayma.csv`, sınav; Pi resetinden sonra yeniden başlatıldı,
+G-code planı yok). 14:11:18 baskı ortası Pause → park X≈0 Y220 Z+2, 14:11:26 Resume → baskı devam etti: **park makrosu
+gerçek baskıda doğrulandı** (K32 kapandı). İlk katman köşeleri kalktı: z ≤ 0.35 eksik güç medyan +1.03 W (p95 +1.64;
+eşik altı, sarı aday). 15:16:56 GUC_AZALDI 21 s +3.2 W z 6.3 (sınıflandırıcı "en olası B"); kullanıcı 15:22'de "tarrr"
+(eksen kaydı) duydu, 15:22:48 GUC_AZALDI 22 s +3.1 W z 6.6, 15:23:02 durdurdu. Etiket 15:22:00–15:23:02 B (sınav):
+kayma → nozzle parçanın yanına/havaya → baskıya giden ısı azalır. 15:17 olayı olası öncül (kalkmış köşeye takılma?),
+kanıtsız → etiketsiz. CLAUDE.md'deki "mekanik hatalar ısıl olarak görünmez" yargısının bir istisnası: kayma
+nozzle'ı temassız bırakırsa ısıl iz var (kısa, < 150 s → gölge duraklatma yok).
+Yan bulgu: KAYIP_AZALDI 13:38'den baskı sonuna kadar aktif (resmi alarm 9737 satır): k_ref 1.045 (13.10 bakım sonrası)
+eskimiş, bugünkü k 0.953–0.997, bant alt sınırı 0.965; kabul kuralı (30 dk, 0.02 aralık) k 0.04 gezindiği için
+devreye girmedi → normal baskıda sürekli kırmızı. Ayrı konu: referans yenileme (kabul aralığı / bakım onayı).

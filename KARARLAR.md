@@ -733,3 +733,19 @@ rapor: etiketli arıza 15/17 yakalandı (medyan 26 s), duraklatma 4/17, yanlış
 0.155 → 0.093 / baskı saati (8 yanlış, hepsi doğrulanmış "-"), tümü 0.100. Sınavda etiketsiz olay kalmadı; ayarda
 3 kısa olay etiketsiz (2909 benchy1 1410 s / 17 s, 1510 gyroid küp 305 s / 20 s ve 345 s / 29 s; dosya adları
 "ariza_yok", baskılar sağlam — etiketlenirse "-"). `etiket_onerileri.csv` boşaltıldı.
+
+## K44 — deney15: fan eğrisi bakım sonrası (2026-10-21, ANALİZ, MODEL DEĞİŞMEDİ)
+Log `loglar/deneyler/deney15_fan_egrisi.csv` (Pi `realtime_log_ws_onceki_20261021_1056.csv`, 09:06 başlangıç,
+complete). 20.10 gece önce yarıda kesilen bir deneme (pause/cancel; park X≈0 Y220 Z+2 doğrulandı, havada) k'yı
+1.007 → 0.917 indirdi; durum geri yüklenmeden deney15 ve ardından PETG sıcaklık kulesi (10:56) başladı (k 0.926) →
+kule bitince geri yükleme.
+Her tutmanın son 90 s ortalama ısıtıcı gücü (245 °C fan 0: 17.34 W, iniş 17.34; tekrarlanabilirlik ≤ 0.1 W):
+245 °C fan %15 / 20 / 25 / 40 / 60 / 100 → +1.09 / 1.19 / 2.93 / 4.38 / 6.15 / 8.04 W (iniş %60 6.23, %25 2.96);
+215 °C (fan 0 14.21 W) %25 / 40 / 100 → +2.32 / 3.57 / 6.52 W. Model (k=1) 0 / 0.65 / 1.67 / 3.13 / 4.36 / 6.08 W →
+fan etkisi 1.3–1.8× az tahmin, eşik çok yüksek (%15'te model 0, ölçülen +1.1 W).
+Fit (ΔP = HA2_FAN·((f − F0)/(1 − F0))^EXP·(T2 − T_oda)): HA2_FAN 0.0293 → 0.0369 (+%26), FAN_F0 0.191 → 0.138, FAN_EXP
+0.508 → 0.520 (aynı: zorlanmış konveksiyon h ∝ hız^0.5 korunuyor); rms 1.23 → 0.35 W. Uymayan tek nokta %20 (1.19 / fit
+2.04): blower %15–20'de düzgün dönmüyor olabilir (baskılarda ≥ %25 kullanılıyor). Deney8'in "fan 1.2–1.4×" bulgusu ve
+K39'un "%100 çarpanı %25–40'a taşınmıyor" bulgusu bununla açıklanıyor: eşik + genlik birlikte değişmiş (bakım, kanal).
+MODELE ALINMADI: baskıda k_fil fan hatasını kısmen telafi ediyor (çapa 1.33 değişir) → kabul kapısı; v0.3'te
+kalibrasyon baskısı + S3d ile birlikte (PROFILE_DESIGN: fan eşiği/üssü kalibrasyondan).

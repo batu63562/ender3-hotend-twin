@@ -73,11 +73,17 @@ delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 
       faults caught (median delay 26 s), 3 shadow pauses, all on real faults; no false pause. The current system
       alone (`--since 2026-10-18`, after the `k_fil` anchor): 15.6 print hours, 0 false alarms, 3 of 3 induced
       faults caught; older logs replay with the starting `k` their twin had then, which was often far off.
-- [ ] Hand-label the remaining unlabelled alarms (proposals with evidence in
-      `benchmark/ariza_ornekleri/etiket_onerileri.csv`). Most of them are one kind: a short missing-power bump
-      right after heat-up at the start of the first layer.
-- [ ] One real Pause/Resume with the new park position (X0 Y220, in `printer.cfg` since 2026-10-20).
-- [ ] 10–20 normal prints on the Pi in shadow mode.
+- [x] Hand-label the remaining unlabelled alarms (2026-10-21; most were a short bump at the first-layer start
+      in old logs whose starting `k` was far off).
+- [x] One real Pause/Resume with the new park position (X0 Y220): verified mid-print on 2026-10-21.
+- [x] The active pause request tested end-to-end against stub servers: exactly one pause request on a real
+      fault replay (the latch-open experiment), none on a clean print.
+- [ ] 10–20 normal prints on the Pi in shadow mode (11 so far, 2026-10-22). Archive report 2026-10-22: 160 logs,
+      66.5 print hours, 17 of 20 labelled faults caught (median delay 28 s), 4 shadow pauses, all on real faults,
+      **no false pause**; the longest labelled benign event lasts 83 s (pause after 150 s). The current system
+      alone: 22.2 print hours, 5 of 6 labelled faults caught (the one missed is below the threshold by design),
+      no false pause. Newly caught in real prints: a layer shift and a gappy benchy roof.
+- [ ] Switch `PAUSE_MODE` to `"aktif"` (decision pending).
 
 **Continuous (24/7) operation:**
 - [x] Split logs per print instead of only at start-up.
@@ -90,8 +96,10 @@ delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 
 - [x] Survives Klipper restarts, emergency stop and a power cut of the Pi (re-subscribes, atomic state file,
       clock-sync wait verified after a real power loss; 2026-10-20).
 - [x] Finished logs copied to the PC with `sync_pi_logs.py`.
-- [ ] A few days of unattended running, including a power cycle of the printer.
-- [ ] A retention rule for idle logs (an idle night is ~43 MB; the Pi has room for ~100 such nights).
+- [ ] A few days of unattended running, including a power cycle of the printer. (Running since 2026-10-19;
+      two accidental USB unplugs reset the Pi, both recovered on their own with the learned state intact.)
+- [x] A retention rule for idle logs: at most one row per second while nothing happens (an idle night went
+      from ~43 MB to ~12 MB; deployed 2026-10-21).
 
 **Done when:** false-alarm rate per print hour and detection delay are reported on a held-out set, and the
 pause is active.

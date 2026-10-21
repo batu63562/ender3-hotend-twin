@@ -269,7 +269,15 @@ as it really ran. Without it every log starts from `k = 1`, which is wrong for t
 asset; the September runs are in the repository. Earlier reports in `KARARLAR.md` (3.76 / 3.30) used the
 sets as of 15 Oct and the model before the `k_fil` anchor [K27].
 
-Representative real events: filament run-out detected in ~20 s (+4.5 W); a single bad first-layer object
+Alarm performance (`python benchmark/report_v02.py`, 2026-10-22; every log replayed with the live twin's code,
+alarms matched against the labelled fault windows): 160 logs, 66.5 print hours; 17 of 20 labelled faults
+caught, median delay 28 s; 4 shadow pauses, all on real faults, no false pause; false alarms 0.11 per print hour
+on the test set. The current system alone (`--since 2026-10-18`): 22.2 print hours, 5 of 6 labelled faults
+caught, no false pause.
+
+Representative real events: filament run-out detected in ~20 s (+4.5 W); a layer shift caught in the minute
+it was heard (the nozzle printing beside the part takes less heat); a gappy benchy roof at the height where it
+was seen; a single bad first-layer object
 out of four localized from the log + toolpath; maintenance need (dirty heatsink, missing thermal paste)
 visible as a slow `k` decline from 1.00 to 0.89 over two weeks, then restored by maintenance.
 

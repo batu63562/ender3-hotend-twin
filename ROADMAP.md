@@ -162,7 +162,7 @@ Progress (2026-10-22, all on the Pi):
       TPU print below 230 °C on this printer.
 - [x] Synthetic slow-fault test kept as a tool (`benchmark/slow_fault_test.py`); the early-print detection
       limit is documented, not tuned away ([K55]).
-- [ ] `calibrate.py` writes `calibration.json` directly.
+- [x] `calibrate.py --write` produces the calibration file (`--params ""` gives today's values exactly) ([K56]).
 - [ ] Structural candidate + new part-fan curve through the gate (below).
 
 Carried over from v0.2: a few days of unattended running (ongoing on the Pi), and the demo clip of v0.1.

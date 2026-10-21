@@ -15,12 +15,19 @@ the data cannot tell apart (|r| > 0.9).
 rounding) and starts the fit from perturbed values: the fit must find the current values again. This checks the
 tool, not the printer.
 
-Analysis only: writes nothing, touches neither the live twin nor its parameters.
+--write PATH saves the result as a calibration file (the format the twin reads as calibration.json): every
+calibrated constant, the fitted ones replaced, the others as currently in effect (code <- profile.toml <-
+calibration.json), so `--params ""` reproduces today's values exactly. It never replaces an existing file unless
+--force is given, and it never writes the live calibration.json by itself: a fitted file is a model change and
+goes through the acceptance gate before it is copied there.
+Otherwise analysis only: touches neither the live twin nor its parameters.
 Needs scipy (not needed by the live twin).
 
 Usage (in dt/):   py calibrate.py LOG [LOG ...] [--params C1,C3,R31,...] [--rate 1.0] [--synthetic]
+                                [--write PATH [--force]]
 """
 import argparse
+import json
 import os
 import sys
 import time
@@ -93,6 +100,29 @@ def overrides(names, base, x):
     return out
 
 
+def write_calibration(path, names, se, info, data, k_logs, fit_rms, args):
+    """Calibration file in the twin's format (PROFILE_DESIGN.md). rw already holds the fitted values."""
+    out = {
+        "calibration_version": 1,
+        "date": time.strftime("%Y-%m-%d"),
+        "source": "calibrate.py " + " ".join(f"--{k}={v}" for k, v in (("params", args.params), ("rate", args.rate),
+                                                                     ("prior", args.prior))),
+        "source_logs": [n for n, _ in data],
+        "code_version": rw.source_version(),
+        "params": {n: float(getattr(rw, n)) for n in rw.CALIBRATED},
+        "fitted": names,
+        "uncertainty_log_factor": {n: (float(e) if ok else None) for n, e, ok in zip(names, se, info)},
+        "fit_rms_c": round(fit_rms, 4),
+        "k_logs": {n: round(float(k), 4) for (n, _), k in zip(data, k_logs)},
+    }
+    if args.synthetic:
+        out["source"] += " --synthetic (tool check, not a printer calibration)"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2)
+        f.write("\n")
+    print(f"\nwritten: {path}  (not live: score it through the acceptance gate, then copy to calibration.json)")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("logs", nargs="+", help="calibration logs without extrusion")
@@ -108,7 +138,11 @@ def main():
     ap.add_argument("--score-since", default="2026-10-14",
                     help="first day of the current hardware state for --score (default 2026-10-14, after the "
                          "13.10 maintenance)")
+    ap.add_argument("--write", metavar="PATH", help="save the result as a calibration file (see above)")
+    ap.add_argument("--force", action="store_true", help="--write may replace an existing file")
     a = ap.parse_args()
+    if a.write and os.path.exists(a.write) and not a.force:
+        sys.exit(f"{a.write} exists; use --force to replace it")
 
     names = [n.strip() for n in a.params.split(",") if n.strip()]
     for n in names:
@@ -152,6 +186,8 @@ def main():
     if nP == 0:                                          # --params "": only the per-log k (baseline for a comparison)
         for (name, d), k, i in zip(data, k_logs, np.cumsum([0] + [len(d) for _, d in data])):
             print(f"  {name:45s} {rms(r_start[i:i + len(d)]):6.3f} -> {rms(r_fit[i:i + len(d)]):6.3f} C   k {k:.3f}")
+        if a.write:
+            write_calibration(a.write, names, [], [], data, k_logs, rms(r_fit), a)
         return
     # identifiability of the physical parameters: covariance of the log-factors from the Jacobian of the weighted
     # system (data as n_eff independent values of SIGMA_DATA, plus the prior rows), the per-log k marginalised
@@ -181,6 +217,8 @@ def main():
         n = len(d)
         print(f"  {name:45s} {rms(r_start[i:i + n]):6.3f} -> {rms(r_fit[i:i + n]):6.3f} C   k {k:.3f}")
         i += n
+    if a.write:
+        write_calibration(a.write, names, se, info, data, k_logs, rms(r_fit), a)
 
     if a.score:
         # does it carry over? (1) September core set (evaluate.py default, fresh k) - the structure test of the

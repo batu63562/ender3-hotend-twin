@@ -958,3 +958,12 @@ etkisi: her baskı gerçekten P0_FIL belirsizliğiyle başlar (önceden gece boy
 meşru yön (K48: fan ↑ → k_fil ↓; SpeedTest: akış ↑ → k_fil ↓). Köşelerin kalkmasına bağlamak için ayırıcı bir iz yok
 → gerçek bir yutma örneği SAYILMADI (etiket değişmedi). Belge: README sınırlamaları ve "Not detected" tablosu
 (baskı başı yavaş arıza, nozzle'ı parçanın yanında bırakan kayma görünür), ROADMAP v0.3 ilerleme listesi.
+
+## K56 — `calibrate.py --write` (2026-10-22, model dışı araç)
+`--write PATH [--force]`: fit sonucunu ikizin okuduğu biçimde yazar (`PROFILE_DESIGN.md`): `params` = bütün
+`CALIBRATED` sabitleri (fit edilenler yeni değerle, diğerleri şu an geçerli olan: kod ← profile.toml ← calibration.json),
+ayrıca `fitted`, `uncertainty_log_factor` (bilgi yoksa null), `fit_rms_c`, log başına `k_logs`, `source_logs`,
+`code_version`. Var olan dosyanın üstüne `--force` olmadan yazmaz; canlı `calibration.json`'a kendiliğinden yazmaz
+(fit edilmiş dosya model değişikliğidir, kapıdan geçer, sonra elle kopyalanır). Sınama: `--params ""` ile yazılan
+dosya bugünkü 13 değeri BİREBİR veriyor (float repr); kalibrasyon + deney14a fit'i (prior 0.3) ikizin
+`load_printer_numbers`'ından notsuz geçti. O fit UYGULANMADI (K45/K40: ısınma–soğuma yapı sorunu, kapı gerekli).

@@ -764,3 +764,11 @@ başlangıç) TÜMÜ 3.05 → 3.08: varış 5.33 → 4.33, tutma245 4.55 → 3.8
 araç, tanılanabilirlik) ÇALIŞIYOR; v0.3'ün kalan engeli yalnız yapı (ısınmadaki fazla ısı; K40 S3d yolu).
 Not: deney15'in tek başına fit'i FAN_F0 0.138 (FAN_EXP serbest) verdi, burada 0.186 (FAN_EXP sabit 0.508): eşik ile
 üs birbirine bağlı; fan eğrisi v0.3'te ikisi birlikte, deney15 + kalibrasyon logu ortak fit edilmeli.
+
+## K46 — USB kopması ikinci kez Pi'yi resetledi; K34 gerçek kesintide doğrulandı (2026-10-21, MODEL DIŞI)
+13:19 civarı yazıcı–Pi USB kablosu kazara çıktı → Pi yeniden başladı (20.10 13:49'daki gibi). Servis 13:20:03'te
+kendiliğinden başladı; `twin_state.json` sağlam (k 0.997, k_fil 1.33): K34 atomik yazma gerçek kesintide ilk kez
+sınandı ve çalıştı (20.10'da dosya 0 bayta düşmüştü). Önceki log korundu (`..._1319.csv`). Kullanıcı baskıyı
+(left-top, PETG, 2 sa 7 dk) yeniden başlattı; ikiz baskı başladıktan sonra açıldığı için G-code planı üretilmedi
+(bilinen davranış). Donanım önerisi: USB'nin 5 V pinini bantla yalıtmak (kartın Pi'ye geri beslemesi / takma-çıkarma
+anında besleme düşmesi bilinen sebep) ya da Pi adaptörünü kontrol.

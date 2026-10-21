@@ -1,0 +1,18 @@
+# What you know about your printer's hardware. Copy this file to profile.toml and edit it.
+# The twin starts from these values; calibration.json (from a calibration print) and online learning refine
+# the rest. Values below: the author's Ender 3 (40 W cartridge, 5015 part fan, 24 V supply). See PROFILE_DESIGN.md.
+profile_version = 1
+name = "Ender 3, direct drive, all-metal hotend, 5015 part fan"
+
+# Room temperature (C). A fixed assumption; the learned loss factor k absorbs a few degrees of difference.
+room_c = 25
+
+[hotend]
+heater_power_w = 40          # cartridge power at the supply voltage (30 / 40 / 50 / 60 W are common)
+
+[part_fan]
+threshold = 0.191            # fan PWM below which the blower does not cool the nozzle (0-1)
+exponent = 0.508             # cooling ~ ((pwm - threshold) / (1 - threshold)) ** exponent
+
+[power]
+bed_sag = 0.042              # supply sag with the bed on: heater power x (1 - bed_sag x bed_pwm); 0 if separate supplies

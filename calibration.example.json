@@ -1,0 +1,14 @@
+{
+  "calibration_version": 1,
+  "date": "2026-09-25",
+  "printer": "Ender 3 (author's), values of twin v0.2",
+  "source": "September calibration runs (benchmark/), fitted by hand; see KARARLAR.md K01-K13",
+  "params": {
+    "C1": 2.0, "C2": 4.034, "C3": 0.8303,
+    "R31": 3.0, "R_HB": 1.805,
+    "HA1": 0.03624, "CRAD": 1.5259e-10, "HA2": 0.004435,
+    "HA2_FAN": 0.0293, "FAN_F0": 0.191, "FAN_EXP": 0.508,
+    "CAP_T_COEF": 0.0012,
+    "K_FIL": 0.0054
+  }
+}

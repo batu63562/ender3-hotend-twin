@@ -1,4 +1,12 @@
-# Profile and calibration files — design (v0.3, draft)
+# Profile and calibration files — design (v0.3)
+
+**Status (2026-10-22):** the loader is implemented (`realtime_websocket.load_printer_numbers`, KARARLAR [K52]).
+`profile.toml` and `calibration.json` next to the twin override the code defaults; `profile.example.toml` and
+`calibration.example.json` hold the Ender 3's v0.2 values, and with them the twin reproduces the frozen v0.2
+scores exactly (`baseline_snapshot.py --check v0.2`: IDENTICAL). Implemented profile keys: `room_c`,
+`hotend.heater_power_w`, `part_fan.threshold`, `part_fan.exponent`, `power.bed_sag`; calibration `params`:
+C1 C2 C3 R31 R_HB HA1 CRAD HA2 HA2_FAN FAN_F0 FAN_EXP CAP_T_COEF K_FIL. Still to do: `calibrate.py --write`,
+the bed numbers, relative temperature thresholds.
 
 Goal of v0.3: the generic physics is separated from this printer's numbers. Today every number lives in the code
 (`realtime_websocket.py`, `bed_model.py`). This document sorts them by where they should come from and proposes

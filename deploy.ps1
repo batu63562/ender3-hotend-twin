@@ -31,6 +31,8 @@ $remote = "ender3-twin"
 $files = @("realtime_websocket.py", "bed_model.py", "evaluate.py", "fault_classifier.py", "gcode_plan.py",
            "closed_loop.py", "session_history.py", "requirements.txt", "config.example.toml",
            "pi/install.sh", "pi/ender3-twin.service", "yazici/printer.cfg")
+# this printer's numbers (profile + calibration), if present; without them the Pi runs on the code defaults
+$files += @("profile.toml", "calibration.json", "profile.example.toml", "calibration.example.json", "pi/set_kref.py") | Where-Object { Test-Path $_ }
 if ($WithState) {
     $files += @("twin_state.json", "bakim_izleme.csv", "twin_gecmis.csv") | Where-Object { Test-Path $_ }
 }

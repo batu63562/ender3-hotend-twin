@@ -1,5 +1,7 @@
 # Local settings (copy config.example.toml to config.toml)
 config.toml
+profile.toml
+calibration.json
 
 # Python
 __pycache__/

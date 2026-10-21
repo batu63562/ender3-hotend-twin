@@ -294,6 +294,9 @@ Requirements: Python 3.11+, `pip install -r requirements.txt` (`websockets`; `nu
 plan, classifier and evaluation tools). Klipper + Moonraker reachable on the network.
 
 1. Copy `config.example.toml` to `config.toml` and set `printer_host` (not needed for offline evaluation).
+   Optional: `profile.example.toml` → `profile.toml` (heater power, part-fan curve, room) and a
+   `calibration.json` (thermal parameters); without them the twin uses the built-in values of the author's
+   Ender 3. See `PROFILE_DESIGN.md`.
 2. Start the twin **before** starting a print (the G-code plan is only produced if the twin sees the print
    start): double-click `start_twin.bat` or run `python realtime_websocket.py`.
 3. Optional: open `http://<pc-ip>:8080` on a phone. The released Windows viewer replays what is in its

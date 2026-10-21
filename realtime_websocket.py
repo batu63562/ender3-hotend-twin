@@ -97,6 +97,50 @@ EXT_EPS = 1e-6   # mm/s - Klipper reports ~1e-15 crumbs when idle; speeds below 
 CAP_T_COEF = 0.0012  # 1/K
 CAP_T0 = 140.0      # C - C(T) = C at this temperature
 
+# This printer's numbers can come from files instead of the defaults above [K52]: code default <- profile.toml (what
+# the user knows about the hardware) <- calibration.json (fitted by calibrate.py from a calibration print). Missing
+# files keep the defaults; a broken file is reported and ignored (the twin keeps running). See PROFILE_DESIGN.md.
+PROFILE_FILE = os.path.join(HERE, "profile.toml")
+CALIBRATION_FILE = os.path.join(HERE, "calibration.json")
+PROFILE_KEYS = {("", "room_c"): "T_AMB", ("hotend", "heater_power_w"): "P_MAX", ("power", "bed_sag"): "BED_SAG",
+                ("part_fan", "threshold"): "FAN_F0", ("part_fan", "exponent"): "FAN_EXP"}
+CALIBRATED = ("C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "FAN_F0", "FAN_EXP",
+              "CAP_T_COEF", "K_FIL")
+
+
+def load_printer_numbers():
+    """Applies profile.toml, then calibration.json, to the module's parameters. Returns (sources, notes):
+    the files used and anything ignored, for the start-up console."""
+    g, sources, notes = globals(), [], []
+    try:
+        if os.path.exists(PROFILE_FILE):
+            with open(PROFILE_FILE, "rb") as f:
+                prof = tomllib.load(f)
+            for (section, key), name in PROFILE_KEYS.items():
+                table = prof if not section else prof.get(section, {})
+                if key in table:
+                    g[name] = float(table[key])
+            sources.append(os.path.basename(PROFILE_FILE))
+    except (OSError, ValueError) as e:
+        notes.append(f"{os.path.basename(PROFILE_FILE)} ignored: {type(e).__name__}: {e}")
+    try:
+        if os.path.exists(CALIBRATION_FILE):
+            with open(CALIBRATION_FILE, encoding="utf-8") as f:
+                cal = json.load(f)
+            for name, value in cal.get("params", {}).items():
+                if name in CALIBRATED:
+                    g[name] = float(value)
+                else:
+                    notes.append(f"unknown calibration parameter ignored: {name}")
+            sources.append(f"{os.path.basename(CALIBRATION_FILE)} ({cal.get('date', '?')})")
+    except (OSError, ValueError, AttributeError) as e:
+        notes.append(f"{os.path.basename(CALIBRATION_FILE)} ignored: {type(e).__name__}: {e}")
+    g["T_AMB_K"] = g["T_AMB"] + 273.15
+    return sources, notes
+
+
+PRINTER_SOURCES, PRINTER_NOTES = load_printer_numbers()
+
 def cap_scale(T):
     """Heat capacity factor at T (see CAP_T_COEF)."""
     return max(0.5, 1.0 + CAP_T_COEF * (T - CAP_T0))
@@ -943,7 +987,7 @@ def source_version():
     (MODEL_VERSION alone is not bumped on every change). Content hash, so it needs no git (Pi deployment)."""
     import hashlib
     h = hashlib.sha1()
-    for name in ("realtime_websocket.py", "bed_model.py"):
+    for name in ("realtime_websocket.py", "bed_model.py", "profile.toml", "calibration.json"):   # numbers too [K52]
         try:
             with open(os.path.join(HERE, name), "rb") as fh:
                 h.update(fh.read().replace(b"\r\n", b"\n"))   # same hash for a CRLF and an LF checkout
@@ -1305,6 +1349,9 @@ async def main():
     mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
     daily_jobs(live)                                     # state backup + maintenance indicator (again every day)
     print(f"[kod surumu: {CODE_VERSION}]")
+    print(f"[yazici sayilari: {', '.join(PRINTER_SOURCES) if PRINTER_SOURCES else 'kod varsayilanlari'}]")
+    for note in PRINTER_NOTES:
+        print(f"[!! {note}]")
 
     def on_plan(fut):
         """Plan job finished (runs in the event loop): console line + the print's material (k_fil restarts from the

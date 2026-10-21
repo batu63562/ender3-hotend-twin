@@ -850,3 +850,17 @@ Karne donduruldu: `benchmark/baseline_v0.2.json` (kod `1707732c`; Eylül 9, ayar
 videosu (v0.3 sonunda; yeni gerçek olaylar daha iyi malzeme). v0.3 sırası: refactor (profil yükleyici, İngilizce
 tanımlayıcılar, göreli sıcaklık eşikleri; her adım `baseline_snapshot --check v0.2` IDENTICAL, ayrı dalda, Pi'ye
 ancak doğrulanınca), sonra kalibrasyon dosyası, sonra yapı (S3d + fan eğrisi) kabul kapısından.
+
+## K52 — v0.3 adım 1: yazıcı sayıları dosyadan (2026-10-22, dal `v03-refactor`, DAVRANIŞ NÖTR)
+`realtime_websocket.load_printer_numbers()`: sabitler kod varsayılanı olarak yerinde; ardından varsa `profile.toml`
+(kullanıcının bildiği: `room_c`, `hotend.heater_power_w`, `part_fan.threshold/exponent`, `power.bed_sag`) ve
+`calibration.json` (`params`: C1 C2 C3 R31 R_HB HA1 CRAD HA2 HA2_FAN FAN_F0 FAN_EXP CAP_T_COEF K_FIL) modül
+değişkenlerini değiştirir; T_AMB_K yeniden hesaplanır. Bozuk dosya raporlanır, yok sayılır (ikiz çalışmaya devam eder);
+bilinmeyen parametre raporlanır. `evaluate` override'ları aynen çalışır (yeniden yüklemeden sonra uygulanıyor).
+`code_version` hash'i profil + kalibrasyon dosyalarını da kapsar (dosya yoksa eskisiyle aynı). Açılışta konsol
+"yazici sayilari: ..." satırı. Dosyalar git dışı (`config.toml` gibi); `profile.example.toml` ve
+`calibration.example.json` Ender'in v0.2 değerleri (izleniyor). `deploy.ps1` varsa ikisini de taşır;
+`pi/set_kref.py` pi/ klasöründen de çalışır.
+Doğrulama: profil + kalibrasyon dosyasıyla `baseline_snapshot.py --check v0.2` → IDENTICAL (858 satır; v0.3 "bitti"
+ölçütünün ilk yarısı). Ters test (kopya klasörde, Eylül): kalibrasyonda C1 2.0 → 2.2 TÜMÜ 3.53 → 4.22; dosya yokken
+3.53 = dosyayla 3.53 → yükleyici etkili ve nötr.

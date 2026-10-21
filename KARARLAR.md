@@ -799,3 +799,30 @@ değişikliğinde (K44) bu çiftle sınanacak).
 Bugünkü sistem karnesi (`report_v02 --extra loglar/pi --since 2026-10-18`): 44 log, 22.2 baskı saati; etiketli arıza
 5/6 yakalandı (medyan 28 s; kaçan = eşik altı topak), duraklatma 2/6, yanlış duraklatma 0; sınav yanlış alarm
 0.106 / baskı saati (tek olay: sol-üst 15:17 öncülü, etiketsiz).
+
+## K49 — v0.2 kapanış analizleri: aktif duraklatma, KAYIP referansı, sıcaklık kulesi, sarı taslak (2026-10-22)
+**1. Aktif duraklatma (karar kullanıcıda):** arşiv raporu (`report_v02 --extra loglar/pi --list`): 160 log, 66.5 baskı
+saati; GUC_AZALDI 52 olay, süre medyan 37 s, %90 116 s; 150 s'yi geçenlerin hepsi gerçek arıza (havada baskı 286 s,
+stand2 246, deney10 241, deney11b 250) → gölge duraklatma 4, yanlış 0; etiketli en uzun zararsız 83 s (TPU küp) → 67 s
+pay ("en uzun yanlış 119 s" görünen 08.10 benchy K28'de kullanıcı onaylı gerçek, etiketsiz). Etiketli arıza 17/20
+(medyan 28 s). Bugünkü sistem (18.10+): 22.2 baskı saati, 5/6, yanlış duraklatma 0. Pi'de normal baskı 11.
+Uçtan uca test (scratchpad `aktif/aktif_test.py`: sahte Moonraker + sahte HTTP, PAUSE_MODE aktif): deney10 logunda
+tam 1 `POST /printer/print/pause` (HTTP 200, "duraklatma istegi gonderildi"), temiz benchy %40 logunda 0 istek.
+Park X0 Y220 gerçek baskıda doğrulandı (K47). → Teknik engel yok; öneri: `PAUSE_MODE = "aktif"`, PAUSE_AFTER 150 s.
+**2. KAYIP referansı:** k_ref 1.045 14.10'da durum dosyasına elle konmuş, kabul hiç tetiklenmemiş. 19.10'un 7 baskısında
+k 1.003–1.020, KAYIP 0; KAYIP yalnız havadaki deneylerden sonra (geri yükleme ile düzeldi) ve sol-üst baskısında
+(k 0.997 → 0.942, sıcak sürenin %30'u). Sol-üst'te k'nın düşüşü kalkan köşelerle uyumlu (fansız ilk katmanda baskıya
+giden ısı sabit → eksik ısı k'ya yazılıyor). Yeniden oynatma k_ref 1.007 ile: KAYIP %30 → %0, GUC olayları aynı
+(kayma yakalanıyor). Öneri: kod değil, durum dosyasında k_ref → 1.007 (bir kez, "bakım onayı"; sudo ister).
+**3. PETG sıcaklık kulesi** (`loglar/baskilar/2110_1056_petg_sicaklik_kulesi.csv`, sınav; canlıda k 0.926 ile
+başladı): k0 1.00 ile yeniden oynatma alarm 0. Kat (hedef, eksik güç medyan, p95, k_fil sonu): 250 +0.18/+1.46/1.28,
+245 +0.13/+0.48/1.26, 240 +0.35/+0.95/1.23, 235 +0.35/+0.95/1.20, 230 +0.59/+1.05/1.20 → baskı içi hedef değişimi
+sorunsuz; sıcaklık düştükçe eksik güç hafif artıyor, k_fil izliyor (baskıya giden ısı (T − T_oda)'dan biraz hızlı
+azalıyor). 230 katı ENERGY_TMIN sınırında (K42 göreli eşik).
+**4. Sarı seviye taslağı** (`scan_subthreshold.scan`, ≥1 W 60 s ortalama ≥60 s; 19 baskı, gerçek/sağlam bilinen):
+zararsız ilk katman tümsekleri ilk ekstrüzyondan 0.5–0.8 dk sonra başlıyor (76–197 s, 1.20–1.39 W); gerçek ilk katman
+kusurları daha geç (LCD 7.6 dk) ya da çok uzun (sol-üst köşeler 626 s, 1.73 W). PETG'de zararsız tepeler 1.17–1.45 W
+(benchy %40 1.45, kule 1.17–1.44), gerçekler 1.21–1.97 W. Aday ölçüt "PETG, ≥1.5 W, ≥70 s, ilk 1.5 dk hariç": gerçek
+7 olayın 5'i (Pencil, topak, sol-üst kayma öncesi 3 olay), 6 PETG zararsızın 0'ı; kaçan LCD (1.21), sol-üst 86. dk
+(1.41). TPU'da ayrım yok (stress ball 1.88, gyroid periyodik 2.37). Sol-üst'te kaymadan önceki 10 dk'da (z 6.0–6.6,
+~15:11–15:21) üç eşik altı olay → ikiz kaymanın öncülünü görüyordu. KARAR YOK: örnek az, aşırı uyum riski.

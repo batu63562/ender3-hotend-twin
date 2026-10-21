@@ -902,3 +902,7 @@ deney15 2 → 4, kalibrasyon 1 → 2): ikiz artık 200–215 °C havadaki tutmal
 çekiyor (K44/K47). GUC yok, duraklatma riski yok; deneylerde öğrenmeyi dondurma fikri (K50 notu) daha anlamlı.
 PLA davranışı bu yazıcıda doğrulanamaz (filament yok): TPU'yu 220–235 °C'de basmak (baskı kuyruğu) gerçek donanımda
 230 altı sınamasıdır.
+**K54 sınav (22.10, kullanıcı onayıyla):** sınav (canlı başlangıç) TÜMÜ 3.54 = 3.54, alarm 19 = 19; fazlar aynı ya da
+±0.01 (diğer tutmalar 4.37 → 4.36, soğuma 4.39 → 4.40, geçiş 5.24 → 5.23). Kapı tamam → `v03-refactor` `main`'e
+birleştirildi (adım 1–3). Not: adım 3 davranış değiştirdiği için `baseline_v0.2.json`'a karşı `--check` artık
+IDENTICAL vermez (beklenen); v0.2 karnesi v0.2 kodunun referansı olarak kalır, yeni karne v0.3 sonunda.

@@ -24,10 +24,10 @@ from collections import deque
 T_AMB = 25.0
 P_BED = 220.0          # W - Ender 3 bed heater nominal (24 V); its own voltage drop is absorbed in the parameters
 C_AL = 422.8           # J/K - heater pad + aluminium
-C_CAM = 582.3          # J/K - glass
+C_GLASS = 582.3          # J/K - glass
 R_AC = 0.1369          # K/W - aluminium -> glass (tau = R_AC*C_CAM ~ 1.3 min)
 H_AL = 1.249           # W/K - aluminium underside/edge loss (linear; most of the bed's convection)
-H_CAM = 0.0            # W/K - linear loss from the glass top (~0 in the experiment)
+H_GLASS = 0.0            # W/K - linear loss from the glass top (~0 in the experiment)
 EPS_A = 0.9 * 0.235 * 0.235   # glass top surface: emissivity * area (m^2)
 SIG = 5.670e-8
 # Extra loss while printing (bed v1, 2026-09-29; from the hold windows of 6 logs):
@@ -54,20 +54,20 @@ def rad(T):
     return SIG * EPS_A * ((T + 273.15) ** 4 - (T_AMB + 273.15) ** 4)
 
 
-def losses(T_al, T_cam):
+def losses(T_al, T_glass):
     """Losses to air (W): aluminium side, glass side."""
-    return H_AL * (T_al - T_AMB), H_CAM * (T_cam - T_AMB) + rad(T_cam)
+    return H_AL * (T_al - T_AMB), H_GLASS * (T_glass - T_AMB) + rad(T_glass)
 
 
-def step(T_al, T_cam, pwm, dt, k=1.0):
+def step(T_al, T_glass, pwm, dt, k=1.0):
     """Explicit Euler with small substeps (fastest mode ~R_AC*C_AL ~ 1 min; 1 s steps are comfortably stable)."""
     n = max(1, math.ceil(dt / MAX_SUBSTEP)); h = dt / n
     for _ in range(n):
-        q = (T_al - T_cam) / R_AC
-        l_al, l_cam = losses(T_al, T_cam)
+        q = (T_al - T_glass) / R_AC
+        l_al, l_glass = losses(T_al, T_glass)
         T_al += h * (pwm * P_BED - q - k * l_al) / C_AL
-        T_cam += h * (q - k * l_cam) / C_CAM
-    return T_al, T_cam
+        T_glass += h * (q - k * l_glass) / C_GLASS
+    return T_al, T_glass
 
 
 def initial_glass(T_al, pwm):
@@ -76,7 +76,7 @@ def initial_glass(T_al, pwm):
         return T_al
     Tg = T_al
     for _ in range(50):                      # q = (T_al - Tg)/R = glass_loss(Tg) -> fixed point
-        Tg = T_al - R_AC * (H_CAM * (Tg - T_AMB) + rad(Tg))
+        Tg = T_al - R_AC * (H_GLASS * (Tg - T_AMB) + rad(Tg))
     return Tg
 
 
@@ -87,7 +87,7 @@ class BedLossLearner:
         self.k = 1.0
         self.t0 = None
 
-    def update(self, now, dt, T_al, T_cam, pwm, mult=1.0):
+    def update(self, now, dt, T_al, T_glass, pwm, mult=1.0):
         """mult: known extra loss factor (fan, activity); k learns only the difference BEYOND it."""
         # heater on or not: judged from the window's AVERAGE power (below). 2026-10-14: before, every sample
         # had to have pwm > 0.02; the bed PID output drops to 0 and back to 1 every minute (Kd 948), so almost
@@ -97,25 +97,25 @@ class BedLossLearner:
         ok = T_al > LEARN_TMIN
         if self.t0 is None:
             self.t0, self.T_first, self.T_min, self.T_max = now, T_al, T_al, T_al
-            self.Tc_first = T_cam
+            self.Tc_first = T_glass
             self.E_in = self.E_loss = 0.0
             self.ok = ok
             return self.k
-        l_al, l_cam = losses(T_al, T_cam)
+        l_al, l_glass = losses(T_al, T_glass)
         self.E_in += pwm * P_BED * dt
-        self.E_loss += (l_al + l_cam) * mult * dt
+        self.E_loss += (l_al + l_glass) * mult * dt
         self.T_min, self.T_max = min(self.T_min, T_al), max(self.T_max, T_al)
         self.ok = self.ok and ok
         span = now - self.t0
         if span >= LEARN_WINDOW:
             if (self.ok and self.E_in > 0.02 * P_BED * span and self.T_max - self.T_min < LEARN_T_RANGE
                     and self.E_loss > 0):
-                stored = C_AL * (T_al - self.T_first) + C_CAM * (T_cam - self.Tc_first)
+                stored = C_AL * (T_al - self.T_first) + C_GLASS * (T_glass - self.Tc_first)
                 k_win = (self.E_in - stored) / self.E_loss
                 self.k += min(1.0, span / LEARN_TAU) * (k_win - self.k)
                 self.k = min(K_MAX, max(K_MIN, self.k))
             self.t0 = None
-            self.update(now, 0.0, T_al, T_cam, pwm, mult)
+            self.update(now, 0.0, T_al, T_glass, pwm, mult)
         return self.k
 
 
@@ -125,7 +125,7 @@ class BedTwin:
 
     def __init__(self, T_al, pwm=0.0, learn=True, extras=True):
         self.T_model = T_al
-        self.T_cam = initial_glass(T_al, pwm)
+        self.T_glass = initial_glass(T_al, pwm)
         self.pwm = pwm or 0.0
         self.fan = 0.0
         self.moving = False
@@ -142,15 +142,15 @@ class BedTwin:
 
     def on_message(self, now, T_real=None, pwm=None, fan=None, head_v=None, ext=None):
         """Without head_v (head speed) activity is taken from extrusion (ext)."""
-        out = {"residual": None, "senkron": False}
+        out = {"residual": None, "resynced": False}
         if self.prev is not None:
             dt = now - self.prev
             if dt > GAP_THRESHOLD or dt < 0:
                 T0 = T_real if T_real is not None else self.T_real
-                self.T_model, self.T_cam = T0, initial_glass(T0, self.pwm)
+                self.T_model, self.T_glass = T0, initial_glass(T0, self.pwm)
                 self.learner.t0 = None
                 self.act_hist.clear()
-                out["senkron"] = True
+                out["resynced"] = True
             else:
                 self.act_hist.append((now, dt, 1.0 if self.moving else 0.0))
                 while self.act_hist and self.act_hist[0][0] < now - ACT_WINDOW:
@@ -158,10 +158,10 @@ class BedTwin:
                 span = sum(h[1] for h in self.act_hist)
                 self.act = sum(h[1] * h[2] for h in self.act_hist) / span if span > 0 else 0.0
                 k = self.learner.k if self.learn else 1.0
-                self.T_model, self.T_cam = step(self.T_model, self.T_cam, self.pwm, dt, k * self.mult())
+                self.T_model, self.T_glass = step(self.T_model, self.T_glass, self.pwm, dt, k * self.mult())
                 if self.learn:
                     # learning uses the MEASURED aluminium temperature and the model's glass estimate
-                    self.learner.update(now, dt, self.T_real, self.T_cam, self.pwm, self.mult())
+                    self.learner.update(now, dt, self.T_real, self.T_glass, self.pwm, self.mult())
         self.prev = now
         if pwm is not None:
             self.pwm = pwm
@@ -173,7 +173,7 @@ class BedTwin:
             self.moving = abs(ext) > 0.1
         if T_real is not None:
             self.T_real = T_real
-            if not out["senkron"]:
+            if not out["resynced"]:
                 out["residual"] = T_real - self.T_model
         return out
 

@@ -129,13 +129,13 @@ def score(df, grid, Ts, Ps, idx):
     Pr, Pp = avg(P_real), avg(Ps * d.rw.P_MAX)
     hold = (tg >= 230) & (np.abs(T_real - tg) < 3) & (grid - grid[0] > 300)
     hold &= ~np.isnan(Pr)
-    out = dict(tutma_dk=hold.sum() * REPORT_TIME / 60)
+    out = dict(hold_min=hold.sum() * REPORT_TIME / 60)
     if hold.any():
         e = Pp[hold] - Pr[hold]
-        out.update(guc_bias=e.mean(), guc_rmse=np.sqrt(np.mean(e ** 2)), P_gercek=Pr[hold].mean(),
+        out.update(power_bias=e.mean(), power_rmse=np.sqrt(np.mean(e ** 2)), P_real_mean=Pr[hold].mean(),
                    T_rmse=np.sqrt(np.mean((Ts[hold] - T_real[hold]) ** 2)),
-                   doyum_gercek=np.mean(P_real[hold] >= 0.99 * d.rw.P_MAX) * 100,
-                   doyum_tahmin=np.mean(Ps[hold] >= 0.99) * 100)
+                   sat_real_pct=np.mean(P_real[hold] >= 0.99 * d.rw.P_MAX) * 100,
+                   sat_pred_pct=np.mean(Ps[hold] >= 0.99) * 100)
     # heat-up: time from the target rising above 230 to reaching target - 2 C (real and predicted)
     up = np.flatnonzero((tg[1:] >= 230) & (tg[:-1] < 230))
     if len(up):
@@ -144,7 +144,7 @@ def score(df, grid, Ts, Ps, idx):
             j = np.flatnonzero(T[i0:] >= tg[i0] - 2.0)
             return (grid[i0 + j[0]] - grid[i0]) if len(j) else np.nan
         if T_real[i0] < tg[i0] - 20:
-            out.update(isinma_gercek=reach(T_real), isinma_tahmin=reach(Ts))
+            out.update(heat_real_s=reach(T_real), heat_pred_s=reach(Ts))
     return out
 
 
@@ -166,24 +166,24 @@ def run(paths, chain_k=True):
             st = {}
             _, _, _, ks, _ = d.replay(df, m, k0=k_prev, kfil0=kfil_prev, state=st)
             k_prev, kfil_prev = float(ks[-1]), st["kfil"]
-        print(f"  {r['log']:22s} k {k_use:.3f}  baski {r.get('tutma_dk', 0):5.1f} dk  "
-              + (f"guc gercek {r['P_gercek']:5.2f} W  tahmin hatasi {r['guc_bias']:+5.2f} W (rms {r['guc_rmse']:4.2f})  "
-                 f"T rms {r['T_rmse']:4.2f} C  doyum %{r['doyum_gercek']:.1f}/%{r['doyum_tahmin']:.1f}" if 'guc_bias' in r else "")
-              + (f"  isinma {r['isinma_gercek']:.0f}/{r['isinma_tahmin']:.0f} s" if 'isinma_gercek' in r else ""))
+        print(f"  {r['log']:22s} k {k_use:.3f}  baski {r.get('hold_min', 0):5.1f} dk  "
+              + (f"guc gercek {r['P_real_mean']:5.2f} W  tahmin hatasi {r['power_bias']:+5.2f} W (rms {r['power_rmse']:4.2f})  "
+                 f"T rms {r['T_rmse']:4.2f} C  doyum %{r['sat_real_pct']:.1f}/%{r['sat_pred_pct']:.1f}" if 'power_bias' in r else "")
+              + (f"  isinma {r['heat_real_s']:.0f}/{r['heat_pred_s']:.0f} s" if 'heat_real_s' in r else ""))
     return pd.DataFrame(rows)
 
 
 def summarize(sc, title):
-    s = sc.dropna(subset=["guc_bias"])
-    w = s.tutma_dk
+    s = sc.dropna(subset=["power_bias"])
+    w = s.hold_min
     print(f"\n{title}: {len(s)} log, {w.sum():.0f} dk baski")
-    print(f"  guc tahmini: bias {np.average(s.guc_bias, weights=w):+.2f} W, rms {np.sqrt(np.average(s.guc_rmse**2, weights=w)):.2f} W "
-          f"(gercek ort {np.average(s.P_gercek, weights=w):.1f} W)")
+    print(f"  guc tahmini: bias {np.average(s.power_bias, weights=w):+.2f} W, rms {np.sqrt(np.average(s.power_rmse**2, weights=w)):.2f} W "
+          f"(gercek ort {np.average(s.P_real_mean, weights=w):.1f} W)")
     print(f"  sicaklik tahmini (baskida): rms {np.sqrt(np.average(s.T_rmse**2, weights=w)):.2f} C")
-    h = sc.dropna(subset=["isinma_gercek", "isinma_tahmin"])
+    h = sc.dropna(subset=["heat_real_s", "heat_pred_s"])
     if len(h):
-        print(f"  isinma suresi: gercek ort {h.isinma_gercek.mean():.0f} s, tahmin ort {h.isinma_tahmin.mean():.0f} s, "
-              f"ort mutlak fark {np.mean(np.abs(h.isinma_tahmin - h.isinma_gercek)):.0f} s")
+        print(f"  isinma suresi: gercek ort {h.heat_real_s.mean():.0f} s, tahmin ort {h.heat_pred_s.mean():.0f} s, "
+              f"ort mutlak fark {np.mean(np.abs(h.heat_pred_s - h.heat_real_s)):.0f} s")
 
 
 if __name__ == "__main__":

@@ -154,7 +154,7 @@ def replay(df, m, events=None, k0=1.0, kfil0=1.0, state=None, k_ref0=None):
                             None if np.isnan(tg[i]) else tg[i], None if np.isnan(bp[i]) else bp[i],
                             None if np.isnan(pe[i]) else pe[i], None if ps is None else ps[i])
         T1m[i] = twin.T1_model; ks[i] = twin.learner.k; refs[i] = twin.k_ref
-        synced[i] = r["senkron"]; anom[i] = r["anomali"]
+        synced[i] = r["resynced"]; anom[i] = r["anomali"]
         res[i] = r["residual"] if r["residual"] is not None else 0.0
     if events is not None:
         events.extend(twin.faults.events + [(c, t0, None) for c, t0 in twin.faults.active.items()])

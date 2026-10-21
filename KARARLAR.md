@@ -864,3 +864,24 @@ bilinmeyen parametre raporlanır. `evaluate` override'ları aynen çalışır (y
 Doğrulama: profil + kalibrasyon dosyasıyla `baseline_snapshot.py --check v0.2` → IDENTICAL (858 satır; v0.3 "bitti"
 ölçütünün ilk yarısı). Ters test (kopya klasörde, Eylül): kalibrasyonda C1 2.0 → 2.2 TÜMÜ 3.53 → 4.22; dosya yokken
 3.53 = dosyayla 3.53 → yükleyici etkili ve nötr.
+
+## K53 — v0.3 adım 2: İngilizce tanımlayıcılar (dil geçişinin 3. adımı) (2026-10-22, dal `v03-refactor`, DAVRANIŞ NÖTR)
+Önceki adımlar (dışa açık adlar K24, yorumlar) işin çoğunu yapmıştı: 1535 tanımlayıcının yalnız ~25'i Türkçe ve iç.
+Belirteç (tokenize) düzeyinde yeniden adlandırma (yorumlar, diğer dizgiler, biçim dokunulmadı; betik scratchpad
+`rename/rename.py`), 7 dosyada 169 değişiklik. Adlar: T_cam/C_CAM/H_CAM/l_cam/Tcam → T_glass/C_GLASS/H_GLASS/l_glass/
+Tglass; GECMIS_FILE → HISTORY_FILE; TAHMIN_COLS/TAHMIN_DIR/YOL_TOL → PLAN_COLS/PLAN_DIR/TOOLPATH_TOL; yerel etiket/deney/
+guc/sure → alarm_note/experiment/power_alarms/duration_txt. İç anahtarlar (tam dizgi): ikiz mesaj sonucu yeni_sicaklik/
+senkron/ariza_basladi/ariza_bitti/k_kabul → new_temperature/resynced/faults_started/faults_ended/k_accepted;
+fault_classifier kategori/kodlar/notlar/oran/uygun/neden → category/codes/notes/ratio/fits/reason; closed_loop
+tutma_dk/guc_bias/guc_rmse/P_gercek/doyum_*/isinma_* → hold_min/power_bias/power_rmse/P_real_mean/sat_*_pct/heat_*_s.
+DOKUNULMAYANLAR (veri sözleşmesi): CSV sütunları (T_yeni, ariza, anomali, eksik_guc, duraklat, malzeme …), plan CSV
+sütunları (akis, akis_anlik, katman_z, tip; Unity PlanHistory okur), setler/etiketler/twin_gecmis sütunları (dosya,
+baslangic_s, bitis_s, beklenen, gozlenen, oturum, k_son, sure_dk …), evaluate faz adları ve skor sütunları (faz,
+sure_s …), telefon sayfasının JSON anahtarları (bakim …), durum dosyası anahtarları, alarm kodları.
+Doğrulama: `baseline_snapshot --check v0.2` IDENTICAL; bed_model skorları, closed_loop --set calibration,
+fault_classifier --labels, session_history, gcode_plan (CSV) önce/sonra birebir (plan çıktısında yalnız geçen süre ve
+dosya yolu); canlı döngü sahte Moonraker + sahte HTTP (deney10, 30×): 7006 = 7006 satır, time/code_version dışında tüm
+sütunlar aynı, kategori + duraklatma + tek pause isteği aynı.
+Ayrıca (ayrı commit): `fault_classifier --labels` saati geri giden logda (1310 bakım testi, Klipper yeniden başladı)
+zaman ızgarası boş kalıp çöküyordu → "ATLANDI (saat geri)". Sınıflandırıcı yeni etiketlerde zayıf (sınav 6/20 doğru,
+4 kısmen; ayar 13/21): bilinen sınır, bakımda tutulan modül, ayrı konu.

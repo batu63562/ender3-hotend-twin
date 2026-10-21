@@ -166,14 +166,14 @@ def fit_hypotheses(dg, terms):
     out = {}
     for h, x in terms.items():
         if np.mean(np.abs(x)) < MIN_TERM:
-            out[h] = dict(oran=np.nan, rms=np.nan, uygun=False, neden=f"terim ~0 ({np.mean(x):.2f} W): test edilemez")
+            out[h] = dict(ratio=np.nan, rms=np.nan, fits=False, reason=f"terim ~0 ({np.mean(x):.2f} W): test edilemez")
             continue
         a = float(np.dot(x, dg) / np.dot(x, x))
         rms = float(np.sqrt(np.mean((dg - a * x) ** 2)))
         lo, hi = BOUNDS[h]
         ok = lo <= a <= hi
-        out[h] = dict(oran=a, rms=rms, uygun=ok,
-                      neden="" if ok else f"oran {a:+.2f} fiziksel sinir [{lo}, {hi}] disinda")
+        out[h] = dict(ratio=a, rms=rms, fits=ok,
+                      reason="" if ok else f"oran {a:+.2f} fiziksel sinir [{lo}, {hi}] disinda")
     return out
 
 
@@ -319,7 +319,7 @@ def replay_hypotheses(ctx, t_start, t_end, seg):
     out = {}
     for h in ("A", "B", "C"):
         if np.mean(np.abs(terms[h])) < MIN_TERM:
-            out[h] = dict(oran=np.nan, rms=np.nan, uygun=False, neden=f"terim ~0 ({np.mean(terms[h]):.2f} W): test edilemez")
+            out[h] = dict(ratio=np.nan, rms=np.nan, fits=False, reason=f"terim ~0 ({np.mean(terms[h]):.2f} W): test edilemez")
             continue
         (p,), rms = _fit(ctx, i0, i1, maps[h], [0.0], base=(kb, kb, kf0))
         if h == "B":
@@ -329,12 +329,12 @@ def replay_hypotheses(ctx, t_start, t_end, seg):
             why = (f"filaman yukunun {p:.2f} kati kaybolmali; K_FIL belirsizligi (+-{sig*100:.0f}%, 2 sigma) "
                    f"ile bile {p_min:.2f} > {B_MAX}") if not ok else (
                    f"(K_FIL +-{sig*100:.0f}% ile en az {p_min:.2f})" if p > B_MAX else "")
-            out[h] = dict(oran=float(p), rms=rms, uygun=ok, neden=why)
+            out[h] = dict(ratio=float(p), rms=rms, fits=ok, reason=why)
             continue
         lo, hi = BOUNDS[h]
         ok = lo <= p <= hi
-        out[h] = dict(oran=float(p), rms=rms, uygun=ok,
-                      neden="" if ok else f"oran {p:+.2f} fiziksel sinir [{lo}, {hi}] disinda")
+        out[h] = dict(ratio=float(p), rms=rms, fits=ok,
+                      reason="" if ok else f"oran {p:+.2f} fiziksel sinir [{lo}, {hi}] disinda")
     return out, note + f"; arizasiz varsayimla ikiz-gercek farki {base_rms:.1f} C", kf0
 
 
@@ -384,81 +384,81 @@ def prepare(df, m):
 def classify_window(ctx, t_start, t_end):
     """Classify the window [t_start, t_end] (seconds from log start). Returns: result dict."""
     sm = ctx["sm"]
-    rep = {"pencere": (t_start, t_end), "kategori": [], "notlar": [], "hipotezler": {}}
+    rep = {"pencere": (t_start, t_end), "category": [], "notes": [], "hipotezler": {}}
 
     # reference: valid data before the event
     ref = sm.valid & (sm.t >= t_start - REF_LEN) & (sm.t < t_start - SMOOTH / 2)
     if ref.sum() * GRID_DT >= REF_MIN:
         g0 = float(sm.gap[ref].mean()); noise = float(sm.gap[ref].std())
-        rep["notlar"].append(f"referans: olaydan onceki {ref.sum()*GRID_DT:.0f} s, eksik guc {g0:+.2f} W (gunluk oynama), "
+        rep["notes"].append(f"referans: olaydan onceki {ref.sum()*GRID_DT:.0f} s, eksik guc {g0:+.2f} W (gunluk oynama), "
                              f"gurultu {noise:.2f} W")
     else:
         g0, noise = 0.0, np.nan
-        rep["notlar"].append("referans penceresi yok (olay log basinda): model esas alindi, g0 = 0")
+        rep["notes"].append("referans penceresi yok (olay log basinda): model esas alindi, g0 = 0")
 
     w_all = (sm.t >= t_start) & (sm.t <= t_end)
     w = w_all & sm.valid
     rep["kurallar"] = rule_checks(sm, w_all, ctx)
     for cat, txt in rep["kurallar"]:
-        rep["kategori"].append(cat); rep["notlar"].append(f"[{cat}] {txt}")
+        rep["category"].append(cat); rep["notes"].append(f"[{cat}] {txt}")
     if rep["kurallar"]:
         rep["birincil"] = rep["kurallar"][0][0]     # a direct rule (D/E) takes precedence over the energy analysis
 
     if w.sum() * GRID_DT < 15:
-        rep["notlar"].append(f"pencerede sicaklik tutulan gecerli veri {w.sum()*GRID_DT:.0f} s: enerji analizi yapilamadi")
-        if not rep["kategori"]:
-            rep["kategori"] = ["?"]
+        rep["notes"].append(f"pencerede sicaklik tutulan gecerli veri {w.sum()*GRID_DT:.0f} s: enerji analizi yapilamadi")
+        if not rep["category"]:
+            rep["category"] = ["?"]
         return rep
 
     seg = sm[w]
     dg = seg.gap.values - g0
     rep["sapma"] = float(dg.mean())
     rep["terimler"] = {k: float(seg[k].mean()) for k in ("L_blok", "L_fan", "L_fil")}
-    rep["notlar"].append(f"pencerede {w.sum()*GRID_DT:.0f} s gecerli veri: ortalama sapma {dg.mean():+.2f} W  "
+    rep["notes"].append(f"pencerede {w.sum()*GRID_DT:.0f} s gecerli veri: ortalama sapma {dg.mean():+.2f} W  "
                          f"(model: blok {seg.L_blok.mean():.1f} W, fan {seg.L_fan.mean():.2f} W, "
                          f"filaman {seg.L_fil.mean():.2f} W)")
     terms = {"A": seg.L_fan.values, "B": seg.L_fil.values, "C": (seg.L_blok + seg.L_fan).values}
     hyp = fit_hypotheses(dg, terms)
     rep["hipotezler"] = hyp
-    feas = {h: r for h, r in hyp.items() if r["uygun"]}
+    feas = {h: r for h, r in hyp.items() if r["fits"]}
     # significance: mean deviation or the part a hypothesis explains (a short extrusion event is diluted in the
     # window but moves together with the filament term, so it is caught here)
-    explained = max([abs(r["oran"]) * np.sqrt(np.mean(terms[h] ** 2)) for h, r in feas.items()], default=0.0)
+    explained = max([abs(r["ratio"]) * np.sqrt(np.mean(terms[h] ** 2)) for h, r in feas.items()], default=0.0)
     if abs(dg.mean()) < MIN_SHIFT and explained < MIN_SHIFT:
-        rep["notlar"].append(f"anlamli guc farki yok (sapma ve aciklanan kisim < {MIN_SHIFT} W): isi dengesi normal")
+        rep["notes"].append(f"anlamli guc farki yok (sapma ve aciklanan kisim < {MIN_SHIFT} W): isi dengesi normal")
         rep["hipotezler"] = {}
-        if not rep["kategori"]:
-            rep["kategori"] = ["-"]
+        if not rep["category"]:
+            rep["category"] = ["-"]
         return rep
     if fan_varies(seg) and seg.L_fil.mean() < MIN_TERM:
         # the fan changed in the window: block and fan terms solved separately, A/C decided from the data
         x, y, rms = fit_two_term(dg, seg)
         rep["ayristirma"] = dict(x=x, y=y, rms=rms)
-        rep["notlar"].append(f"fan degisti ({seg.fan.min()*100:.0f}-{seg.fan.max()*100:.0f}%): blok ve fan ayri cozuldu -> "
+        rep["notes"].append(f"fan degisti ({seg.fan.min()*100:.0f}-{seg.fan.max()*100:.0f}%): blok ve fan ayri cozuldu -> "
                              f"blok kaybi {x*100:+.0f}% (normal +-{X_BAND*100:.0f}%), fan sogutmasi {y*100:+.0f}% "
                              f"(normal {Y_BAND[0]*100:+.0f}..{Y_BAND[1]*100:+.0f}%), uyum rms {rms:.2f} W")
         if abs(x) > X_BAND:
             cat = "C"
-            rep["notlar"].append(f"blok kaybi normal bandin disinda: {'corap/cereyan (daha fazla kayip)' if x > 0 else 'yalitim/ortam isindi (daha az kayip)'}"
+            rep["notes"].append(f"blok kaybi normal bandin disinda: {'corap/cereyan (daha fazla kayip)' if x > 0 else 'yalitim/ortam isindi (daha az kayip)'}"
                                  + ("; fan sogutmasi da degisti (corapsiz blok fan havasini dogrudan alir)"
                                     if not Y_BAND[0] <= y <= Y_BAND[1] else ""))
         elif not Y_BAND[0] <= y <= Y_BAND[1]:
             cat = "A"
-            rep["notlar"].append("blok kaybi normal, sadece fan sogutmasi degisti: "
+            rep["notes"].append("blok kaybi normal, sadece fan sogutmasi degisti: "
                                  + ("hava nozzle'a az ulasiyor (kanal tikali/fan yavas)" if y < 0
                                     else "fazladan sogutma (kanal bloga donmus?)"))
         else:
             cat = "-"
-            rep["notlar"].append("iki oran da normal bantta")
-        rep["kategori"].append(cat)
+            rep["notes"].append("iki oran da normal bantta")
+        rep["category"].append(cat)
         if not rep.get("birincil"):
             rep["birincil"] = cat
     else:
         # single-term hypotheses by twin replay (the energy window above is only for significance)
         hyp, note, _ = replay_hypotheses(ctx, t_start, t_end, seg)
         rep["hipotezler"] = hyp; rep["hipotez_birim"] = "C"
-        rep["notlar"].append(note)
-        feas = {h: r for h, r in hyp.items() if r["uygun"]}
+        rep["notes"].append(note)
+        feas = {h: r for h, r in hyp.items() if r["fits"]}
         if feas:
             best = min(r["rms"] for r in feas.values())
             tie = max(best * RMS_TIE, best + REPLAY_TIE_C)
@@ -469,18 +469,18 @@ def classify_window(ctx, t_start, t_end):
             ac_tied = "A" in feas and "C" in feas and ranked[0] in ("A", "C")
             if ac_tied:
                 chosen = sorted(set(chosen) | {"A", "C"})
-            rep["kategori"] += chosen
+            rep["category"] += chosen
             # if the two best fits are practically equal, no "most likely" is named
             if not rep.get("birincil") and not ac_tied and (
                     len(ranked) == 1 or feas[ranked[1]]["rms"] - feas[ranked[0]]["rms"] > 0.1):
                 rep["birincil"] = ranked[0]
             if "A" in chosen and "C" in chosen:
                 f = seg.fan.values
-                rep["notlar"].append(f"A ile C ayrilamiyor: pencerede fan {f.min()*100:.0f}-{f.max()*100:.0f}% "
+                rep["notes"].append(f"A ile C ayrilamiyor: pencerede fan {f.min()*100:.0f}-{f.max()*100:.0f}% "
                                      "(fan degismeden 'fan sogutmasi kayboldu' ile 'blok yalitildi' ayni gorunur)")
         else:
-            rep["kategori"].append("?")
-            rep["notlar"].append("hicbir tek terim sapmayi fiziksel sinirlar icinde aciklamiyor (birlesik ariza?)")
+            rep["category"].append("?")
+            rep["notes"].append("hicbir tek terim sapmayi fiziksel sinirlar icinde aciklamiyor (birlesik ariza?)")
 
     # onset speed: time for the deviation to rise from 10 % to 90 %
     s = pd.Series(sm.gap.values - g0, index=sm.t).loc[t_start - 60: t_end]
@@ -494,7 +494,7 @@ def classify_window(ctx, t_start, t_end):
             if len(before):
                 rise = tt[i90] - tt[before[-1]]
                 rep["baslangic_s"] = float(rise)
-                rep["notlar"].append(f"sapma {rise:.0f} s icinde olustu ({'ani' if rise < 60 else 'yavas'}; "
+                rep["notes"].append(f"sapma {rise:.0f} s icinde olustu ({'ani' if rise < 60 else 'yavas'}; "
                                      f"{SMOOTH:.0f} s yumusatma yuzunden ani bir adim da ~{0.8*SMOOTH:.0f} s gorunur)")
     return rep
 
@@ -512,7 +512,7 @@ CAT_TEXT = {
 
 
 def category_line(rep):
-    cats = sorted(set(rep["kategori"]))
+    cats = sorted(set(rep["category"]))
     first = rep.get("birincil")
     if first and len(cats) > 1:
         return f"en olasi {first}; {', '.join(c for c in cats if c != first)} de disarida birakilamiyor"
@@ -522,18 +522,18 @@ def category_line(rep):
 def format_report(rep, title):
     a, b = rep["pencere"]
     lines = [f"\n=== {title}  [{a:.0f} - {b:.0f} s]"]
-    lines += [f"  {n}" for n in rep["notlar"]]
+    lines += [f"  {n}" for n in rep["notes"]]
     if "ayristirma" in rep and rep.get("hipotezler"):
         lines.append("  (tek terimli uyumlar, sadece bilgi icin - karar yukaridaki ayristirmadan)")
     for h, r in rep.get("hipotezler", {}).items():
-        if np.isnan(r["oran"]):
-            lines.append(f"    {h}: {r['neden']}")
+        if np.isnan(r["ratio"]):
+            lines.append(f"    {h}: {r['reason']}")
         else:
-            flag = "uyumlu" if r["uygun"] else "ELENDI"
+            flag = "uyumlu" if r["fits"] else "ELENDI"
             unit = rep.get("hipotez_birim", "W")
-            lines.append(f"    {h}: oran {r['oran']:+.2f}  uyum rms {r['rms']:.2f} {unit}  -> {flag} {r['neden']}")
+            lines.append(f"    {h}: oran {r['ratio']:+.2f}  uyum rms {r['rms']:.2f} {unit}  -> {flag} {r['reason']}")
     lines.append(f"  KATEGORI: {category_line(rep)}")
-    lines += [f"    {c} = {CAT_TEXT.get(c, c)}" for c in sorted(set(rep["kategori"]))]
+    lines += [f"    {c} = {CAT_TEXT.get(c, c)}" for c in sorted(set(rep["category"]))]
     return "\n".join(lines)
 
 
@@ -587,7 +587,7 @@ def classify_log(path, m=None, window=None):
         onset = find_onset(ctx["sm"], a, a - 60)
         end = min(b, onset + ANALYSIS_LEN)
         rep = classify_window(ctx, onset, end)
-        rep["kodlar"] = codes
+        rep["codes"] = codes
         print_report(rep, f"{os.path.basename(path)}  ikiz: {', '.join(sorted(codes))} (onay {a:.0f} s, "
                           f"sapma baslangici ~{onset:.0f} s)")
         reps.append(rep)
@@ -606,7 +606,7 @@ def classify_live(rows, m, t_confirm):
     rep = classify_window(ctx, onset, end)
     title = (f"canli: onaydan {ctx['t'][-1] - a:.0f} s sonra, sapma baslangici onaydan "
              f"{a - onset:.0f} s once (pencere saniyeleri arabellek basina gore)")
-    expl = "; ".join(f"{c} = {CAT_TEXT.get(c, c)}" for c in sorted(set(rep["kategori"])))
+    expl = "; ".join(f"{c} = {CAT_TEXT.get(c, c)}" for c in sorted(set(rep["category"])))
     return f"{category_line(rep)}\n      {expl}", format_report(rep, title)
 
 
@@ -625,7 +625,7 @@ def evaluate_labels():
             rows.append((r.dosya[:40], r.gozlenen, str(r.beklenen), "-", "ATLANDI (saat geri)", getattr(r, "set", "ayar")))
             continue
         rep = classify_log(path, m, (r.baslangic_s, end))[0]
-        got = set(rep["kategori"]); exp = set(str(r.beklenen).split("|"))
+        got = set(rep["category"]); exp = set(str(r.beklenen).split("|"))
         rows.append((r.dosya[:40], r.gozlenen, "|".join(sorted(exp)), "|".join(sorted(got)),
                      "DOGRU" if got == exp else ("KISMEN" if got & exp else "YANLIS"),
                      getattr(r, "set", "ayar")))

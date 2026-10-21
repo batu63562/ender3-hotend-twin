@@ -841,10 +841,10 @@ class Twin:
                     and self.print_state not in ("printing", "paused")):
                 self.anchor_kfil()
             self.print_state = print_state
-        out = {"dt": 0.0, "yeni_sicaklik": T1_real is not None,
-               "residual": None, "anomali": False, "k_anomali": False, "senkron": False,
-               "ariza_basladi": [], "ariza_bitti": [], "eksik_guc": None,
-               "k_kabul": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
+        out = {"dt": 0.0, "new_temperature": T1_real is not None,
+               "residual": None, "anomali": False, "k_anomali": False, "resynced": False,
+               "faults_started": [], "faults_ended": [], "eksik_guc": None,
+               "k_accepted": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
                "duraklat": False}  # GUC_AZALDI has lasted PAUSE_AFTER s without interruption (once per event)
 
         # 1) advance the elapsed interval with the inputs valid at its start
@@ -871,7 +871,7 @@ class Twin:
                 self.learner.reset()
                 if self.energy is not None:
                     self.energy.reset()
-                out["senkron"] = True
+                out["resynced"] = True
             else:
                 # with the bed on the supply voltage sags: the real power to the cartridge drops slightly
                 scale = 1.0 - BED_SAG * self.bed
@@ -892,7 +892,7 @@ class Twin:
                         self.kst_t += dt
                     self.kout_t = self.kout_t + dt if self.k_alarm else 0.0
                     if self.kout_t >= K_ACCEPT_TIME and self.kst_t >= K_ACCEPT_TIME:
-                        out["k_kabul"] = (self.k_ref, k)
+                        out["k_accepted"] = (self.k_ref, k)
                         self.k_ref = k
                         self.kout_t = 0.0
                         self.k_alarm = False
@@ -906,8 +906,8 @@ class Twin:
                         self.energy, self.energy_error = None, f"{type(e).__name__}: {e}"
                 if self.energy is not None:
                     g = out["eksik_guc"]
-                    guc = [c for c in ENERGY_TEXT if c in self.faults.active or c in self.faults.pending]
-                    blocked = (g is not None and abs(g) > ENERGY_THRESHOLD) or bool(guc)
+                    power_alarms = [c for c in ENERGY_TEXT if c in self.faults.active or c in self.faults.pending]
+                    blocked = (g is not None and abs(g) > ENERGY_THRESHOLD) or bool(power_alarms)
                     self.learner.update_print(now, dt, T_now, self.pwm * scale, self.fan, ext_smoothed,
                                               g is not None, blocked)
         self.prev_time = now
@@ -940,7 +940,7 @@ class Twin:
         # 3) compare if a new temperature arrived
         if T1_real is not None:
             self.T1_real = T1_real
-            out["residual"] = 0.0 if out["senkron"] else T1_real - self.T1_model
+            out["residual"] = 0.0 if out["resynced"] else T1_real - self.T1_model
         dev = abs(self.learner.k - self.k_ref)
         self.k_alarm = dev > (K_ALARM_CLEAR if self.k_alarm else K_ALARM_BAND)   # hysteresis: no toggling at the band edge
         out["k_anomali"] = self.k_alarm
@@ -948,9 +948,9 @@ class Twin:
         # 4) fault tracking - only on messages with a new temperature (conditions are based on measurements)
         if T1_real is not None:
             conds = fault_conditions(self.learner.k, self.fan, self.k_ref, self.k_alarm)
-            if not out["senkron"]:
+            if not out["resynced"]:
                 conds |= energy_conditions(out["eksik_guc"])
-            out["ariza_basladi"], out["ariza_bitti"] = self.faults.update(now, conds)
+            out["faults_started"], out["faults_ended"] = self.faults.update(now, conds)
             t_az = self.faults.active.get("GUC_AZALDI")
             if t_az is None:
                 self.pause_flagged = False
@@ -1117,7 +1117,7 @@ def summarize_session(path):
         session_history.append(row)
         vals = [f"{k}={row[k]}" for k in ("P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct", "baski_kaybi_pct")
                 if k in row]
-        return (f"Oturum ozeti ({os.path.basename(path)}) -> {os.path.basename(session_history.GECMIS_FILE)}: "
+        return (f"Oturum ozeti ({os.path.basename(path)}) -> {os.path.basename(session_history.HISTORY_FILE)}: "
                 f"{', '.join(vals) if vals else '245C tutma verisi yetersiz, olcut yok'}"
                 f"  (trend: python session_history.py)")
     except Exception as e:  # noqa: BLE001 - the summary is a side feature
@@ -1227,7 +1227,7 @@ def show_category(text, live):
     """Classification result: print to the console, put the short form on the phone page."""
     print(text)
     first = next((ln for ln in text.splitlines() if "KATEGORISI" in ln or "basarisiz" in ln), "").strip()
-    live["kategori"] = first.split("): ", 1)[-1] if "): " in first else first
+    live["category"] = first.split("): ", 1)[-1] if "): " in first else first
 
 
 WEB_PAGE = """<!doctype html><html lang="tr"><head><meta charset="utf-8">
@@ -1332,7 +1332,7 @@ async def main():
         return
     twin = None   # set up once the first real temperature is known
     live = {"T": None, "M": None, "R": None, "G": None, "pwm": 0.0, "fan": 0.0, "k": 1.0, "ext": 0.0,
-            "ariza": [], "kategori": "", "wall": 0.0, "h": deque(),
+            "ariza": [], "category": "", "wall": 0.0, "h": deque(),
             "bT": None, "bTg": None, "bP": None, "bM": None, "bC": None}   # phone page
     web = await web_server(live) if WEB_PORT else None
     buffer = deque()      # (model time, csv row) - the last CLASSIFY_BUFFER seconds for classification
@@ -1629,20 +1629,20 @@ async def main():
                                            twin.learner.kfil, twin.k_ref, twin.material)
                                 last_save = wall_time
 
-                            for code in r["ariza_basladi"]:
+                            for code in r["faults_started"]:
                                 g = r["eksik_guc"]
                                 print(f"\n!!!!! ARIZA: {code} - {FAULT_TEXT[code]}"
                                       f"  (residual={r['residual']:+.1f}C, k={twin.learner.k:.3f}"
                                       + (f", eksik guc={g:+.1f} W" if g is not None else "") + ")\n")
-                            if r["ariza_basladi"] and not any(abs(s[1] - now) < 60.0 for s in scheduled):
+                            if r["faults_started"] and not any(abs(s[1] - now) < 60.0 for s in scheduled):
                                 # not scheduled again if an event that started recently is already to be classified
                                 codes = ",".join(sorted(twin.faults.active))
                                 scheduled += [[now + dl, now, codes, dl] for dl in CLASSIFY_DELAYS]
                                 print(f"[ariza kategorisi {CLASSIFY_DELAYS[0]:.0f} s sonra hesaplanacak]")
-                            for code, t0, t1 in r["ariza_bitti"]:
+                            for code, t0, t1 in r["faults_ended"]:
                                 print(f"[ariza bitti: {code}, {t1 - t0:.0f} s surdu]")
-                            if r["k_kabul"]:
-                                k_old, k_new = r["k_kabul"]
+                            if r["k_accepted"]:
+                                k_old, k_new = r["k_accepted"]
                                 msg = (f"KAYIP kabul edildi: k {k_old:.3f} -> {k_new:.3f} ({100 * (k_new / k_old - 1):+.0f}%), "
                                        f"{K_ACCEPT_TIME / 60:.0f} dk sabit kaldi; yeni referans bu seviye")
                                 print(f"\n[{msg}]\n")
@@ -1669,16 +1669,16 @@ async def main():
                             if twin.energy_error and not energy_error_shown:
                                 print(f"[enerji uyarisi hata verdi ve kapandi: {twin.energy_error} - izleme devam ediyor]")
                                 energy_error_shown = True
-                            if r["senkron"]:
+                            if r["resynced"]:
                                 print(f"[senkronize edildi - {r['dt']:.1f}s'lik veri boslugu]")
                                 if r["dt"] < 0:
                                     # the clock went back: the buffered rows are no longer on the same time axis
                                     buffer.clear()
                                     scheduled.clear()
-                            if r["yeni_sicaklik"]:
-                                etiket = "  !! ARIZA: " + ",".join(sorted(twin.faults.active)) if r["anomali"] else ""
+                            if r["new_temperature"]:
+                                alarm_note = "  !! ARIZA: " + ",".join(sorted(twin.faults.active)) if r["anomali"] else ""
                                 if r["k_anomali"]:
-                                    etiket += f"  !! KAYIP DEGISTI (k={twin.learner.k:.3f}, referans {twin.k_ref:.3f})"
+                                    alarm_note += f"  !! KAYIP DEGISTI (k={twin.learner.k:.3f}, referans {twin.k_ref:.3f})"
                                 print(f"T1_real={twin.T1_real:6.1f}C  "
                                       f"T1_model={twin.T1_model:6.1f}C  "
                                       f"residual={r['residual']:+6.1f}C  "
@@ -1690,11 +1690,11 @@ async def main():
                                          + (f" (model {bed_twin.T_model:5.1f}, res {bed.get('temperature', 0) - bed_twin.T_model:+4.1f})"
                                             if bed_twin is not None else "")
                                          if "temperature" in bed else "")
-                                      + etiket)
+                                      + alarm_note)
 
                             row = {
                                 "time": wall_time, "eventtime": now if use_klipper_clock else "",
-                                "T_yeni": int(r["yeni_sicaklik"]),
+                                "T_yeni": int(r["new_temperature"]),
                                 "T1_real": twin.T1_real, "T1_model": twin.T1_model,
                                 "residual": "" if r["residual"] is None else r["residual"],
                                 "pwm": twin.pwm, "fan_state": twin.fan, "extrude_velocity": twin.ext,
@@ -1725,10 +1725,10 @@ async def main():
                                         ariza=sorted(twin.faults.active),
                                         bT=bed.get("temperature"), bTg=bed.get("target"), bP=bed.get("power"),
                                         bM=None if bed_twin is None else bed_twin.T_model,
-                                        bC=None if bed_twin is None else bed_twin.T_cam)
-                            if r["senkron"] and r["dt"] < 0:
+                                        bC=None if bed_twin is None else bed_twin.T_glass)
+                            if r["resynced"] and r["dt"] < 0:
                                 live["h"].clear()
-                            if r["residual"] is not None and not r["senkron"]:
+                            if r["residual"] is not None and not r["resynced"]:
                                 live["R"] = r["residual"]
                                 h = live["h"]
                                 if not h or now - h[-1][0] >= 1.0:
@@ -1767,8 +1767,8 @@ async def main():
                 events =twin.faults.events + [(c, t0, None) for c, t0 in twin.faults.active.items()]
                 print(f"\nAriza ozeti: {f'{len(events)} ariza' if events else 'ariza yok'}")
                 for code, t0, t1 in events:
-                    sure = f"{t1 - t0:.0f} s" if t1 is not None else "hala aktif"
-                    print(f"  {code}: {sure} - {FAULT_TEXT[code]}")
+                    duration_txt = f"{t1 - t0:.0f} s" if t1 is not None else "hala aktif"
+                    print(f"  {code}: {duration_txt} - {FAULT_TEXT[code]}")
                 if events:
                     print(f"  kategoriler (hesaplandiysa): {REPORT_FILE}")
                 # session-to-session trend: the last log part is archived first, so its summary in twin_gecmis.csv

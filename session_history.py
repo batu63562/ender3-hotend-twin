@@ -39,7 +39,7 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-GECMIS_FILE = os.path.join(HERE, "twin_gecmis.csv")
+HISTORY_FILE = os.path.join(HERE, "twin_gecmis.csv")
 MIN_HOLD = 60.0        # s - minimum valid hold time for a measure
 T_HOLD = (240.0, 250.0)
 DRIFT_WARN = 5.0       # % - warn if the last session differs this much from the median of the earlier ones
@@ -131,13 +131,13 @@ def _finish(row, raw):
 
 
 def append(row):
-    new = not os.path.exists(GECMIS_FILE)
+    new = not os.path.exists(HISTORY_FILE)
     if not new:
-        with open(GECMIS_FILE, encoding="utf-8") as f:
+        with open(HISTORY_FILE, encoding="utf-8") as f:
             header = f.readline().strip().split(",")
         if header != COLUMNS:          # old column layout (a column was added): convert the file first
-            pd.read_csv(GECMIS_FILE).reindex(columns=COLUMNS).to_csv(GECMIS_FILE, index=False)
-    pd.DataFrame([row]).reindex(columns=COLUMNS).to_csv(GECMIS_FILE, mode="a", header=new, index=False)
+            pd.read_csv(HISTORY_FILE).reindex(columns=COLUMNS).to_csv(HISTORY_FILE, index=False)
+    pd.DataFrame([row]).reindex(columns=COLUMNS).to_csv(HISTORY_FILE, mode="a", header=new, index=False)
 
 
 def backfill(m):
@@ -153,15 +153,15 @@ def backfill(m):
         if row:
             rows.append(row)
     out = pd.DataFrame(rows).reindex(columns=COLUMNS).sort_values("oturum")
-    out.to_csv(GECMIS_FILE, index=False)
-    print(f"{len(out)} oturum yazildi: {GECMIS_FILE}")
+    out.to_csv(HISTORY_FILE, index=False)
+    print(f"{len(out)} oturum yazildi: {HISTORY_FILE}")
 
 
 def report():
-    if not os.path.exists(GECMIS_FILE):
+    if not os.path.exists(HISTORY_FILE):
         print("gecmis yok - once 'python session_history.py --backfill' ya da canli scripti calistir")
         return
-    g = pd.read_csv(GECMIS_FILE)
+    g = pd.read_csv(HISTORY_FILE)
     show = ["oturum", "sure_dk", "tutma245_s", "P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct",
             "baski_kaybi_pct", "P150_W", "kayip150_pct", "k_son", "arizalar", "not"]
     g = g.reindex(columns=list(dict.fromkeys(COLUMNS + list(g.columns))))
@@ -170,12 +170,12 @@ def report():
     print(f"\n(0 = kalibrasyon gunu; blok kaybinda gunluk dogal oynama ~+-5%, fan sogutmasi normalde ~-8%)")
 
     # deliberate fault experiments (foil, no sock ...) stay out of the statistics; real faults are included
-    deney = g["not"].fillna("").str.contains("deney")
-    if deney.any():
-        print(f"(trend istatistigi {deney.sum()} kasitli deney oturumunu disarida birakir)")
+    experiment = g["not"].fillna("").str.contains("deney")
+    if experiment.any():
+        print(f"(trend istatistigi {experiment.sum()} kasitli deney oturumunu disarida birakir)")
     for col, name in (("blok_kaybi_pct", "blok kaybi"), ("fan_sogutma_pct", "fan sogutmasi"),
                       ("baski_kaybi_pct", "baskida hava kaybi"), ("kayip150_pct", "150C on isitma kaybi")):
-        s = g.loc[~deney, ["oturum", col]].dropna()
+        s = g.loc[~experiment, ["oturum", col]].dropna()
         if len(s) < 2:
             continue
         last, prev = s[col].iloc[-1], s[col].iloc[:-1].median()

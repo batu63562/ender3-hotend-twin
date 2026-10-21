@@ -311,7 +311,7 @@ class Sim:
                  kfil=1.0):
         self.mc, self.m, self.k, self.kfil = mc, m, k, kfil
         self.T1, self.T2, self.T3 = m.initial_state(T_h, pwm_h, fan)
-        self.Tal, self.Tcam = T_b, tm.initial_glass(T_b, pwm_b)
+        self.Tal, self.Tglass = T_b, tm.initial_glass(T_b, pwm_b)
         self.pid_h = kd.KlipperPID(T_h, pwm_h, tgt_h, mc.pid_hotend)
         self.pid_b = kd.KlipperPID(T_b, pwm_b, tgt_b, mc.pid_bed)
         self.sm_h, self.sm_b = T_h, T_b                      # Klipper smoothed_temp (smooth_time 1 s)
@@ -341,7 +341,7 @@ class Sim:
         scale = 1.0 - m.BED_SAG * pwm_b
         self.T1, self.T2, self.T3 = m.model_step(self.T1, self.T2, self.T3, pwm_h * scale, self.fan, net, dt, self.k,
                                                  k_fil=self.kfil)
-        self.Tal, self.Tcam = tm.step(self.Tal, self.Tcam, pwm_b, dt, 1.0 + tm.BED_FAN * self.fan + tm.BED_ACT * act)
+        self.Tal, self.Tglass = tm.step(self.Tal, self.Tglass, pwm_b, dt, 1.0 + tm.BED_FAN * self.fan + tm.BED_ACT * act)
         a = min(dt / kd.SMOOTH_TIME, 1.0)
         self.sm_h += (self.T1 - self.sm_h) * a
         self.sm_b += (self.Tal - self.sm_b) * a
@@ -447,8 +447,8 @@ def report(sim_df, layers, mc, m):
                 break
 
 
-TAHMIN_DIR = os.path.join(HERE, "tahminler")
-TAHMIN_COLS = ["t", "katman_z", "tip", "akis_anlik", "akis", "T1", "pwm", "target",
+PLAN_DIR = os.path.join(HERE, "tahminler")
+PLAN_COLS = ["t", "katman_z", "tip", "akis_anlik", "akis", "T1", "pwm", "target",
                "bed_T", "bed_pwm", "bed_target", "fan"]
 
 
@@ -457,7 +457,7 @@ def save_csv(df, path, t0=None):
     If t0 is given (validation: in sync with the log), 'time' = unix time (same clock as the log's 'time' column)
     is added. Time is not warped: so that the schedule deviation (plan vs. real layer time) shows in Unity as a
     residual."""
-    out = df[TAHMIN_COLS].copy()
+    out = df[PLAN_COLS].copy()
     if t0 is not None:
         out.insert(0, "time", out.t + t0)
     out["tip"] = out.tip.fillna("").astype(str).str.replace(",", " ")   # Unity splits the CSV on commas
@@ -468,7 +468,7 @@ def save_csv(df, path, t0=None):
     print(f"\ntahmin zaman serisi: {os.path.relpath(path, HERE)}  ({len(out)} satir, {out.t.iloc[-1]/60:.1f} dk)")
 
 
-YOL_TOL = 0.05   # mm: allowed deviation when merging consecutive segments (visual; geometry is not read better than this)
+TOOLPATH_TOL = 0.05   # mm: allowed deviation when merging consecutive segments (visual; geometry is not read better than this)
 
 
 def save_toolpath(ops, path, start_op=0):
@@ -497,7 +497,7 @@ def save_toolpath(ops, path, start_op=0):
             a = run[0]
             dx, dy = e[0] - a[0], e[1] - a[1]
             L = math.hypot(dx, dy) or 1e-9
-            if all(abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / L <= YOL_TOL for p in run[3] + [s]):
+            if all(abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / L <= TOOLPATH_TOL for p in run[3] + [s]):
                 run = (a, e, e_max, run[3] + [s])
                 continue
         close()
@@ -641,7 +641,7 @@ if __name__ == "__main__":
         raise SystemExit
     mc, m = Machine(a.cfg), d.load_model()
     name = os.path.splitext(os.path.basename(a.log or a.gcode))[0]
-    csv_path = a.csv or os.path.join(TAHMIN_DIR, f"tahmin_{name}.csv")
+    csv_path = a.csv or os.path.join(PLAN_DIR, f"tahmin_{name}.csv")
     if a.log:
         s, _ = validate(a.gcode, a.log, mc, m, a.k)
         save_csv(s, csv_path, t0=(s.t_log - s.t).iloc[0] + s.attrs["unix_offset"])

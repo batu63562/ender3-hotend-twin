@@ -159,7 +159,7 @@ FAULT_TEXT.update(ENERGY_TEXT)
 # print is printing. SHADOW mode only logs "would pause" (CSV duraklat, ariza_raporlari.txt); active mode sends a
 # pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19]. KAYIP_* never pauses.
 PAUSE_AFTER = 150.0       # s
-PAUSE_MODE = "golge"      # "golge" (shadow: log only) | "aktif" (active: pause via Moonraker) | "kapali" (off)
+PAUSE_MODE = "aktif"      # "golge" (shadow: log only) | "aktif" (active: pause via Moonraker) | "kapali" (off) [K50]
 
 # Material and backup: the material is read from the G-code header ("; filament_type = ") for the CSV; k_fil is not
 # stored per material any more, every print starts from K_FIL_ANCHOR [K27]. At every start a dated copy of

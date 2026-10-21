@@ -826,3 +826,11 @@ kusurları daha geç (LCD 7.6 dk) ya da çok uzun (sol-üst köşeler 626 s, 1.7
 7 olayın 5'i (Pencil, topak, sol-üst kayma öncesi 3 olay), 6 PETG zararsızın 0'ı; kaçan LCD (1.21), sol-üst 86. dk
 (1.41). TPU'da ayrım yok (stress ball 1.88, gyroid periyodik 2.37). Sol-üst'te kaymadan önceki 10 dk'da (z 6.0–6.6,
 ~15:11–15:21) üç eşik altı olay → ikiz kaymanın öncülünü görüyordu. KARAR YOK: örnek az, aşırı uyum riski.
+
+## K50 — Duraklatma AKTİF; KAYIP referansı 1.007 (2026-10-22, kullanıcı onayı)
+K49'un iki önerisi onaylandı. (1) `PAUSE_MODE = "aktif"`: GUC_AZALDI 150 s kesintisiz + baskı yazdırılıyorsa ikiz
+Moonraker'a `POST /printer/print/pause` gönderir (park X0 Y220, K32/K47). Dayanak K49: 66.5 baskı saatinde 4 duraklatma,
+hepsi gerçek, yanlış 0; uçtan uca test 1 istek / 0 istek. Deploy kullanıcıda. Aktif modda ilk duraklatmalar
+izlenir; yanlış duraklatma olursa log + olay K'ye yazılır, gerekirse `"golge"`ya dönülür. (2) Pi durum dosyasında
+k_ref 1.045 → 1.007 (kod değişmedi; sol-üst yeniden oynatma KAYIP %30 → %0). Unity: `duraklat` sütunu zaman
+çubuğunda işaretlenecek (CLAUDE.md'deki not; ayrı iş).

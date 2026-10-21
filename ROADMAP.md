@@ -83,7 +83,7 @@ delay, then switch `PAUSE_MODE` to `"aktif"`. (First day on the Pi, 2026-10-19: 
       **no false pause**; the longest labelled benign event lasts 83 s (pause after 150 s). The current system
       alone: 22.2 print hours, 5 of 6 labelled faults caught (the one missed is below the threshold by design),
       no false pause. Newly caught in real prints: a layer shift and a gappy benchy roof.
-- [ ] Switch `PAUSE_MODE` to `"aktif"` (decision pending).
+- [x] Switch `PAUSE_MODE` to `"aktif"` (2026-10-22).
 
 **Continuous (24/7) operation:**
 - [x] Split logs per print instead of only at start-up.

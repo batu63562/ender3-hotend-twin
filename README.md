@@ -10,9 +10,10 @@ power deviates, the twin raises an alarm; slow drifts are absorbed by a learned 
 No extra sensors are added. Everything comes from signals Klipper already has: nozzle temperature,
 heater PWM, part-fan speed, extruder position, bed temperature/power. In the literature this is
 **model-based fault detection with analytical redundancy** (a model replaces a second, redundant sensor),
-built on a **grey-box model** (fixed physics + a few parameters learned online). Because the twin does not
-(yet) act on the printer automatically, it is strictly a **digital shadow** in Kritzinger et al.'s (2018)
-terminology; the first feedback path (pausing the print) exists in shadow mode.
+built on a **grey-box model** (fixed physics + a few parameters learned online). Since v0.2 it closes one
+feedback path automatically: it pauses the print on a persistent missing-power alarm. For that path it is a
+**digital twin** in Kritzinger et al.'s (2018) terminology; everything else (advice, the plan) is still a
+**digital shadow**.
 
 > Comments are in English; code identifiers and console messages are still in Turkish (the author's language).
 > See the [glossary](#glossary). Identifiers will be renamed with the v0.3 refactor; CSV columns and alarm codes
@@ -210,9 +211,10 @@ the window (`[K17]`). It is the same dilemma as numerical diffusion in CFD.
   advice (low `k`: check heat-break thermal paste, dried plastic around the heatsink, i.e. heat-creep risk).
   Replayed on past data it would have advised maintenance two days before the real one, with no false advice.
   This mirrors aircraft-engine trend monitoring: a moving reference for events, a fixed one for wear.
-- **Shadow pause.** If `GUC_AZALDI` lasts 150 s continuously during printing, the twin logs "would pause"
-  (`PAUSE_MODE = "golge"`). In `"aktif"` mode it sends `POST /printer/print/pause` to Moonraker. Benign
-  first-layer events lasted ≤ 110 s; real persistent faults ≥ 246 s. `KAYIP` never pauses.
+- **Pause.** If `GUC_AZALDI` lasts 150 s continuously during printing, the twin sends
+  `POST /printer/print/pause` to Moonraker (`PAUSE_MODE = "aktif"`, the default since v0.2; `"golge"` only logs
+  "would pause", `"kapali"` turns it off). In 66.5 print hours of replayed logs all 4 pauses were real faults;
+  the longest labelled benign event lasted 83 s. `KAYIP` never pauses.
 - **Fault category** (`fault_classifier.py`): after an alarm, a rule-based classifier suggests a physical
   category (A fan path / B no filament flow / C insulation-environment / D thermistor / E heater).
   Diagnostic only; known to confuse B and C in some cases.
@@ -313,8 +315,8 @@ To copy the finished logs from the Pi to the PC (one way, never deletes; the liv
 `pi_share` in `config.toml` and run `python sync_pi_logs.py` (`--plans` also copies `tahminler/`). They land in
 `loglar/pi/` and can be added to the v0.2 report with `python benchmark/report_v02.py --extra loglar/pi`.
 
-The twin never sends G-code to the printer. The only possible command is the pause in `aktif` mode
-(off by default).
+The twin never sends G-code to the printer. The only command it sends is the pause request (on by default
+since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it).
 
 ---
 

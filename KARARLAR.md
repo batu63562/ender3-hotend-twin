@@ -975,3 +975,37 @@ iki ikizde iki oda); `calibration.json` `params` içindeki C_AL C_GLASS R_AC H_A
 tek yer. `bed_model.py`'nin kendi `__main__` değerlendirmesi yine kod değerleriyle (yazarın logları). Sınama:
 `baseline_snapshot --check` (değişiklik öncesi karne) IDENTICAL; sahte profil (oda 22, tabla 200 W) + kalibrasyon
 (C_AL 400) doğru modüllere yüklendi. `profile.example.toml`'a `[bed]` eklendi; Pi'deki profile.toml'da yok → değer aynı.
+
+## K58 — Kod GPL-3.0 ile açılır, tek public repo (2026-10-22, kullanıcı kararı, MODEL DIŞI)
+**Karar:** kod reposu v0.3 kapanışında public olur, lisans GPL-3.0. Ayrı vitrin reposu (`showcase/`) ve `-core`
+yeniden adlandırması iptal: tek repo (`batu63562/ender3-hotend-twin`) README + kod + release. 19.10'daki "kod v0.3'e
+kadar private, open-core kararı v0.3'te" kararının sonucu budur.
+**Neden:** (1) proje satılacak bir üründen çok portföy parçası (kullanıcı, 22.10): fikir README'den kopyalanabilir,
+kodu saklamak bunu engellemez; değerli olan doğrulama (kapı, ayar/sınav, etiketler, yavaş arıza testi), o da ancak
+kod ve veri açıkken gösterilebilir. (2) Kodun bir kısmı zaten Klipper'dan (GPLv3) türetilmiş: `closed_loop.KlipperPID`
+(`heaters.py` ControlPID'in birebir kopyası) ve `gcode_plan` lookahead (`toolhead.py` LookAheadQueue.flush uyarlaması).
+Kod birine verildiği anda (özel test kullanıcısı dahil) bu parçalar GPL ile gider; MIT ya da kapalı/kaynak-görünür
+lisans bunlarla çelişirdi. (3) Klipper topluluğu GPL'i benimsiyor; GPL, kodun kapalı bir ürün olarak satılmasını engeller.
+**Bilinçli sonuç:** CLA yok, çift lisans hedefi yok. Dış katkı geldikten sonra kapalı lisansa dönmek fiilen mümkün
+değil; açıktan kapalıya dönüş zaten yok (yayınlanan sürüm dünyada kalır).
+**Zamanlama:** `v03-refactor` zaten `main`'de; açılış v0.3 kapanınca (yapı adayı + fan eğrisi kapıdan ya da sınırlama
+olarak kapandı, `baseline_v0.3.json` donduruldu, demo video hazır). Paylaşım (r/klipper ilk) açılış gününe bağlanır;
+LinkedIn kod beklemez.
+**Açılış kontrol listesi** (her madde açılıştan önce; görünürlüğü public yapmayı kullanıcı yapar):
+1. Lisans: `LICENSE` → GPL-3.0 tam metin; README'ye lisans bölümü; `KlipperPID` ve `flush`/`set_junction`
+   docstring'ine kaynak notu (Klipper, GPLv3, dosya/sınıf adı). Bağımlılıklar (numpy, pandas, websockets…) GPL ile uyumlu mu.
+2. Gizli/kişisel bilgi taraması, **git geçmişi dahil** (`git log --all -p`): Pi kullanıcı adı ve IP'leri
+   (`deploy.ps1`, `sync_pi_logs.py`, `pi/`, belgeler), `config.toml`/`profile.toml`/`calibration.json` takipte mi,
+   e-posta (noreply), log/state dosyaları. Gerekirse geçmiş yeniden yazımı, önce yedek bundle.
+3. Takip edilen dosyalar: kökteki eski/geçici dosyalar (`realtime_log_ws_*.csv`, `.docx`, `twin_state*`, `durum_yedek/`)
+   git'te mi; `eski/` kalsın mı; `claude/*` worktree dalları push edilmez, açılıştan önce temizlenir.
+4. Vitrin birleştirme: `showcase/README.md`'deki "try it without a printer", demo GIF ve tespit tabloları ana README'ye;
+   README'deki private/vitrin ifadeleri; `showcase/` ve `SHOWCASE_RELEASE_NOTES_v0.1.md` arşive.
+5. Release v0.3 (tek release; v0.1/v0.2 etiketleri geçmişte kalır, notları özetlenir): viewer zip (sahnede
+   `StartMenu.dataFolder` BOŞ, temiz PC'de açılış testi), örnek veri, değerlendirme verisi (`evaluate.py` ile
+   `baseline_v0.3` birebir üretiliyor mu), `RELEASE_NOTES_v0.3.md`.
+6. Unity ve CAD: Unity reposu açılacak mı (ayrı karar); `Ender-3 Parts` CAD'inin kaynağı ve lisansı — glb viewer'ın
+   içinde dağıtılıyor, bu yüzden yalnız kod açılsa bile geçerli.
+7. Dış belgeler: README girişinde KARARLAR'ın Türkçe mühendislik defteri olduğu bir satır; issue şablonu
+   ("test on my printer": yazıcı, hotend, fan, Klipper sürümü). Başka süreç belgesi yok (sadelik).
+8. GitHub: açıklama, topics, social preview, Issues açık; görünürlük → public (kullanıcı).

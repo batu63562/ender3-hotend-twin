@@ -36,7 +36,7 @@ Release tasks:
 - [x] Printer address in `config.toml` (`printer_host`) instead of in the code.
       New public names (config keys, arguments, file names) are English from the start.
 - [x] `requirements.txt`, `.gitignore` (live logs, learned state, caches).
-- [x] `LICENSE` (MIT).
+- [x] `LICENSE` (MIT while the repository is private; GPL-3.0 from the open release, [K58]).
 - [x] A small curated sample dataset published as a release asset, so the twin can be replayed without a
       printer: three demo recordings with plans and toolpaths (`ender3-twin-sample-data-v0.1.zip`), and
       every log behind the scores (`ender3-twin-eval-data-v0.1.zip`, reproduces `evaluate.py` exactly).
@@ -167,6 +167,11 @@ Progress (2026-10-22, all on the Pi):
 
 Carried over from v0.2: a few days of unattended running (ongoing on the Pi), and the demo clip of v0.1.
 
+**Open release at the end of v0.3** ([K58]): the code repository becomes public under **GPL-3.0** (the G-code
+plan reuses Klipper's GPLv3 PID and lookahead code). One public repository holds the README, the code and a single
+v0.3 release (Windows viewer, sample data, and the evaluation data that reproduces the scores); the separate
+showcase repository is dropped.
+
 **Done when:** the Ender 3 runs from a profile + calibration file and reproduces the v0.2 scores exactly
 (the profile step did; later changes are deliberate, gated, and get a new frozen scorecard at the end of v0.3).
 
@@ -175,7 +180,7 @@ Carried over from v0.2: a few days of unattended running (ongoing on the Pi), an
 ## v0.4 — It works on another printer
 
 Run on at least one different Klipper printer (different hotend and fan) with **no code change**: profile +
-calibration print only. Testers are recruited after the v0.1 release.
+calibration print only. Testers are recruited after the open release at the end of v0.3.
 
 **Done when:** alarm performance on the second printer is comparable to the Ender 3, or the differences are
 explained physically.

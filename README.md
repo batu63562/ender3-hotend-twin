@@ -240,8 +240,9 @@ unaffected.
   This mirrors aircraft-engine trend monitoring: a moving reference for events, a fixed one for wear.
 - **Pause.** If `GUC_AZALDI` lasts 150 s continuously during printing, the twin sends
   `POST /printer/print/pause` to Moonraker (`PAUSE_MODE = "aktif"`, the default since v0.2; `"golge"` only logs
-  "would pause", `"kapali"` turns it off). In 66.5 print hours of replayed logs all 4 pauses were real faults;
-  the longest labelled benign event lasted 83 s. `KAYIP` never pauses.
+  "would pause", `"kapali"` turns it off). In 70.1 print hours of replayed logs all 5 pauses were real faults
+  (the first live one on 2026-10-22: TPU printed with a PETG profile built a blob on the nozzle; paused 154 s after
+  the fault started); the longest labelled benign event lasted 83 s. `KAYIP` never pauses.
 - **Yellow, sub-threshold advisory (experimental, not in the live twin).** Some real defects stay below 2.5 W
   (a blob on the nozzle, a first layer not sticking, printing above the melt capacity). A pre-registered rule
   (PETG: the 60 s mean of the missing power at or above 1.0 W for 70 s and reaching 1.5 W, not in the first 90 s of
@@ -296,23 +297,24 @@ onsets). Each number is the `TUMU` row under *KLIPPER ZAMANLI LOGLAR* of the com
 | Set | Logs | Command | RMSE | Alarms |
 |---|---|---|---|---|
 | September calibration runs | 9 | `python evaluate.py` | 3.62 | 0 |
-| Calibration set (`ayar`) | 49 | `python evaluate.py --set calibration --live-start` | 3.43 | 17 |
-| Test set (`sınav`) | 57 | `python evaluate.py --set test --live-start` | 3.54 | 19 |
+| Calibration set (`ayar`) | 55 | `python evaluate.py --set calibration --live-start` | 3.50 | 28 |
+| Test set (`sınav`) | 61 | `python evaluate.py --set test --live-start` | 3.81 | 28 |
 
 `--live-start` starts each log from the `k` and `k_fil` the live twin had when it was recorded,
 as it really ran. Without it every log starts from `k = 1`, which is wrong for the October logs (the real
 `k` drifted to 0.87–1.06): the test set then scores 4.83. The logs are in the evaluation-data release
-asset; the September runs are in the repository. These are the v0.2 scores (2026-10-22, frozen per log in
-`benchmark/baseline_v0.2.json`; `python benchmark/baseline_snapshot.py --check v0.2` compares any later code
-against them). The sets grew since v0.1 (37 / 48 logs: 3.48 / 3.28) with induced-fault experiments, calibration
-experiments and prints with real faults, so the numbers are not comparable across versions; the model is the
-same.
+asset; the September runs are in the repository. These are the v0.3 scores (2026-10-22, frozen per log in
+`benchmark/baseline_v0.3.json`; `python benchmark/baseline_snapshot.py --check v0.3` compares any later code
+against them). The sets grow with every version (v0.1: 37 / 48 logs, 3.48 / 3.28; v0.2: 49 / 57 logs,
+3.43 / 3.54), and v0.3 added hard logs on purpose (real faults, TPU printed with a PETG profile, a print without
+the silicone sock), so the numbers are not comparable across versions. The only model changes since v0.2 are the
+relative printing-temperature limit ([K54]) and the `k_fil` anchor restarting the Kalman clock ([K55]).
 
-Alarm performance (`python benchmark/report_v02.py`, 2026-10-22; every log replayed with the live twin's code,
-alarms matched against the labelled fault windows): 160 logs, 66.5 print hours; 17 of 20 labelled faults
-caught, median delay 28 s; 4 shadow pauses, all on real faults, no false pause; false alarms 0.11 per print hour
-on the test set. The current system alone (`--since 2026-10-18`): 22.2 print hours, 5 of 6 labelled faults
-caught, no false pause.
+Alarm performance (`python benchmark/report_v02.py`, v0.3 code; every log replayed with the live twin's code,
+alarms matched against the labelled fault windows): 153 logs, 70.1 print hours; 24 of 31 labelled faults caught,
+median delay 26 s; 5 pauses, all on real faults, no false pause; false alarms 0.137 per print hour on the test
+set (0.114 over the whole archive). Most of the 7 misses stay below the 2.5 W threshold (a blob on the nozzle,
+an uneven first layer, a duct partly covered at low fan speed); the rest are from the TPU day ([K64]).
 
 Representative real events: filament run-out detected in ~20 s (+4.5 W); a layer shift caught in the minute
 it was heard (the nozzle printing beside the part takes less heat); a gappy benchy roof at the height where it

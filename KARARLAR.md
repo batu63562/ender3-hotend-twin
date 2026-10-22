@@ -1021,3 +1021,34 @@ LinkedIn kod beklemez.
 7. Dış belgeler: README girişinde KARARLAR'ın Türkçe mühendislik defteri olduğu bir satır; issue şablonu
    ("test on my printer": yazıcı, hotend, fan, Klipper sürümü). Başka süreç belgesi yok (sadelik).
 8. GitHub: açıklama, topics, social preview, Issues açık; görünürlük → public (kullanıcı).
+
+## K58 — v0.3 madde 1: fan eğrisi + yapı (S3d) kapı denemesi — hiçbiri geçmedi (2026-10-22 gece, ANALİZ, MODEL DEĞİŞMEDİ)
+**Fan eğrisi, kalorimetri:** deney15 + kalibrasyon baskısının 28 kararlı tutması (son 90 s ısıtıcı gücü = kayıp, dinamik
+yok), log başına k: bugünkü eğri 0.66 W rms (fan 0'da +1.2 W fazla, %100'de −0.9 W eksik güç bekliyor) → ortak fit
+HA2_FAN 0.0395, F0 0.195, EXP 0.448: 0.27 W (EXP 0.508 sabit: 0.0402 / 0.183, 0.29 W). Fan %15'te ölçülen +1 W'ı hiçbir
+eşikli eğri tutmuyor (blower %15–20 düzensiz, K44).
+**Tek başına uygulanınca kötü** (ayar canlı baş. 3.32 → 4.20, alarm 26 → 54): yeni eğri log k'larını 0.98 → 0.94'e
+çekiyor, canlı başlangıç eski modelin k'sıyla → kayıp %4 fazla. **Ders (K40'ın K_MAP sorunu da bu):** yapı/kalibrasyon
+değişikliğinde k'nin anlamı korunmalı → fit'te log k'ları bugünkü yapının değerlerinde SABİT, seviyeyi parametreler
+taşır (Pi'deki k / k_ref taşınmaz). Bu kurguyla fan + blok kaybı ölçeği (s 0.957) ve çapa 1.20: ayar14 (14.10+, 29 log)
+3.01 → 2.98, alarm 21 → 8 (çoğu deneylerdeki KAYIP), ısınma 4.02 → 4.76, soğuma 4.76 → 5.28; tüm ayar 3.32 → 3.51;
+etiket raporu (tüm arşiv): yanlış alarm 0.106 → 0.061 / baskı saati, topak 2202 yakalandı, 1110 ilk katman kaçtı → karışık.
+**Ortak yeniden kalibrasyon (k'lar sabit, 5 log: kalibrasyon, deney9, 14a, 14b, 15, prior 0.3):**
+| aday | kal. rms | ayar14 TÜMÜ / alarm | ısınma | fanlı tutma | Eylül TÜMÜ (ısınma / varış) |
+|---|---|---|---|---|---|
+| bugünkü | 3.33 | 3.01 / 21 | 4.02 | 2.26 | 3.53 (2.32 / 1.79) |
+| bugünkü yapı, 8 param fit | 2.29 | 2.88 / 9 | 5.40 | 2.39 | 3.92 (6.95 / 8.19) |
+| aynı + çapa 1.25 | – | 2.85 / 8 | 5.40 | 2.35 | aynı |
+| yalnız kayıp + fan (C sabit) | 2.59 | 3.04 / 9 | 6.10 | 2.45 | 3.89 (4.86 / 3.29) |
+| S3d + fan (9 param) | 2.06 | 3.38 / 18 | 3.98 | 3.17 | 4.14 (3.96 / 4.74) |
+(tüm ayar: 8 param 3.35 / 16, S3d 3.60 / 27.)
+**S3d ELENDİ:** R31 8.6 K/W → sıradan tutmada kartuş ~460 °C ve ~7 W radyasyon; güçle hızla büyüyen bu kayıp baskıda
+fanın ve filamanın payını yiyor (fanlı tutma 2.26 → 3.17). Fiziksel değil, K40'ın sonucu doğrulandı.
+**Yeniden kalibrasyon kapıdan GEÇMİYOR:** bakım sonrası ayarda iyi (2.85, alarm 8) ama ısınma ve Eylül ısınma/varış
+belirgin kötü (K36 ödünleşimi: fit kapasiteyi soğumaya göre küçültüyor; kapasiteler sabitlenince R31 yarıya inip aynı
+şeyi yapıyor), fanlı baskı (çekirdek) biraz kötü, tüm ayar düz. Kullanıcının K40 ölçütü (fanlı baskı aynı/iyi, ısınma/varış
+iyi) sağlanmıyor. Alarm düşüşünün çoğu deneylerdeki KAYIP, baskı GUC'u değil → çekirdeğe net katkı yok.
+Sonuç: ısınma–soğuma asimetrisi (K36) bu yapı ailesinde kalibrasyonla çözülmüyor; v0.3'ün "fizik taşınabilir" iddiası
+yapı + kalibrasyon dosyası mekanizmasıyla sağlandı (K52, K56), sayıların yeniden fit'i bekliyor. Karar kullanıcıda
+(sınırlama olarak kapatmak önerildi). Betikler: scratchpad `fan/` (holds.py tutma fit'i, score.py, chain.py, codes.py,
+rep.py) ve `s3d/` (fit.py: k sabit ortak fit, score2/3.py).

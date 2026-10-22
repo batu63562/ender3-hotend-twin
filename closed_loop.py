@@ -57,6 +57,7 @@ PID_SINCE = pd.Timestamp("2026-09-28").timestamp()   # first day this PID was ce
 AVG = 10.0                 # s - power is compared with this average (energy, not the PID's instant ripple)
 
 
+# Derived from Klipper (klippy/extras/heaters.py, ControlPID), Copyright (C) Kevin O'Connor, GPLv3 [K58].
 class KlipperPID:
     """Exact copy of klippy/extras/heaters.py ControlPID."""
 

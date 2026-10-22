@@ -36,7 +36,7 @@ Release tasks:
 - [x] Printer address in `config.toml` (`printer_host`) instead of in the code.
       New public names (config keys, arguments, file names) are English from the start.
 - [x] `requirements.txt`, `.gitignore` (live logs, learned state, caches).
-- [x] `LICENSE` (MIT while the repository is private; GPL-3.0 from the open release, [K58]).
+- [x] `LICENSE`: MIT while private, GPL-3.0 since v0.3 ([K58]).
 - [x] A small curated sample dataset published as a release asset, so the twin can be replayed without a
       printer: three demo recordings with plans and toolpaths (`ender3-twin-sample-data-v0.1.zip`), and
       every log behind the scores (`ender3-twin-eval-data-v0.1.zip`, reproduces `evaluate.py` exactly).

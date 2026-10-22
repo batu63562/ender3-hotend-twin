@@ -102,6 +102,8 @@ class Machine:
 # ---------------------------------------------------------------------------
 # G-code -> list of operations
 # ---------------------------------------------------------------------------
+# Move junction limits and flush() below are derived from Klipper (klippy/toolhead.py, Move and LookAheadQueue),
+# Copyright (C) Kevin O'Connor, GPLv3 [K58].
 class Move:
     __slots__ = ("start", "end", "axes_d", "move_d", "axes_r", "accel", "kin", "max_cruise_v2", "min_move_t",
                  "delta_v2", "smooth_delta_v2", "max_start_v2", "max_smoothed_v2", "junction_dev", "e",

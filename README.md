@@ -51,6 +51,7 @@ To replay the same logs through the Python twin instead (Windows/macOS/Linux), s
 10. [Files](#files)
 11. [Limitations](#limitations)
 12. [Glossary](#glossary)
+13. [License](#license)
 
 ---
 
@@ -418,3 +419,18 @@ since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it
 | plan, tahmin | plan (G-code based prediction) |
 | karne | scorecard |
 | KARARLAR | decisions |
+
+---
+
+## License
+
+Copyright (C) 2026 Baturay TATLIATUN. The code is licensed under the
+[GNU General Public License v3.0](LICENSE). Parts of the G-code plan are derived from
+[Klipper](https://github.com/Klipper3d/klipper) (GPLv3): the PID in `closed_loop.KlipperPID`
+(`klippy/extras/heaters.py`) and the look-ahead in `gcode_plan.py` (`klippy/toolhead.py`).
+
+The Windows viewer's 3D model uses third-party parts under their own licenses: the Satsana 5015 Fan Duct
+for Ender 3 / CR-10 by eric-anastas ([CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)) and a
+modified Ender 3 direct drive mount for BMG extruder (Drivinator remix) by asd913
+([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)), both from Printables; the Ender 3 frame is from
+[Creality's open-source release](https://github.com/Creality3DPrinting/Ender-3) (GPLv3).

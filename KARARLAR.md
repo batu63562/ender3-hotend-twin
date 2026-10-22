@@ -967,3 +967,11 @@ ayrıca `fitted`, `uncertainty_log_factor` (bilgi yoksa null), `fit_rms_c`, log 
 (fit edilmiş dosya model değişikliğidir, kapıdan geçer, sonra elle kopyalanır). Sınama: `--params ""` ile yazılan
 dosya bugünkü 13 değeri BİREBİR veriyor (float repr); kalibrasyon + deney14a fit'i (prior 0.3) ikizin
 `load_printer_numbers`'ından notsuz geçti. O fit UYGULANMADI (K45/K40: ısınma–soğuma yapı sorunu, kapı gerekli).
+
+## K57 — Tabla sayıları da profil/kalibrasyondan (2026-10-22, davranış nötr)
+`load_printer_numbers` tabla ikizinin sayılarını da `bed_model` modülüne uygular: profil `[bed] heater_power_w` →
+`P_BED`, `room_c` → tabla `T_AMB` de (önceden yalnız hotend'e gidiyordu: profilde oda 22 yazılsa tabla 25'te kalırdı —
+iki ikizde iki oda); `calibration.json` `params` içindeki C_AL C_GLASS R_AC H_AL H_GLASS EPS_A tablaya. Tek yükleyici,
+tek yer. `bed_model.py`'nin kendi `__main__` değerlendirmesi yine kod değerleriyle (yazarın logları). Sınama:
+`baseline_snapshot --check` (değişiklik öncesi karne) IDENTICAL; sahte profil (oda 22, tabla 200 W) + kalibrasyon
+(C_AL 400) doğru modüllere yüklendi. `profile.example.toml`'a `[bed]` eklendi; Pi'deki profile.toml'da yok → değer aynı.

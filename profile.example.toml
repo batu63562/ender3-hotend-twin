@@ -16,3 +16,6 @@ exponent = 0.508             # cooling ~ ((pwm - threshold) / (1 - threshold)) *
 
 [power]
 bed_sag = 0.042              # supply sag with the bed on: heater power x (1 - bed_sag x bed_pwm); 0 if separate supplies
+
+[bed]
+heater_power_w = 220         # bed heater power at the supply voltage (Ender 3: 220 W at 24 V); bed twin only

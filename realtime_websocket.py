@@ -109,11 +109,14 @@ PROFILE_KEYS = {("", "room_c"): "T_AMB", ("hotend", "heater_power_w"): "P_MAX", 
                 ("part_fan", "threshold"): "FAN_F0", ("part_fan", "exponent"): "FAN_EXP"}
 CALIBRATED = ("C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "FAN_F0", "FAN_EXP",
               "CAP_T_COEF", "K_FIL")
+# the bed twin's numbers come from the same files and land in bed_model (one room temperature for both twins)
+BED_PROFILE_KEYS = {("", "room_c"): "T_AMB", ("bed", "heater_power_w"): "P_BED"}
+BED_CALIBRATED = ("C_AL", "C_GLASS", "R_AC", "H_AL", "H_GLASS", "EPS_A")
 
 
 def load_printer_numbers():
-    """Applies profile.toml, then calibration.json, to the module's parameters. Returns (sources, notes):
-    the files used and anything ignored, for the start-up console."""
+    """Applies profile.toml, then calibration.json, to the module's parameters (and the bed twin's, in bed_model).
+    Returns (sources, notes): the files used and anything ignored, for the start-up console."""
     g, sources, notes = globals(), [], []
     try:
         if os.path.exists(PROFILE_FILE):
@@ -123,6 +126,10 @@ def load_printer_numbers():
                 table = prof if not section else prof.get(section, {})
                 if key in table:
                     g[name] = float(table[key])
+            for (section, key), name in BED_PROFILE_KEYS.items():
+                table = prof if not section else prof.get(section, {})
+                if key in table:
+                    setattr(bed_model, name, float(table[key]))
             sources.append(os.path.basename(PROFILE_FILE))
     except (OSError, ValueError) as e:
         notes.append(f"{os.path.basename(PROFILE_FILE)} ignored: {type(e).__name__}: {e}")
@@ -133,6 +140,8 @@ def load_printer_numbers():
             for name, value in cal.get("params", {}).items():
                 if name in CALIBRATED:
                     g[name] = float(value)
+                elif name in BED_CALIBRATED:
+                    setattr(bed_model, name, float(value))
                 else:
                     notes.append(f"unknown calibration parameter ignored: {name}")
             sources.append(f"{os.path.basename(CALIBRATION_FILE)} ({cal.get('date', '?')})")

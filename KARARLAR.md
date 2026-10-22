@@ -1211,11 +1211,9 @@ C_ALL 0.93 → 0.76 kayıyor. Fit ısınma anomalisini α'ya yazıyor → α ser
 0'da kalır" sonucu anomalisiz yazıcı içindi). Ayırıcı test: aynı sıcaklıkta farklı güç (α gücü orantılı düşürür,
 anomali öyle ölçeklenmiyor), ama `max_power` G-code ile değişmiyor.
 
-## K66 — Isıtıcı direnç katsayısı α modelde, PROFİLDEN verilir (2026-10-22, MODEL YAPISI, VARSAYILAN DAVRANIŞ AYNI)
-Kullanıcı kararı (K65 sonrası, 1. yol): P = pwm·P_MAX/(1 + HEATER_ALPHA·(T3 − 25)), `profile.toml`
-`hotend.heater_alpha`, varsayılan 0 (çelik kartuş). calibrate.py fit ETMEZ. Seramik ısıtıcılı testçi için değer
-datasheet'ten ya da güç ölçümünden (INA226) gelir. Uygulama: `heater_power(pwm, T3)` model adımında ve eksik güçte
-(EnergyMonitor'un kendi T3'ü); T3'ün izlenmediği enerji dengelerinde (k öğrenici, arıza sınıflandırıcının güç serisi)
-kararlı T3 = T1 + P·R31 ile kapalı çözüm `heater_power_steady`. α = 0'da ikisi de pwm·P_MAX'i birebir döndürür.
-Rapor araçları (gcode_plan, closed_loop, session_history) watt'ı hâlâ pwm·P_MAX ile gösterir (yalnız gösterim; α > 0
-bir yazıcı gelince güncellenecek).
+## K66 — Isıtıcı direnç katsayısı α: seramik ısıtıcıda test edilene kadar EKLENMEDİ (2026-10-22, kullanıcı kararı)
+Denendi ve geri alındı: P = pwm·P_MAX/(1 + α·(T3 − 25)), `profile.toml` `hotend.heater_alpha` (varsayılan 0), model
+adımı + eksik güç (T3 ile), k öğrenici + sınıflandırıcı (kararlı T3 = T1 + P·R31 kapalı çözümü). α = 0'da
+`baseline_snapshot --check v0.3` IDENTICAL; α = 0.001 Ender logunda RMSE 4.5 → 35 °C (bağlantı çalışıyor).
+Karar: α > 0 yolu gerçek bir seramik ısıtıcıda doğrulanmadan modele ve profile girmez. Kod commit b26eab4'te (geri
+alındı, revert ile); seramik ısıtıcılı testçi gelince oradan alınıp o yazıcının loglarıyla kapıdan geçirilir.

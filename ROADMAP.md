@@ -198,10 +198,9 @@ Preparation that needs no second printer (2026-10-22, partly from the first comm
       CPAP-like fan, other capacities and resistances). Calibration brings the steady missing power from +1…+9 W
       to ±0.03 W; a heater whose power drops when hot (ceramic) is not covered by the model ([K65]).
 - [x] Tester issue template asks for heater type, sock, fan type (CPAP) and filament sensor.
-- [x] Heater resistance coefficient α (P = pwm·P_MAX/(1 + α·(T3 − 25 °C))) in the model, given in `profile.toml`
-      (`hotend.heater_alpha`, default 0: v0.3 reproduces exactly). Not fitted: on the Ender's real calibration logs
-      a fit takes the heat-up anomaly for α ≈ 0.001 ([K65], [K66]). Open: a test that separates the two (power
-      levels), and a ceramic-heater printer to check it on.
+- [ ] Heater resistance coefficient α (P = pwm·P_MAX/(1 + α·(T3 − 25 °C))): tried and reverted, only after it is
+      checked on a printer with a ceramic heater. Not fitted by `calibrate.py`: on the Ender's real calibration logs
+      a fit takes the heat-up anomaly for α ≈ 0.001 ([K65], [K66]). A test that separates the two is also open.
 - [ ] Optional temperature × fan grid in `calibration_print.py` (fan steps at every hold temperature, as suggested
       by a tester); longer, so an option.
 - [ ] Heat-into-the-print test print: a generated tower (no slicer) whose sections change one thing each (flow,

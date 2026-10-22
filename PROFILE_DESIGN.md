@@ -36,7 +36,6 @@ The acceptance test of v0.3: the Ender 3 runs from a profile and a calibration f
 | Constant | Today | Profile key (proposal) | Note |
 |---|---|---|---|
 | `P_MAX` | 40 W | `hotend.heater_power_w` | 30/40/50/60 W cartridges are common. Nominal at the supply voltage. |
-| `HEATER_ALPHA` | 0 1/K | `hotend.heater_alpha` | Heater resistance rise with its own temperature: P = pwm·P_MAX/(1 + α·(T3 − 25 °C)). Steel cartridge ~0, ceramic heaters ~0.002–0.004. Given, not fitted: on the Ender's real calibration logs a fit takes the heat-up anomaly for α ≈ 0.001 (K65, K66). |
 | `BED_SAG` | 0.042 | `power.bed_sag` | Supply sag with the bed on. Default 0; can be calibrated (one bed-on hold). |
 | `FAN_F0`, `FAN_EXP` | 0.191, 0.508 | `part_fan.type` → defaults | Threshold and exponent depend on the blower and duct (4010 / 5015 / CPAP). Refined by the fan steps of the calibration print (K39: the 100 % factor alone does not carry to 25–40 %). |
 | `K_FIL` | 0.0054 | from `materials` | Filament heat = density × cp × filament area. Today fixed at a PETG value; `k_fil` corrects it per print (anchor 1.33, K27). |

@@ -97,7 +97,7 @@ def signals(df, m):
     s = pd.DataFrame({"t": g, "T": T, "pwm": pwm, "fan": fan})
     n2 = max(1, int(round(m.EXT_AVG_WINDOW / GRID_DT)))     # same net flow average as the twin
     s["flow"] = np.clip(pd.Series(ext).rolling(n2, min_periods=1).mean().values, 0, None)
-    s["P"] = m.heater_power_steady(pwm, T) * bed_scale(df, m)[idx]   # bed on: supply sags (as in the twin)
+    s["P"] = pwm * m.P_MAX * bed_scale(df, m)[idx]     # cartridge power drops while the bed is on (as in the twin)
     # T2 (nozzle side) and T3 (cartridge) are not measured: computed with the model's own equations, driven by
     # the REAL T1 and the measured power. Without the heat they store in the balance, there was a ~2 W fake
     # deviation when the fan switched on (T2 releases heat) and after heat-up (T3 releases heat).
@@ -239,7 +239,7 @@ def _sim(ctx, i0, i1, kn, kf, kfil, base=None):
         q31 = (T3 - T1) / m.R31; qhb = (T1 - T2) / m.R_HB
         d1 = (q31 - qhb - kn * m.natural_loss(T1) - kfil * m.K_FIL * q * (T1 - m.T_AMB)) / m.C1
         d2 = (qhb - m.HA2 * (T2 - m.T_AMB) - fc * (T2 - m.T_AMB)) / m.C2
-        return d1, d2, (m.heater_power(u, T3) - q31) / m.C3
+        return d1, d2, (u * m.P_MAX - q31) / m.C3
 
     bn, bf, bfil = base if base is not None else (kn, kf, kfil)
     out = []

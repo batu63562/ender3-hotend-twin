@@ -1100,3 +1100,20 @@ sayıları tüm varyantlarda birebir aynı (yapı gereği report_v02 / slow_faul
 **Sonuç: RET.** Asimetri K60'taki gibi sınırlama olarak kalır. Ders: (a) |·| içeren her terim, dalgalanan bir girdide
 tutmada sıfır değildir (doğrultma) — süzmeden "tutmada sıfır" iddiası yapılmaz; (b) sorun kayıp miktarı değil zamanlama
 (rampada önde, varışta geride) → aday yapı bir gecikme/ikinci depo, yani ikinci sensör (K60).
+
+## K62 — Köprü testi: yüksek akışta eriyik sınırı yakalandı, tekrarlandı, çözümle sustu (2026-10-22, ETİKET, MODEL DEĞİŞMEDİ)
+Orca köprü testi (PETG 245, 0.3 mm), aynı G-code iki kez + çözümlü bir kez:
+| baskı | üst katman (z 7.5–8.1) akışı | eksik güç | alarm | üst yüzey (kullanıcı) |
+|---|---|---|---|---|
+| 10:09 | 3.4 mm/s (~8.4 mm³/s), fan %25 | +3.4 W | GUC_AZALDI 72 s (etiketten 49 s sonra) | boşluklu, ince |
+| 10:37 (tekrar) | 3.5 mm/s | +3.0…3.2 W | GUC_AZALDI 96 s (39 s) | aynı (fotoğraf) |
+| 11:01, max volumetric speed 6 mm³/s | 2.24 mm/s | +0.3…0.5 W | yok | daha iyi |
+Köprülerin kendisi (z ≤ 7.2, fan %68, 0.7 mm/s) üçünde de < 1 W: köprü ipliklenmesi/sarkması ısıl iz bırakmıyor (havaya
+baskıyla aynı fizik; filaman ısınıyor). Yorum: 3.5 mm/s'de filaman ısısı ~5 W olmalı; ~3 W eksik → komut edilen
+plastiğin yarıdan fazlası erimeden/akmadan geçmiyor = hotend eriyik kapasitesi sınırı (PETG 245 °C'de ~6–8 mm³/s
+arası). Akış sınırlanınca hem kusur hem alarm kayboldu → neden kesin. SpeedTest'teki (19.10) akış > 5.5 mm/s'de büyüyen
++0.6…+2.0 W ve k_fil kayması "eritme kapasitesi sınırı" adayı bununla güçlendi (orada akış daha yüksek ama sapma daha
+küçüktü: k_fil öğrenmesi kısmen yutmuş olabilir, K55). Etiketler: B (ayar), B (sınav), "-" (ayar). Kullanıcı Orca PETG
+profilinde max volumetric speed 6 mm³/s'yi kalıcı bıraktı → sonraki PETG baskılarında üst katman/hızlı dolgu daha
+yavaş, eski loglarla karşılaştırmada akış farkına dikkat. İkiz için ders: eriyik sınırı, ikizin güç sinyaliyle gerçek
+zamanlı yakalanan, tekrarlanabilir, fiziksel nedeni doğrulanmış ilk dilimleme kaynaklı kusur (demo adayı).

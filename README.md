@@ -4,7 +4,10 @@ A physics-based digital twin of a 3D printer hotend (Creality Ender 3, direct dr
 Klipper + Moonraker on a Raspberry Pi). It runs next to the printer, predicts how much heater power the hotend
 *should* need, and raises an alarm when the real heater deviates from that prediction.
 
-<!-- demo GIF: media/demo.gif (faults caught in the viewer; added with the v0.3 release) -->
+![The extruder stops feeding mid-print (latch opened): the heater suddenly has less to do, and the twin flags it 28 s later](media/demo.gif)
+
+*Replay of a real induced fault in the viewer. Model vs. measured hotend temperature (top left) and the
+missing-power signal (bottom left, "extra heat loss"); the hotend card turns red when the alarm is raised.*
 
 **One sentence:** a thermal model computes the heater power the hotend should need; when the real heater
 power deviates, the twin raises an alarm; slow drifts are absorbed by a learned loss factor `k`.

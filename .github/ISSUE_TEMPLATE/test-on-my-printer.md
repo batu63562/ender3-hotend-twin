@@ -10,9 +10,12 @@ Thanks for offering to test. The twin needs only signals Klipper already reports
 **Printer**
 - Model / frame:
 - Hotend (stock, all-metal, brand), heater cartridge power (W):
+- Heater type (steel cartridge / ceramic, e.g. Revo HeaterCore or a ceramic block heater):
+- Silicone sock (yes / no):
 - Nozzle size:
 - Extruder (Bowden / direct drive):
-- Part-cooling fan (e.g. 4010, 5015, dual):
+- Part-cooling fan (e.g. 4010, 5015, dual, CPAP):
+- Filament sensor (none / runout switch / motion sensor):
 - Enclosure (yes / no):
 
 **Software**

@@ -242,6 +242,13 @@ unaffected.
   `POST /printer/print/pause` to Moonraker (`PAUSE_MODE = "aktif"`, the default since v0.2; `"golge"` only logs
   "would pause", `"kapali"` turns it off). In 66.5 print hours of replayed logs all 4 pauses were real faults;
   the longest labelled benign event lasted 83 s. `KAYIP` never pauses.
+- **Yellow, sub-threshold advisory (experimental, not in the live twin).** Some real defects stay below 2.5 W
+  (a blob on the nozzle, a first layer not sticking, printing above the melt capacity). A pre-registered rule
+  (PETG: the 60 s mean of the missing power at or above 1.0 W for 70 s and reaching 1.5 W, not in the first 90 s of
+  extrusion; `py benchmark/scan_subthreshold.py --yellow`) flagged 15 of 17 such events in the 24 PETG print hours
+  since 2026-10-18, including three warnings in the 10 minutes before a layer shift, with no false yellow. The
+  thresholds were chosen while looking at these logs, so this is not yet evidence; the rule is frozen and judged on
+  prints from 2026-10-23 on (KARARLAR.md [K63]). It would never pause and never change `GUC` / `KAYIP`.
 - **Fault category** (`fault_classifier.py`): after an alarm, a rule-based classifier suggests a physical
   category (A fan path / B no filament flow / C insulation-environment / D thermistor / E heater).
   Diagnostic only; known to confuse B and C in some cases.

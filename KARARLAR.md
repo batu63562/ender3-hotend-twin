@@ -1117,3 +1117,38 @@ küçüktü: k_fil öğrenmesi kısmen yutmuş olabilir, K55). Etiketler: B (aya
 profilinde max volumetric speed 6 mm³/s'yi kalıcı bıraktı → sonraki PETG baskılarında üst katman/hızlı dolgu daha
 yavaş, eski loglarla karşılaştırmada akış farkına dikkat. İkiz için ders: eriyik sınırı, ikizin güç sinyaliyle gerçek
 zamanlı yakalanan, tekrarlanabilir, fiziksel nedeni doğrulanmış ilk dilimleme kaynaklı kusur (demo adayı).
+## K63 — Sarı (eşik altı) seviye: ön kayıt, canlıya EKLENMEDİ (2026-10-22, kullanıcı kararı, MODEL DIŞI)
+K49 madde 4 taslağının kararı. Tarama tüm loglarda tekrarlandı (147 log, Pi arşivi 22.10 dahil; yeniden oynatma canlı
+başlangıçla). Kural (K49 taslağının işletilebilir hâli): PETG; eksik gücün 60 s ortalaması ≥ 1.0 W'ta kalan olay
+(< 20 s ve ≥ 0.8 W'lık kısa düşüşler bölmez) ≥ 70 s sürmüş VE ≥ 1.5 W'a ulaşmışsa sarı; baskının ilk ekstrüzyonundan
+sonraki ilk 90 s sayılmaz (K37 ilk katman başı geçicisi); olayda GUC sarıdan önce geldiyse sarı yok (GUC zaten söyledi).
+Gerekçe: 1.5 W, baskıdan baskıya meşru ±1 W farkın (K55, ilk katman 0.4–0.9 W) üstü; 70 s, 60 s pencereden uzun.
+**Yeni etiketler (kullanıcı, 22.10):** benchy %60 gövde z 8.1–9.0 (23:18, +1.56 W 87 s) gözle görülen kusur → B, ayar;
+21.10 13:05 baskısı (Pi arşivi `onceki_20261021_1319`, `loglar/baskilar/2110_1305_petg_ilk_katman_nozzle_yuksekligi.csv`,
+yeni AYAR logu): ilk katman düzensiz ve tutunmuyor, nozzle yüksekliği → B (+1.84 W 207 s).
+**Bugünkü sistem (18.10+, PETG):**
+| set | baskı saati | sarı | gerçek | yanlış | kaçan gerçek |
+|---|---|---|---|---|---|
+| ayar | 8.5 | 7 | 7: maxflow 18.10 ×3 (eritme sınırı, plandan düşük güç), Pencil, 2110_1305 ilk katman, topak, benchy %60 z 8–9 | 0 | LCD Case ilk katman (1.21 W) |
+| sınav | 9.9 | 8 | 8: maxflow 19.10 ×4, sol-üst ilk katman köşeleri, sol-üst kaymadan önceki 3 olay (15:12, 15:18, 15:21) | 0 | sol-üst 86. dk (1.41 W) |
+| setsiz (Pi arşivi) | 6.0 | 0 | – | 0 | – |
+Yanlış sarı 0 / 24.4 baskı saati; gerçeklerin 15/17'si. 18.10 öncesi (k o dönemde baskıya doğru taşınmıyordu, K37):
+57 PETG baskı saatinde 16 sarı, çoğu ilk katmanda, etiketsiz (bugünkü sistemi temsil etmez). GUC'un da yakaladığı olaylarda
+(benchy çatısı, köprü ×2, deney10/11) GUC hep önce geliyor → sarı yalnız GUC'un görmediğini ekliyor.
+**Neden canlıya eklenmedi:** (1) sınav kanıtı kirli: K49 taslağı kurulurken sınav logları (sol-üst, kule, benchy %40,
+maxflow 19.10) da incelenmişti, sınav artık bu kural için bağımsız son kontrol değil; (2) pay küçük:
+gerçek Pencil 1.52 W; sağlamların tepesi ayarda 1.39 W (holder storage ilk katman), sınavda 1.45 W (benchy %40 gövde
+tümseği; aynı parça %60'ta 1.56 W ve kusurlu) ve 1.44 W (kule);
+(3) yalnız PETG (TPU sağlamlar 1.9–2.4 W). Ama sinyal ve kural ucuz (yeni hesap yok, eksik gücün ikinci seviyesi),
+yeniden oynatma deterministik → canlıda gölge moda gerek yok.
+**Ön kayıt (değiştirilmez):** kural `benchmark/scan_subthreshold.py --yellow` içinde sabit (`YELLOW_*`). Yalnız
+**2026-10-23 ve sonrası başlayan PETG baskıları** sayılır (`--since 2026-10-23`, ayar + sınav birlikte, hepsi yeni veri).
+Her baskı için kullanıcı kalite notu düşer (kusur var/yok, yeri) — etiket yoksa olay "belirsiz" sayılır, yanlış değil.
+≥ 20 yeni PETG baskı saati birikince karar: **kabul** = yanlış sarı ≤ 0.1 / baskı saati VE bildirilen eşik altı kusurların
+≥ yarısı sarı alıyor → danışma seviyesi olarak uygulanır (asla duraklatmaz, GUC/KAYIP'e dokunmaz, yeni çıktı adları
+İngilizce, mevcut CSV sütunları/alarm kodları aynı; UNITY_ARAYUZ); **ret** = ikisinden biri tutmazsa README sınırlaması.
+Sayılar ara sonuçlarda görülse bile eşik değiştirilmez; değişirse yeni ön kayıt, yeni tarih.
+Doğrulama: aracın eski modu (`--level`) 5 logda birebir aynı (scan → replay + runs ayrıştırması); `--yellow` çıktısı
+bağımsız betikle (scratchpad `yellow_eval.py`) aynı olaylar. Model, canlı ikiz, GUC/KAYIP değişmedi → kapının
+model maddeleri (Eylül fazları, `baseline_snapshot`, yapay yavaş arıza) uygulanmaz.
+Paylaşım dili (kullanıcı isteği): "deneysel, ön kayıtlı testte" — yakalananlar ve 0 yanlış, sınavın kirli olduğu notuyla.

@@ -1052,3 +1052,16 @@ Sonuç: ısınma–soğuma asimetrisi (K36) bu yapı ailesinde kalibrasyonla ç�
 yapı + kalibrasyon dosyası mekanizmasıyla sağlandı (K52, K56), sayıların yeniden fit'i bekliyor. Karar kullanıcıda
 (sınırlama olarak kapatmak önerildi). Betikler: scratchpad `fan/` (holds.py tutma fit'i, score.py, chain.py, codes.py,
 rep.py) ve `s3d/` (fit.py: k sabit ortak fit, score2/3.py).
+
+## K60 — Isınma/soğuma asimetrisi v0.3'te SINIRLAMA olarak kapandı (2026-10-22, kullanıcı kararı)
+Gerekçe (K59 + başlangıç k duyarlılığı, bakım sonrası 29 ayar logu, canlı başlangıç k × 0.95 / 1 / 1.05):
+ısınma bias −4.03 / −1.77 / +0.41, soğuma −4.19 / −2.53 / −0.88, 245 tutma −2.11 / +2.43 / +6.77, fanlı tutma
+−1.11 / −0.02 / +0.97, TÜMÜ 3.33 / 3.01 / 4.36 → model, sıcaklık DEĞİŞİRKEN tutmadakinden ~%5 fazla kayıp görüyor (iki
+yönde); tutmalar (kalorimetri) doğru. Tek sayı seti ikisini tutturamaz; k'yi hızlandırmak da çözmez (k yavaş, kararlı
+pencerelerden öğrenir; geçişte k'yi şişirmek ek kaybı k'ya gizlemek olur). Etkisi: geçişte residual 2–4 °C (görüntü,
+skor), plan ısınma süresi ort. mutlak 6 s (gerçek 32 / tahmin 32 s, ayar 38 log, `closed_loop --set calibration`);
+etkisiz: eksik güç, GUC, duraklatma, k/k_fil, baskıda güç tahmini (bias +0.08 W, rms 1.47 W). Kalibrasyon kuralı
+(v0.4): kayıplar tutmalardan, log k'ları sabit. README sınırlamaları ve ROADMAP güncellendi.
+**Not (ayrı oturumda denenecek, kullanıcı):** fenomenolojik geçiş kaybı Q = β·|dT/dt| (tutmada sıfır → alarm ve
+öğrenme etkilenmez), kapıdan "bilinen sınırlamanın fenomenolojik modeli" etiketiyle; zayıf yanı fiziksel gerekçe
+(kapı 1). Kök neden için ikinci sensör (heat break / heatsink termistörü, Klipper `temperature_sensor`).

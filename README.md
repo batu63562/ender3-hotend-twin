@@ -369,8 +369,17 @@ since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it
   temperature-dependent capacity copies the heat-up behaviour, so it cools 5–13 % too slowly: cool-down is the
   weakest phase (September core set RMSE 6.4 °C, model too warm). A heater power that falls when hot was ruled
   out. This affects neither the alarms (missing power is evaluated only near the print target) nor the learning of
-  `k`. A structural candidate (temperature-dependent cartridge contact resistance) is listed under v0.3 in the
-  [roadmap](ROADMAP.md). The ~0.5–1 s heater-to-thermistor lag is not modelled either (adding it hurt cool-down).
+  `k`. The ~0.5–1 s heater-to-thermistor lag is not modelled either (adding it hurt cool-down).
+  **Kept as a limitation in v0.3** (`KARARLAR.md` [K59], [K60]): seen through the model, the hotend loses about 5 %
+  more heat while its temperature changes than while it holds, in both directions. Re-calibrating the numbers
+  cannot fix it (any fit trades heat-up against holds), and the structures tried (a heat-break node, radiation
+  from the cartridge, sensor lag) failed the acceptance gate. Where it matters: the temperature residual drifts
+  2–4 °C during heat-up and cool-down (display and scores only), and the plan's heat-up time is off by ~6 s on
+  average. Where it does not: missing power, alarms, pause and the learning of `k` / `k_fil` (all evaluated only
+  when the temperature is steady), and the plan's power while printing (bias +0.08 W). Finding the mechanism
+  needs a second measurement, e.g. a thermistor on the heat break or heatsink. When calibrating another hotend,
+  fit the losses from holds (calorimetry) and keep each log's `k` fixed, so the fit does not trade one regime
+  against the other.
 - **Validated range:** PETG and TPU, 235–245 °C. Above 245 °C, PLA at 100 % fan and enclosed materials are
   untested. Printing below 230 °C (the learning and alarm limit now follows the target) is checked only by
   replaying calibration experiments with 200–215 °C holds, not yet by a real print.

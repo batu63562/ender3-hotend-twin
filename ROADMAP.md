@@ -129,6 +129,7 @@ in thermal resistances they do not know. The printer measures itself, like Klipp
    full-power and slow ramps — the slow one raises the target 1 °C at a time, so no printer.cfg change —
    free cooling, part-fan steps, small steps, holds going down, full-power steps up) fits the heat capacities,
    resistances, fan curve and `k` for that hotend.
+   - *(This structural question was closed as a limitation in v0.3; see Progress: [K59], [K60].)*
    - Structural candidate to test here, not before: **temperature-dependent cartridge contact resistance**,
      R31(T) = R31₀ + β·(T − T₀), replacing today's temperature-dependent heat capacity (same parameter count).
      The aluminium block expands about twice as much as the steel cartridge, so the gap and the contact
@@ -163,7 +164,11 @@ Progress (2026-10-22, all on the Pi):
 - [x] Synthetic slow-fault test kept as a tool (`benchmark/slow_fault_test.py`); the early-print detection
       limit is documented, not tuned away ([K55]).
 - [x] `calibrate.py --write` produces the calibration file (`--params ""` gives today's values exactly) ([K56]).
-- [ ] Structural candidate + new part-fan curve through the gate (below).
+- [x] Structural candidates + the new part-fan curve through the gate ([K59]): none passed. Heat lost from the
+      cartridge needed an implausibly hot cartridge and hurt fan-cooled printing; a full re-calibration traded
+      heat-up for holds. **Closed as a limitation** ([K60]; README *Limitations*): transients only, no effect on
+      alarms or learning. Open lead for later: a phenomenological transient-loss term (β·|dT/dt|, zero in holds)
+      through the gate, labelled as such; the root cause needs a second sensor (heat break / heatsink).
 
 Carried over from v0.2: a few days of unattended running (ongoing on the Pi), and the demo clip of v0.1.
 

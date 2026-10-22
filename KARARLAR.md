@@ -1196,3 +1196,24 @@ HA2_FAN 0.0368, eşik 0.160 (K44/K59 ile tutarlı); T1 rms 2.29 → 1.96 °C; C_
 CAP_T_COEF ×1.08. Canlıya ALINMADI: model değişikliği → kapı (v0.4 madde 2: kendi yazıcımızda sıfırdan kalibrasyonun
 sınaması; K59'daki ısınma ödünleşimi beklenir, k anlamı değişir → değerlendirme zincirli ya da yeni kalibrasyon
 baskısı sonrası loglarla).
+
+## K66 — v0.4 madde 2 ÖN KAYIT: taze kalibrasyonun sınanması (2026-10-22, sonuç görülmeden donduruldu)
+Soru: `calibrate.py --staged` ile kendi yazıcımızı sıfırdan kalibre etmek (taze kalibrasyon baskısı, 23.10) bugünkü
+elle oturtulmuş sayılardan iyi mi, ve araç kendini tekrarlıyor mu? Araç: `benchmark/calibration_check.py CAL.json`.
+**Değerlendirme kurgusu (adil k):** iki model de 14.10+ ayar loglarında (bakım sonrası, zaman sırası) ZİNCİRLE oynatılır,
+ikisi de k = 1 başlar ve k'yı kendisi öğrenir (yeni kalibrasyon k = 1'i tanımlar; eski modelin kayıtlı canlı k'sı yeni
+modelde anlamsız, K59). Eylül seti taze k = 1 ile. Sınav yalnız onaydan sonra.
+**GEÇER, hepsi sağlanırsa:**
+1. ayar14 zincir TÜMÜ en az 0.05 °C iyileşir;
+2. çekirdek: ayar14 zincir fanlı tutma (tutma245fan) RMSE en çok +0.10 °C kötüleşir;
+3. GUC olayları: ayar14 zincirde etiketsiz/yanlış GUC sayısı artmaz; `report_v02` (tüm arşiv, yeni sayılarla) etiketli
+   arıza yakalama 24/31'den az değil, yanlış duraklatma 0;
+4. `slow_fault_test` (ayar): dört senaryonun hiçbirinde yakalanan sayısı azalmaz;
+5. Eylül fazları: ısınma ve soğuma (K60 sınırlaması) RAPORLANIR, ölçüt değil; tutma fazları (245, fanlı, diğer)
+   açıklamasız +0.3 °C'den fazla kötüleşmez (Eylül eski donanım: fan/kanal 13.10'da değişti, fan farkı açıklama sayılır).
+**Tekrarlanabilirlik (ayrı rapor, geçme ölçütü değil, v0.4 için asıl bilgi):** taze kalibrasyon ile 21.10 kalibrasyonu
+(`kalibrasyon_245_ilk`, aynı araç) arasında her parametre farkı birleşik ±2 se içinde mi; blok kaybı ölçeği ve fan
+eşiği/genliği özellikle. İkisi arasındaki k farkı (o günlerin kayıp seviyesi) ayrıca yazılır.
+Geçmezse: kalibrasyon aracı yine v0.4'te yeni yazıcılar için kullanılır (Ender'in elle oturtulmuş sayıları yerinde
+kalır); geçerse kullanıcı onayıyla `calibration.json` değişir, Pi'nin k ve k_ref'i 1.0'a döndürülür (k'nin anlamı yeni
+kalibrasyon günü).

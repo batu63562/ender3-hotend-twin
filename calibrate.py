@@ -23,8 +23,13 @@ goes through the acceptance gate before it is copied there.
 Otherwise analysis only: touches neither the live twin nor its parameters.
 Needs scipy (not needed by the live twin).
 
+--staged calibrates a hotend from its own calibration print (yazici/calibration_print.py) in two stages, k = 1:
+losses and part-fan curve from the steady holds, then capacities and resistances from the trajectory (see staged()).
+Checked on virtual prints of the calibration G-code (yazici/virtual_print.py): recovers the model's own values exactly.
+
 Usage (in dt/):   py calibrate.py LOG [LOG ...] [--params C1,C3,R31,...] [--rate 1.0] [--synthetic]
                                 [--write PATH [--force]]
+                  py calibrate.py CALIBRATION_LOG --staged --write calibration_new.json
 """
 import argparse
 import json
@@ -123,11 +128,108 @@ def write_calibration(path, names, se, info, data, k_logs, fit_rms, args):
     print(f"\nwritten: {path}  (not live: score it through the acceptance gate, then copy to calibration.json)")
 
 
+STAGED_DYNAMIC = ["C_ALL", "R31", "R_HB", "CAP_T_COEF"]   # stage 2: storage and internal resistances
+
+
+def holds(path, min_len=140.0, tail=90.0):
+    """Steady holds of one log as (T, fan, heater W): a constant target and fan for >= min_len s, the mean heater
+    power of the last `tail` s (PID ripple averages out), T within 3 C and its mean within 0.5 C of the target.
+    In a hold the heater power IS the loss: calorimetry, no dynamics involved."""
+    df = ev.read_log(path)
+    t = ev.mono_time(df.t.values)
+    tg = pd.to_numeric(df.target, errors="coerce").ffill().values
+    fan, T, has_T = df.fan_state.values, df.T1_real.values, df.has_T.values
+    bp = pd.to_numeric(df.bed_pwm, errors="coerce").fillna(0).values if "bed_pwm" in df else np.zeros(len(df))
+    P = df.pwm.values * rw.P_MAX * (1 - rw.BED_SAG * bp)
+    seg = np.r_[0, np.cumsum((np.diff(tg) != 0) | (np.diff(fan) != 0))]
+    out = []
+    for g in np.unique(seg):
+        idx = np.flatnonzero(seg == g)
+        if tg[idx[0]] <= 0 or t[idx[-1]] - t[idx[0]] < min_len:
+            continue
+        w = idx[t[idx] >= t[idx[-1]] - tail]
+        Tw = T[w][has_T[w]]
+        if len(Tw) < 10 or Tw.max() - Tw.min() > 3.0 or abs(Tw.mean() - tg[idx[0]]) > 0.5:
+            continue
+        dt = np.diff(t[w])
+        out.append((float(Tw.mean()), float(fan[idx[0]]), float(np.sum(P[w][:-1] * dt) / dt.sum())))
+    return out
+
+
+def steady_power(T, fan, s, ha2_fan, f0):
+    """Heater power of a steady hold with k = 1, the block loss scaled by s and the given part-fan curve."""
+    fc = ha2_fan * max((fan - f0) / (1.0 - f0), 0.0) ** rw.FAN_EXP
+    dT2 = (T - rw.T_AMB) / (1 + rw.R_HB * (rw.HA2 + fc))
+    return s * rw.natural_loss(T) + fc * dT2 + rw.HA2 * dT2
+
+
+def staged(a):
+    """Calibration of a new hotend in two stages [K59]: (1) losses and part-fan curve from the steady holds
+    (calorimetry), (2) heat capacities and internal resistances from the whole trajectory with those losses fixed.
+    k is 1 throughout: the calibration print DEFINES the reference loss level, so the learned k means the same thing
+    as on the day of calibration. Fitting the losses on the trajectory instead lets them trade heat-up against the
+    holds (K59)."""
+    hl = [(os.path.basename(p), h) for p in a.logs for h in holds(p)]
+    off = sorted({round(T) for _, (T, f, _) in hl if f <= rw.FAN_F0})
+    on = [h for _, h in hl if h[1] > rw.FAN_F0 + 0.05]
+    print(f"stage 1, holds: {len(hl)} ({len(hl) - len(on)} fan below threshold at {off} C, {len(on)} fan on)")
+    if len(off) < 2:
+        sys.exit("need fan-off holds at >= 2 temperatures (the calibration G-code has them; was the print complete?)")
+    fit_fan = len({round(f, 2) for _, f, _ in on}) >= 2
+    x0 = [0.0] + ([np.log(rw.HA2_FAN), rw.FAN_F0] if fit_fan else [])
+
+    def res1(x):
+        s = np.exp(x[0])
+        hf, f0 = (np.exp(x[1]), x[2]) if fit_fan else (rw.HA2_FAN, rw.FAN_F0)
+        return np.array([steady_power(T, f, s, hf, f0) - P for _, (T, f, P) in hl])
+    r_before = res1(np.array(x0))
+    f1 = least_squares(res1, x0, bounds=([-BOUND] + ([np.log(rw.HA2_FAN) - BOUND, 0.0] if fit_fan else []),
+                                         [BOUND] + ([np.log(rw.HA2_FAN) + BOUND, 0.6] if fit_fan else [])))
+    s = float(np.exp(f1.x[0]))
+    rw.HA1, rw.CRAD = rw.HA1 * s, rw.CRAD * s
+    if fit_fan:
+        rw.HA2_FAN, rw.FAN_F0 = float(np.exp(f1.x[1])), float(f1.x[2])
+    rms = lambda r: float(np.sqrt(np.mean(r ** 2)))   # noqa: E731
+    print(f"  heater power rms {rms(r_before):.2f} -> {rms(f1.fun):.2f} W; block loss x{s:.3f}"
+          + (f", part fan HA2_FAN {rw.HA2_FAN:.4f} threshold {rw.FAN_F0:.3f}" if fit_fan else ", fan curve kept"
+             " (fan-on holds at < 2 levels)"))
+    for (n, (T, f, P)), r in zip(hl, f1.fun):
+        print(f"    {n:30s} {T:5.0f} C fan {f:4.2f}: {P:5.2f} W, model {r:+5.2f}")
+
+    names = list(STAGED_DYNAMIC)
+    base = np.array([1.0 if n == "C_ALL" else float(getattr(rw, n)) for n in names])
+    data = [(os.path.basename(p), load(p, a.rate)) for p in a.logs]
+    prior = a.prior or 0.3
+    n_samples = sum(len(d) for _, d in data)
+    w = np.sqrt(sum(d.t.iloc[-1] for _, d in data) / CORR_TIME / n_samples) / SIGMA_DATA
+
+    def dres(x):
+        set_params(names, base, x)
+        return np.concatenate([simulate(d, 1.0) - d["T"].values for _, d in data])
+    r0 = dres(np.zeros(len(names)))
+    f2 = least_squares(lambda x: np.r_[dres(x) * w, x / prior], np.zeros(len(names)), bounds=(-BOUND, BOUND),
+                       x_scale=0.1, diff_step=1e-3)
+    r2 = dres(f2.x)
+    cov = np.linalg.pinv(f2.jac.T @ f2.jac)
+    se = np.sqrt(np.abs(np.diag(cov)))
+    print(f"\nstage 2, trajectory (k = 1, prior +-{prior:.2f}): T1 rms {rms(r0):.2f} -> {rms(r2):.2f} C")
+    for n, b, xi, e in zip(names, base, f2.x, se):
+        print(f"  {n:11s} {b:11.4g} -> {b * np.exp(xi):11.4g}  x{np.exp(xi):.3f} +-{e:.3f}"
+              + ("  at bound" if abs(abs(xi) - BOUND) < 1e-3 else ""))
+    if a.write:
+        a.params = "staged:" + ",".join(["loss_scale"] + (["HA2_FAN", "FAN_F0"] if fit_fan else []) + names)
+        write_calibration(a.write, ["HA1", "CRAD"] + (["HA2_FAN", "FAN_F0"] if fit_fan else []) + names,
+                          [None] * (4 if fit_fan else 2) + list(se), [False] * (4 if fit_fan else 2) + [True] * len(names),
+                          data, [1.0] * len(data), rms(r2), a)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("logs", nargs="+", help="calibration logs without extrusion")
     ap.add_argument("--params", default=",".join(DEFAULT_PARAMS), help="comma-separated model constants to fit")
-    ap.add_argument("--rate", type=float, default=1.0, help="resampling step in s (default 1)")
+    ap.add_argument("--rate", type=float, default=None,
+                    help="resampling step in s (default 1; --staged 0.3, Klipper's report interval: the cartridge "
+                         "time constant is ~2.5 s, 1 s steps bias R31 by ~30 %% on a virtual print)")
     ap.add_argument("--synthetic", action="store_true", help="fit the current model's own output (tool check)")
     ap.add_argument("--prior", type=float, default=0.0,
                     help="profile uncertainty of each parameter as a log-factor (e.g. 0.3 = about +-35 %%); "
@@ -140,9 +242,16 @@ def main():
                          "13.10 maintenance)")
     ap.add_argument("--write", metavar="PATH", help="save the result as a calibration file (see above)")
     ap.add_argument("--force", action="store_true", help="--write may replace an existing file")
+    ap.add_argument("--staged", action="store_true",
+                    help="calibrate a hotend from its calibration print: losses + fan curve from the holds, then "
+                         "capacities and resistances from the trajectory, k = 1 (see staged())")
     a = ap.parse_args()
     if a.write and os.path.exists(a.write) and not a.force:
         sys.exit(f"{a.write} exists; use --force to replace it")
+    if a.staged:
+        a.rate = a.rate or 0.3
+        return staged(a)
+    a.rate = a.rate or 1.0
 
     names = [n.strip() for n in a.params.split(",") if n.strip()]
     for n in names:

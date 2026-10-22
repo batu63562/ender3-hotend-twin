@@ -1181,3 +1181,18 @@ tutmasında eksik güç +2.3…+2.9 W → zararsız GUC_AZALDI 33 s ("-" etiket)
 attığı için bayat k'nın yarattığı sapma kendi düzeltmesini geciktiriyor (KAYIP 16:42'de kapandı). Fiziksel düzeltmeden
 (çorap, bakım) sonra hedefte birkaç dakika tutma yeterli; kuyruğa/README'ye pratik not. Model değişikliği önerilmiyor.
 Rapor (`report_v02`): ayar 58 log 33.5 baskı saati, sınav 61 log 36.6 saat; yanlış duraklatma 0.
+
+## K65 — v0.4 madde 1: iki aşamalı kalibrasyon `calibrate.py --staged` (2026-10-22, ARAÇ, MODEL DEĞİŞMEDİ)
+Yeni bir hotend'in kalibrasyon baskısından tek komutla `calibration.json`: `py calibrate.py LOG --staged --write
+calibration_new.json`. K59 kuralı yapıya gömülü: (1) kararlı tutmalar (hedef + fan ≥ 140 s sabit, son 90 s ısıtıcı
+gücü = kayıp) → blok kaybı ölçeği (HA1, CRAD birlikte) + fan eğrisi (HA2_FAN, FAN_F0; üs sabit), dinamik yok;
+(2) bu kayıplar sabitken yörüngeden C_ALL, R31, R_HB, CAP_T_COEF (prior ±0.3). k = 1 sabit: kalibrasyon baskısı
+referans kayıp seviyesini TANIMLAR (öğrenilen k o günkü duruma göre okunur). Kontroller: fan-off tutma < 2 sıcaklık
+→ dur; fan-on < 2 seviye → fan eğrisi korunur. Adım 0.3 s (Klipper rapor aralığı): 1 s'de kartuş τ ≈ 2.5 s çözülmüyor,
+sanal baskıda R31 %28 sapıyordu; 0.3 s'de sanal baskı (245 ve 210 kalibrasyon G-code'u, `virtual_print.py`) bilinen
+değerleri BİREBİR geri veriyor (aşama 1 iki sıcaklıkta da tam).
+Ender'in gerçek kalibrasyon baskısı (`kalibrasyon_245_ilk`): 13 tutma, güç rms 0.73 → 0.24 W; blok kaybı ×0.941,
+HA2_FAN 0.0368, eşik 0.160 (K44/K59 ile tutarlı); T1 rms 2.29 → 1.96 °C; C_ALL 0.944, R31 ×1.45, R_HB ×1.11,
+CAP_T_COEF ×1.08. Canlıya ALINMADI: model değişikliği → kapı (v0.4 madde 2: kendi yazıcımızda sıfırdan kalibrasyonun
+sınaması; K59'daki ısınma ödünleşimi beklenir, k anlamı değişir → değerlendirme zincirli ya da yeni kalibrasyon
+baskısı sonrası loglarla).

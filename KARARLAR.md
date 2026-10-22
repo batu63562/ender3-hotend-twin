@@ -1152,3 +1152,32 @@ Doğrulama: aracın eski modu (`--level`) 5 logda birebir aynı (scan → replay
 bağımsız betikle (scratchpad `yellow_eval.py`) aynı olaylar. Model, canlı ikiz, GUC/KAYIP değişmedi → kapının
 model maddeleri (Eylül fazları, `baseline_snapshot`, yapay yavaş arıza) uygulanmaz.
 Paylaşım dili (kullanıcı isteği): "deneysel, ön kayıtlı testte" — yakalananlar ve 0 yanlış, sınavın kirli olduğu notuyla.
+
+## K64 — TPU günü: K54 gerçek donanımda doğrulandı, ilk gerçek aktif duraklatma, kasıtsız arıza serisi (2026-10-22, ETİKET, MODEL DEĞİŞMEDİ)
+**TPU sıcaklık kulesi 240 → 210** (5 °C, 22 dk/kat, 16:43–19:21, 2 sa 38 dk, fan %66, akış 1.67 mm/s):
+| hedef | eksik güç değerlendirilen | ort / p95 W | k | k_fil (kat sonu) | residual |
+|---|---|---|---|---|---|
+| 240 | %97 | −0.23 / 0.43 | 0.97 | 1.46 | −1.3 |
+| 235 | %98 | +0.03 / 0.59 | 0.97 | 1.45 | +0.1 |
+| 230 | %98 | +0.15 / 0.63 | 0.97 | 1.42 | +1.0 |
+| 225 | %98 | +0.32 / 0.80 | 0.96 | 1.37 | +2.2 |
+| 220 | %98 | +0.67 / 1.62 | 0.96 | 1.28 | +4.7 |
+| 215 | %98 | +0.67 / 1.91 | 0.96 | 1.19 | +4.8 |
+| 210 | %98 | +0.85 / 2.12 | 0.95 | 1.08 | +6.3 |
+**K54 açık testi KAPANDI:** 230 altında eksik güç her katta değerlendirildi (eski sabit 230 eşiğinde 225–210'da %0),
+öğrenme sürdü, 2.6 saatte alarm 0. Kullanıcı: 230'dan aşağı bozulma, 210'da en üst kat "yok gibi" → eksik güç kat kat
+artıyor, k_fil bunu yutuyor (K55 yavaş arıza sınırının gerçek örneği; p95 2.1 W, eşiğin hemen altı = sarı bölge). PETG
+kulesindeki (K49) daha küçük aynı eğilim yüzünden bir kısmı modelin düşük sıcaklık hatası olabilir; ayrılamadı. Etiket
+225–210 B (ayar; beklenen kaçırma).
+**İlk gerçek AKTİF duraklatma (16:15:04):** TPU takılıyken yanlışlıkla PETG profiliyle (245 °C, PETG hız/geri çekme)
+kule → nozzle ucunda birikme; GUC_AZALDI 16:12:39 (+5.6 W), 150 s sonra ikiz Moonraker'a pause gönderdi, Klipper aynı
+saniyede `paused` (kullanıcı iptal etti). Sınıflandırıcı C (B elendi). Etiket C (sınav); aynı hatanın tekrarı 16:16
+(GUC 65 s, kullanıcı elle durdurdu, C ayar).
+**Kasıtsız arızalar, hepsi doğru adla yakalandı:** makara dönmedi → GUC_AZALDI 78 s (B, sınav); topak temizlenirken
+çorap çıkarıldı → GUC_ARTTI −2.8 W ve KAYIP_ARTTI (k 0.99 → 1.10, "silikon çorap düşmüş") (C, sınav); çorapsız deneme
+(C, ayar); çorap takıldı ama filaman çıkmadı → GUC_AZALDI 59 s (B, sınav).
+**Gözlem (bayat k):** çorap geri takıldıktan sonra k birkaç dakika çorapsız değerde (~1.10) kaldı; iptal sonrası 240
+tutmasında eksik güç +2.3…+2.9 W → zararsız GUC_AZALDI 33 s ("-" etiket). Öğrenici |eksik güç| > 2.5 W pencereleri
+attığı için bayat k'nın yarattığı sapma kendi düzeltmesini geciktiriyor (KAYIP 16:42'de kapandı). Fiziksel düzeltmeden
+(çorap, bakım) sonra hedefte birkaç dakika tutma yeterli; kuyruğa/README'ye pratik not. Model değişikliği önerilmiyor.
+Rapor (`report_v02`): ayar 58 log 33.5 baskı saati, sınav 61 log 36.6 saat; yanlış duraklatma 0.

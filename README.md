@@ -406,9 +406,9 @@ since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it
   needs a second measurement, e.g. a thermistor on the heat break or heatsink. When calibrating another hotend,
   fit the losses from holds (calorimetry) and keep each log's `k` fixed, so the fit does not trade one regime
   against the other.
-- **Validated range:** PETG and TPU, 235–245 °C. Above 245 °C, PLA at 100 % fan and enclosed materials are
-  untested. Printing below 230 °C (the learning and alarm limit now follows the target) is checked only by
-  replaying calibration experiments with 200–215 °C holds, not yet by a real print.
+- **Validated range:** PETG and TPU, 235–245 °C; TPU down to 210 °C in a real 2.6 h temperature tower (the
+  learning and alarm limit follows the target: missing power was evaluated 98 % of the time on every level, no
+  false alarm, [K64]). Above 245 °C, PLA at 100 % fan and enclosed materials are untested.
 - **Detectability scales with the heat path.** A full filament stop is seen only above ~1.6 mm/s of filament
   (~3.8 mm³/s); slow, thin features stay below the 2.5 W threshold. A blocked part-fan duct is caught at 60 %
   fan (+4 W, induced test 2026-10-20) but stays within ±1 W at 25 % fan, where the blower barely cools.

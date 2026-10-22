@@ -33,7 +33,8 @@ feedback path automatically: it pauses the print on a persistent missing-power a
 > comments refer to it as `[Kxx]`. Planned versions: [`ROADMAP.md`](ROADMAP.md).
 >
 > **Testers wanted:** if you run Klipper + Moonraker and would like to try the twin on a different printer,
-> open a ["Test on my printer" issue](../../issues/new?template=test-on-my-printer.md).
+> open a ["Test on my printer" issue](../../issues/new?template=test-on-my-printer.md). The steps (install,
+> profile, one-hour calibration print, sending logs back) are in [TESTING.md](TESTING.md).
 
 ### Try it without a printer
 

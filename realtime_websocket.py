@@ -104,7 +104,7 @@ CAP_T0 = 140.0      # C - C(T) = C at this temperature
 # the user knows about the hardware) <- calibration.json (fitted by calibrate.py from a calibration print). Missing
 # files keep the defaults; a broken file is reported and ignored (the twin keeps running). See PROFILE_DESIGN.md.
 PROFILE_FILE = os.path.join(HERE, "profile.toml")
-CALIBRATION_FILE = os.path.join(HERE, "calibration.json")
+CALIBRATION_FILE = os.environ.get("TWIN_CALIBRATION") or os.path.join(HERE, "calibration.json")   # env: evaluate another file
 PROFILE_KEYS = {("", "room_c"): "T_AMB", ("hotend", "heater_power_w"): "P_MAX", ("power", "bed_sag"): "BED_SAG",
                 ("part_fan", "threshold"): "FAN_F0", ("part_fan", "exponent"): "FAN_EXP"}
 CALIBRATED = ("C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "FAN_F0", "FAN_EXP",

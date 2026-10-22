@@ -1217,3 +1217,10 @@ eşiği/genliği özellikle. İkisi arasındaki k farkı (o günlerin kayıp sev
 Geçmezse: kalibrasyon aracı yine v0.4'te yeni yazıcılar için kullanılır (Ender'in elle oturtulmuş sayıları yerinde
 kalır); geçerse kullanıcı onayıyla `calibration.json` değişir, Pi'nin k ve k_ref'i 1.0'a döndürülür (k'nin anlamı yeni
 kalibrasyon günü).
+**K66 araç kuru koşusu (22.10, ölçütler yazıldıktan SONRA; asıl sınama değil):** `calibration_check.py` 21.10
+kalibrasyonunun `--staged` sonucuyla: ayar14 zincir TÜMÜ 3.22 → 3.27 (soğuma −0.63, geçiş −0.82 iyi; ısınma +0.40,
+245 tutma +0.42 kötü; fanlı tutma 2.40 → 2.39), Eylül ısınma/varış çok kötü (K59 ödünleşimi), etiketli 24/31 → 22/31,
+yavaş arıza fan açılınca 3 W 9 → 7/21, 4 W 14 → 12/14, ortada 18 → 16/19 → K66'ya göre GEÇMEZDİ. Araç çalışıyor;
+`TWIN_CALIBRATION` ortam değişkeni (realtime_websocket, ayarlanmazsa `calibration.json`) değerlendirme araçlarına başka
+kalibrasyon dosyası verir, `baseline_snapshot --check v0.3` IDENTICAL. Beklenti: taze kalibrasyonun da büyük olasılıkla
+aynı ödünleşimle geçmemesi; asıl kazanç tekrarlanabilirlik ölçüsü (v0.4'te yeni yazıcılar için aracın güvenilirliği).

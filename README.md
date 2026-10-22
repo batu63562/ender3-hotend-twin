@@ -9,6 +9,11 @@ Klipper + Moonraker on a Raspberry Pi). It runs next to the printer, predicts ho
 *Replay of a real induced fault in the viewer. Model vs. measured hotend temperature (top left) and the
 missing-power signal (bottom left, "extra heat loss"); the hotend card turns red when the alarm is raised.*
 
+**Full demo (74 s):** three faults caught (extruder stops feeding, blocked cooling duct, a Benchy roof
+printed with gaps), the bed twin, and the maintenance trend.
+
+https://github.com/user-attachments/assets/cf521f65-5900-4444-ab55-5287e017abe2
+
 **One sentence:** a thermal model computes the heater power the hotend should need; when the real heater
 power deviates, the twin raises an alarm; slow drifts are absorbed by a learned loss factor `k`.
 

@@ -7,7 +7,7 @@ not serve the claim of its version waits.
 
 | Version | Claim | Status |
 |---|---|---|
-| [v0.1](#v01--it-works-on-one-printer) | It works on one printer | releasing |
+| [v0.1](#v01--it-works-on-one-printer) | It works on one printer | done (2026-10-19) |
 | [v0.2](#v02--it-is-reliable) | It is reliable | done (2026-10-22) |
 | [v0.3](#v03--the-physics-is-not-ender-3-specific) | The physics is not Ender 3 specific | in progress |
 | [v0.4](#v04--it-works-on-another-printer) | It works on another printer | planned |
@@ -46,8 +46,8 @@ Release tasks:
       must be emptied again before any rebuild, it now points at the Pi.)
 - [x] Remaining Turkish runtime messages in the Unity start menu translated to English.
 - [x] The build looks for `sample_data` next to the exe when no data folder is set (else Desktop/dt).
-- [ ] README: short demo clip of a real fault being caught, results table, "try it without a printer".
-      Deferred to the end of v0.3: v0.2 caught better demo material (a layer shift, a gappy benchy roof).
+- [x] README: short demo clip of a real fault being caught, results table, "try it without a printer"
+      (done 2026-10-22 with v0.2 material: the README GIF and a 74 s video of three faults and the maintenance trend).
 - [ ] GitHub topics and a social preview image.
 
 **Done when:** someone without a printer can replay a sample log and see the alarms.
@@ -170,7 +170,7 @@ Progress (2026-10-22, all on the Pi):
       alarms or learning. A phenomenological transient-loss term (β·|dT/dt|, zero in holds) was tried and
       rejected ([K61]); the root cause needs a second sensor (heat break / heatsink).
 
-Carried over from v0.2: a few days of unattended running (ongoing on the Pi), and the demo clip of v0.1.
+Carried over from v0.2: a few days of unattended running (ongoing on the Pi). The demo clip of v0.1 is done.
 
 **Open release at the end of v0.3** ([K58]): the code repository becomes public under **GPL-3.0** (the G-code
 plan reuses Klipper's GPLv3 PID and lookahead code). One public repository holds the README, the code and a single

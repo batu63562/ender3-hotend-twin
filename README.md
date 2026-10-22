@@ -32,17 +32,18 @@ feedback path automatically: it pauses the print on a persistent missing-power a
 
 ### Try it without a printer
 
-1. Download `ender3-twin-viewer-windows-v0.1.zip` from the [latest release](../../releases/latest) and
-   unzip it anywhere.
-2. Run `Ender 3 Digital Twin.exe`. The start menu lists three real recordings from the `sample_data`
-   folder next to it.
-3. Open **demo1 filament runout PETG**, press **N** to jump to the alarm: the spool ran empty at ~61.5 min,
-   the twin raises `GUC_AZALDI` ("low heat demand") about 20 s later, and the G-code toolpath shows where
-   the print was. Mouse: drag to orbit, right-drag to pan, wheel to zoom. Keys: **H** / **B** hotend / bed
-   view, **Space** pause, **1–3** speed, **Esc** back (view → overview → start menu).
+1. Download the Windows viewer (`ender3-twin-viewer-windows-*.zip`) from the
+   [latest release](../../releases/latest) and unzip it anywhere.
+2. Run `Ender 3 Digital Twin.exe`. The start menu lists six real recordings from the `sample_data`
+   folder next to it (what happens in each: `sample_data/README.md`).
+3. Open **demo4 extruder stops feeding PETG** and press **N** to jump to the alarm: the extruder latch was
+   opened mid-print, the heater suddenly has less to do, and the twin raises `GUC_AZALDI` ("low heat
+   demand") 28 s later. **H** shows the hotend graphs. Mouse: drag to orbit, right-drag to pan, wheel to
+   zoom. Keys: **H** / **B** hotend / bed view, **Space** pause, **1–3** speed, **Esc** back (view →
+   overview → start menu).
 
 To replay the same logs through the Python twin instead (Windows/macOS/Linux), see
-[Running it](#running-it) and the evaluation-data release asset.
+[Running it](#running-it).
 
 ---
 

@@ -17,12 +17,15 @@ feedback path automatically: it pauses the print on a persistent missing-power a
 **digital twin** in Kritzinger et al.'s (2018) terminology; everything else (advice, the plan) is still a
 **digital shadow**.
 
-> Comments are in English; code identifiers and console messages are still in Turkish (the author's language).
-> See the [glossary](#glossary). Identifiers will be renamed with the v0.3 refactor; CSV columns and alarm codes
-> keep their names.
+> Code identifiers and comments are in English. Console messages are still in Turkish (the author's language;
+> English in v0.5), and CSV columns and alarm codes keep their Turkish names: they are the data contract the
+> archived logs depend on. See the [glossary](#glossary).
 > The decision history (why each parameter has its value, what was tried and rejected, with scores)
-> is in [`KARARLAR.md`](KARARLAR.md) (Turkish); code comments refer to it as `[Kxx]`.
-> Planned versions: [`ROADMAP.md`](ROADMAP.md).
+> is in [`KARARLAR.md`](KARARLAR.md), the author's engineering notebook, kept in Turkish on purpose; code
+> comments refer to it as `[Kxx]`. Planned versions: [`ROADMAP.md`](ROADMAP.md).
+>
+> **Testers wanted:** if you run Klipper + Moonraker and would like to try the twin on a different printer,
+> open a ["Test on my printer" issue](../../issues/new?template=test-on-my-printer.md).
 
 ### Try it without a printer
 

@@ -1181,3 +1181,26 @@ tutmasında eksik güç +2.3…+2.9 W → zararsız GUC_AZALDI 33 s ("-" etiket)
 attığı için bayat k'nın yarattığı sapma kendi düzeltmesini geciktiriyor (KAYIP 16:42'de kapandı). Fiziksel düzeltmeden
 (çorap, bakım) sonra hedefte birkaç dakika tutma yeterli; kuyruğa/README'ye pratik not. Model değişikliği önerilmiyor.
 Rapor (`report_v02`): ayar 58 log 33.5 baskı saati, sınav 61 log 36.6 saat; yanlış duraklatma 0.
+
+## K65 — Sentetik ikinci yazıcı: kalibrasyon farklı hotend'i buluyor, ısıtıcı direnci (α) ayrı terim ister (2026-10-22, ANALİZ, MODEL DEĞİŞMEDİ)
+Soru (Reddit, v0.3 paylaşımı): seramik ısıtıcının direnci sıcaklıkla değişir (PLA/ASA arası watt farkı), CPAP gibi
+çok farklı fan. v0.4 için diğer yazıcı yokken sanal deney (scratchpad `synth/synth.py`): `yazici/calibration_245.gcode`
+sanal yazıcıda (Klipper PID, kazançlar 40/P_MAX ile ölçekli) "gerçek" parametrelerle koşuldu, `calibrate.py`
+(DEFAULT_PARAMS + FAN_F0, FAN_EXP) Ender değerleri + kullanıcının profile yazacağı P_MAX'ten başladı.
+Gerçek yazıcı: P_MAX 60, C1×1.3 C2×1.2 C3×1.4, R31×0.8, R_HB×1.2, HA1×1.15, HA2_FAN×2.5, FAN_F0 0.05, FAN_EXP 0.8
+(CPAP benzeri). Isıtıcı: P = pwm·P_MAX/(1 + α·(T3 − 25)).
+- Ender kendi verisinden: rms 0.19 °C, kararlı eksik güç ±0.01 W. R31 3 → 1.7 kayıyor (0.3 → 1 s yeniden örnekleme;
+  kararlı duruma etkisiz, araç notu).
+- α = 0: kalibrasyon öncesi kararlı eksik güç +1…+9 W (fanla büyür, yanlış alarm), sonrası ±0.03 W; fan eğrisi
+  bulundu (F0 0.052, EXP 0.79). Kalibrasyon farklı hotend + fanı karşılıyor (sanal veride).
+- α modelde yokken: α 0.0005 → kararlı hata ≤ 0.6 W (yutuluyor); α 0.002 (seramik mertebesi) → fit rms 7.9 °C,
+  k 1.30 sınırda, eksik güç −8…+29 W: alarmlar kullanılamaz.
+- α sabit tutularak fit (rms °C, α_fit 0 / 0.0005 / 0.001 / 0.002 / 0.003):
+  gerçek 0: 0.27 / 0.65 / 0.97 / 1.50 / 2.30; gerçek 0.001: 1.11 / 0.58 / 0.25 / 0.39 / 0.60;
+  gerçek 0.002: 2.32 / 1.14 / 0.65 / 0.23 / 0.23. → küçük α net, α yoksa 0'da kalıyor (uydurmuyor); büyük α'nın
+  varlığı net, büyüklüğü 0.002–0.003 arası belirsiz (kapasite/kayıp telafi ediyor). Ayırt eden bilgi soğuma
+  (ısıtıcısız) + tam güç rampası karşılaştırması.
+- Uyarı: Ender'in gerçek ısınma anomalisi (K59–K61, 230 °C'de 6–8 W) α'yı taklit edebilir; deney 14 güç düşüşünü
+  rampa anomalisinin sebebi olarak REDDETTİ (K59). α modele eklenmeden önce gerçek kalibrasyon loglarında fit
+  edilen α'nın ~0 kaldığı gösterilmeli.
+Sonuç: v0.4 hazırlığı olarak α (varsayılan 0, v0.3 skorları birebir) + calibrate.py'de fit adayı.

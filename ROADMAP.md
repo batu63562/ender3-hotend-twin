@@ -193,6 +193,23 @@ calibration print only. Testers are recruited after the open release at the end 
 **Done when:** alarm performance on the second printer is comparable to the Ender 3, or the differences are
 explained physically.
 
+Preparation that needs no second printer (2026-10-22, partly from the first community feedback):
+- [x] Synthetic second printer: the calibration print run on a virtual printer with a different hotend (60 W,
+      CPAP-like fan, other capacities and resistances). Calibration brings the steady missing power from +1…+9 W
+      to ±0.03 W; a heater whose power drops when hot (ceramic) is not covered by the model ([K65]).
+- [x] Tester issue template asks for heater type, sock, fan type (CPAP) and filament sensor.
+- [ ] Heater resistance coefficient α (P = pwm·P_MAX/(1 + α·(T3 − T_ref))), default 0 so v0.3 reproduces exactly,
+      fitted by `calibrate.py`; first check that real Ender calibration logs give α ≈ 0 ([K65]).
+- [ ] Optional temperature × fan grid in `calibration_print.py` (fan steps at every hold temperature, as suggested
+      by a tester); longer, so an option.
+- [ ] Heat-into-the-print test print: a generated tower (no slicer) whose sections change one thing each (flow,
+      fan, layer height; 1–2 min each) so `k_fil` can start from a value predicted from the slicer settings
+      instead of a fixed anchor. Air extrusion alone only gives the filament heating ([K08], [K27]).
+- [ ] A standard comparison print (e.g. Benchy) for testers, to compare printers on the same object.
+- [ ] Per-material `k` reference: evaluated, not now. The PLA/ASA shift on this printer is ~0.025 in `k`, inside
+      the 0.08 band; splitting the reference would also split the maintenance indicator ([K20]). Revisit with
+      low-temperature prints.
+
 ---
 
 ## v0.5 — Other people can install it

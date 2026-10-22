@@ -246,6 +246,9 @@ def main():
                     help="calibrate a hotend from its calibration print: losses + fan curve from the holds, then "
                          "capacities and resistances from the trajectory, k = 1 (see staged())")
     a = ap.parse_args()
+    missing = [p for p in a.logs if not os.path.isfile(p)]
+    if missing:
+        sys.exit("log not found: " + ", ".join(missing))
     if a.write and os.path.exists(a.write) and not a.force:
         sys.exit(f"{a.write} exists; use --force to replace it")
     if a.staged:

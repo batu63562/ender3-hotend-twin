@@ -9,6 +9,8 @@ room_c = 25
 
 [hotend]
 heater_power_w = 40          # cartridge power at the supply voltage (30 / 40 / 50 / 60 W are common)
+heater_alpha = 0.0           # 1/K, heater resistance rise with its temperature (power at 25 C); steel cartridge ~0,
+                             # ceramic heaters ~0.002-0.004 (datasheet or a power meter; not fitted by calibrate.py)
 
 [part_fan]
 threshold = 0.191            # fan PWM below which the blower does not cool the nozzle (0-1)

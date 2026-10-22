@@ -46,6 +46,11 @@ T_AMB = 25      # room temperature (C); fixed assumption - the real room is 21-2
 T_AMB_K = T_AMB + 273.15
 P_MAX = 40      # W - full power of the heater cartridge
 BED_SAG = 0.042  # the 24 V rail sags while the bed is on: real power = pwm * P_MAX * (1 - BED_SAG * bed_pwm) [K02]
+# Heater resistance rising with its own temperature: P = pwm * P_MAX / (1 + HEATER_ALPHA * (T3 - HEATER_T0)), P_MAX at
+# HEATER_T0. A steel NiCr cartridge is ~0 (default; v0.3 unchanged), ceramic heaters can be ~0.002-0.004 1/K. Given in
+# profile.toml, not fitted: on the Ender's real logs a fit takes the heat-up anomaly for alpha ~0.001 [K65, K66].
+HEATER_ALPHA = 0.0   # 1/K
+HEATER_T0 = 25.0     # C
 
 C3 = 0.8303     # J/K - heater cartridge
 R31 = 3.0       # K/W - cartridge -> block (in a 245 C hold the cartridge is ~55 C hotter)
@@ -106,6 +111,7 @@ CAP_T0 = 140.0      # C - C(T) = C at this temperature
 PROFILE_FILE = os.path.join(HERE, "profile.toml")
 CALIBRATION_FILE = os.path.join(HERE, "calibration.json")
 PROFILE_KEYS = {("", "room_c"): "T_AMB", ("hotend", "heater_power_w"): "P_MAX", ("power", "bed_sag"): "BED_SAG",
+                ("hotend", "heater_alpha"): "HEATER_ALPHA",
                 ("part_fan", "threshold"): "FAN_F0", ("part_fan", "exponent"): "FAN_EXP"}
 CALIBRATED = ("C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "FAN_F0", "FAN_EXP",
               "CAP_T_COEF", "K_FIL")
@@ -479,6 +485,22 @@ def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None):
     os.replace(tmp, STATE_FILE)
 
 
+def heater_power(pwm, T3):
+    """Electrical power of the heater (W) at duty pwm with the cartridge at T3 (HEATER_ALPHA, see above)."""
+    if HEATER_ALPHA == 0.0:
+        return pwm * P_MAX
+    return pwm * P_MAX / (1.0 + HEATER_ALPHA * (T3 - HEATER_T0))
+
+
+def heater_power_steady(pwm, T1):
+    """heater_power when the cartridge temperature is not tracked: steady T3 = T1 + P * R31, solved for P
+    (alpha * R31 * P^2 + (1 + alpha * (T1 - T0)) * P - pwm * P_MAX = 0)."""
+    if HEATER_ALPHA == 0.0:
+        return pwm * P_MAX
+    a, b = HEATER_ALPHA * R31, 1.0 + HEATER_ALPHA * (T1 - HEATER_T0)
+    return 2.0 * pwm * P_MAX / (b + (b * b + 4.0 * a * pwm * P_MAX) ** 0.5)   # also for numpy arrays
+
+
 def natural_loss(T1):
     """Loss from the block near the thermistor to air (natural convection + radiation), without k_loss."""
     T1_K = T1 + 273.15
@@ -568,7 +590,7 @@ class KLossLearner:
             self._start_print(now, T1_real)
             return
         dT2 = steady_T2_rise(T1_real, fan)
-        self.p_E_in += pwm * P_MAX * dt
+        self.p_E_in += heater_power_steady(pwm, T1_real) * dt
         self.p_E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt
         self.p_E_T2 += HA2 * dT2 * dt
         if fan_conductance(fan) > 0:       # fan on: scaled by k_fil (learned)
@@ -602,7 +624,7 @@ class KLossLearner:
             self._start(now, T1_real, ok)
             return self.k
         dT2 = steady_T2_rise(T1_real, fan)
-        self.E_in += pwm * P_MAX * dt
+        self.E_in += heater_power_steady(pwm, T1_real) * dt
         self.E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt   # scaled by k
         self.E_T2 += HA2 * dT2 * dt                                        # not scaled
         self.T_min, self.T_max = min(self.T_min, T1_real), max(self.T_max, T1_real)
@@ -652,7 +674,7 @@ def model_step(T1, T2, T3, pwm, fan, extrude_v, dt, k_loss=1.0, max_substep=None
         Q_fan = k_eff * fan_conductance(fan) * (T2 - T_AMB)   # the part cooling fan cools the nozzle side
         dT2 = (Q_hb - Q_c2 - Q_fan) / (C2 * cap_scale(T2))
 
-        Q_heater = pwm * P_MAX
+        Q_heater = heater_power(pwm, T3)
         dT3 = (Q_heater - Q_heater_to_1) / (C3 * cap_scale(T3))
 
         return dT1, dT2, dT3
@@ -754,7 +776,7 @@ class EnergyMonitor:
         k_eff = k
         E0 = self._energy(T1_prev)
         fc = k_eff * fan_conductance(fan)
-        P = pwm * P_MAX * power_scale
+        P = heater_power(pwm, self.T3) * power_scale
         loss = (k_eff * natural_loss(T1_prev) + (HA2 + fc) * (self.T2 - T_AMB)
                 + kfil * K_FIL * max(ext, 0.0) * (T1_prev - T_AMB))
         G2 = 1 / R_HB + HA2 + fc

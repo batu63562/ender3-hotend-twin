@@ -1204,3 +1204,18 @@ Gerçek yazıcı: P_MAX 60, C1×1.3 C2×1.2 C3×1.4, R31×0.8, R_HB×1.2, HA1×1
   rampa anomalisinin sebebi olarak REDDETTİ (K59). α modele eklenmeden önce gerçek kalibrasyon loglarında fit
   edilen α'nın ~0 kaldığı gösterilmeli.
 Sonuç: v0.4 hazırlığı olarak α (varsayılan 0, v0.3 skorları birebir) + calibrate.py'de fit adayı.
+**Gerçek loglarda α (aynı gün, ek):** kalibrasyon_245_ilk + deney9 + deney14a/b, α sabit, DEFAULT_PARAMS fit (rms °C):
+α 0 / 0.0003 / 0.0006 / 0.001 / 0.002 → 2.20 / 1.77 / 1.50 / **1.41** / 2.02. En iyi α ≈ 0.001, ama: çelik/NiCr
+kartuşta fiziksel değil (~0.0001), deney 14 güç düşüşünü reddetti (K59), ve α'yla k 0.94 → 1.12–1.30, CRAD /3,
+C_ALL 0.93 → 0.76 kayıyor. Fit ısınma anomalisini α'ya yazıyor → α serbest fit EDİLMEMELİ (sentetikteki "α yoksa
+0'da kalır" sonucu anomalisiz yazıcı içindi). Ayırıcı test: aynı sıcaklıkta farklı güç (α gücü orantılı düşürür,
+anomali öyle ölçeklenmiyor), ama `max_power` G-code ile değişmiyor.
+
+## K66 — Isıtıcı direnç katsayısı α modelde, PROFİLDEN verilir (2026-10-22, MODEL YAPISI, VARSAYILAN DAVRANIŞ AYNI)
+Kullanıcı kararı (K65 sonrası, 1. yol): P = pwm·P_MAX/(1 + HEATER_ALPHA·(T3 − 25)), `profile.toml`
+`hotend.heater_alpha`, varsayılan 0 (çelik kartuş). calibrate.py fit ETMEZ. Seramik ısıtıcılı testçi için değer
+datasheet'ten ya da güç ölçümünden (INA226) gelir. Uygulama: `heater_power(pwm, T3)` model adımında ve eksik güçte
+(EnergyMonitor'un kendi T3'ü); T3'ün izlenmediği enerji dengelerinde (k öğrenici, arıza sınıflandırıcının güç serisi)
+kararlı T3 = T1 + P·R31 ile kapalı çözüm `heater_power_steady`. α = 0'da ikisi de pwm·P_MAX'i birebir döndürür.
+Rapor araçları (gcode_plan, closed_loop, session_history) watt'ı hâlâ pwm·P_MAX ile gösterir (yalnız gösterim; α > 0
+bir yazıcı gelince güncellenecek).

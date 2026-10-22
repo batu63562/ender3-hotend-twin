@@ -169,6 +169,9 @@ Progress (2026-10-22, all on the Pi):
       heat-up for holds. **Closed as a limitation** ([K60]; README *Limitations*): transients only, no effect on
       alarms or learning. A phenomenological transient-loss term (β·|dT/dt|, zero in holds) was tried and
       rejected ([K61]); the root cause needs a second sensor (heat break / heatsink).
+- [ ] Yellow (sub-threshold) advisory level: rule frozen and pre-registered, judged by replay on new PETG prints
+      (≥ 20 print hours: at most 0.1 false yellow per print hour and at least half of the reported sub-threshold
+      defects flagged); never pauses, leaves the alarms unchanged ([K62]).
 
 Carried over from v0.2: a few days of unattended running (ongoing on the Pi). The demo clip of v0.1 is done.
 

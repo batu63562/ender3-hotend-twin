@@ -376,10 +376,11 @@ since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it
   weakest phase (September core set RMSE 6.4 °C, model too warm). A heater power that falls when hot was ruled
   out. This affects neither the alarms (missing power is evaluated only near the print target) nor the learning of
   `k`. The ~0.5–1 s heater-to-thermistor lag is not modelled either (adding it hurt cool-down).
-  **Kept as a limitation in v0.3** (`KARARLAR.md` [K59], [K60]): seen through the model, the hotend loses about 5 %
-  more heat while its temperature changes than while it holds, in both directions. Re-calibrating the numbers
-  cannot fix it (any fit trades heat-up against holds), and the structures tried (a heat-break node, radiation
-  from the cartridge, sensor lag) failed the acceptance gate. Where it matters: the temperature residual drifts
+  **Kept as a limitation in v0.3** (`KARARLAR.md` [K59]–[K61]): during heat-up and cool-down the model gets the
+  timing wrong — it runs ahead of the real temperature on the ramp and lags behind after arrival, the signature of
+  a delay or a second heat store that the three-node model does not have. Re-calibrating the numbers cannot fix it
+  (any fit trades heat-up against holds), and the structures tried (a heat-break node, radiation from the
+  cartridge, sensor lag, a phenomenological rate-dependent loss) failed the acceptance gate. Where it matters: the temperature residual drifts
   2–4 °C during heat-up and cool-down (display and scores only), and the plan's heat-up time is off by ~6 s on
   average. Where it does not: missing power, alarms, pause and the learning of `k` / `k_fil` (all evaluated only
   when the temperature is steady), and the plan's power while printing (bias +0.08 W). Finding the mechanism

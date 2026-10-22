@@ -167,8 +167,8 @@ Progress (2026-10-22, all on the Pi):
 - [x] Structural candidates + the new part-fan curve through the gate ([K59]): none passed. Heat lost from the
       cartridge needed an implausibly hot cartridge and hurt fan-cooled printing; a full re-calibration traded
       heat-up for holds. **Closed as a limitation** ([K60]; README *Limitations*): transients only, no effect on
-      alarms or learning. Open lead for later: a phenomenological transient-loss term (β·|dT/dt|, zero in holds)
-      through the gate, labelled as such; the root cause needs a second sensor (heat break / heatsink).
+      alarms or learning. A phenomenological transient-loss term (β·|dT/dt|, zero in holds) was tried and
+      rejected ([K61]); the root cause needs a second sensor (heat break / heatsink).
 
 Carried over from v0.2: a few days of unattended running (ongoing on the Pi), and the demo clip of v0.1.
 

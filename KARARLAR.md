@@ -1022,7 +1022,7 @@ LinkedIn kod beklemez.
    ("test on my printer": yazıcı, hotend, fan, Klipper sürümü). Başka süreç belgesi yok (sadelik).
 8. GitHub: açıklama, topics, social preview, Issues açık; görünürlük → public (kullanıcı).
 
-## K58 — v0.3 madde 1: fan eğrisi + yapı (S3d) kapı denemesi — hiçbiri geçmedi (2026-10-22 gece, ANALİZ, MODEL DEĞİŞMEDİ)
+## K59 — v0.3 madde 1: fan eğrisi + yapı (S3d) kapı denemesi — hiçbiri geçmedi (2026-10-22 gece, ANALİZ, MODEL DEĞİŞMEDİ)
 **Fan eğrisi, kalorimetri:** deney15 + kalibrasyon baskısının 28 kararlı tutması (son 90 s ısıtıcı gücü = kayıp, dinamik
 yok), log başına k: bugünkü eğri 0.66 W rms (fan 0'da +1.2 W fazla, %100'de −0.9 W eksik güç bekliyor) → ortak fit
 HA2_FAN 0.0395, F0 0.195, EXP 0.448: 0.27 W (EXP 0.508 sabit: 0.0402 / 0.183, 0.29 W). Fan %15'te ölçülen +1 W'ı hiçbir

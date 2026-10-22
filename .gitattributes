@@ -1,3 +1,6 @@
 # Files executed on the Raspberry Pi must keep LF line endings
 *.sh text eol=lf
 *.service text eol=lf
+
+# Generated G-code (yazici/*.py): keep it out of GitHub's language statistics and collapse it in diffs
+*.gcode linguist-generated

@@ -1006,6 +1006,18 @@ LinkedIn kod beklemez.
    `baseline_v0.3` birebir üretiliyor mu), `RELEASE_NOTES_v0.3.md`.
 6. Unity ve CAD: Unity reposu açılacak mı (ayrı karar); `Ender-3 Parts` CAD'inin kaynağı ve lisansı — glb viewer'ın
    içinde dağıtılıyor, bu yüzden yalnız kod açılsa bile geçerli.
+   **Tarama (22.10):** glb'de (`ender3dt 1.glb`) üç dış parça var. Satsana 5015 kanalı: eric-anastas, Printables
+   467942, **CC BY-NC 4.0** (ücretsiz viewer'da atıfla serbest; viewer ticari olursa kanal çıkar; Unity reposu
+   açılırsa bu glb GPL'e alınamaz, "3D varlıklar kendi lisanslarıyla" notu). Direct drive mount: asd913'ün
+   "Ender 3 direct drive mount for BMG extruder (Drivinator remix)" (Printables), **CC BY 4.0**; kullanıcı
+   değiştirdi → "modified" atfı yeterli. Radyal fan 50×15: genel şekil, risk düşük (kaynak belirsizse SolidWorks'te
+   basit gövdeyle değiştirilebilir). Ender 3 gövdesi: Creality açık kaynak yayını (repo GPL-3.0; CAD'i kapsadığı
+   doğrulanmadı, açılıştan önce Creality3DPrinting/Ender-3 LICENSE'a bakılacak). Git geçmişinde gizli bilgi yok
+   (madde 2: şifre/anahtar yok, commit'ler noreply; yalnız yerel IP 192.168.0.25 belgelerde, zararsız); takipte
+   eski log/state yok (madde 3). Atıf metni (README, release notları, viewer credits):
+   "3D model includes the Satsana 5015 Fan Duct for Ender 3 / CR-10 by eric-anastas (CC BY-NC 4.0) and a modified
+   Ender 3 direct drive mount for BMG extruder (Drivinator remix) by asd913 (CC BY 4.0), both from Printables.
+   Ender 3 frame from Creality's open-source release."
 7. Dış belgeler: README girişinde KARARLAR'ın Türkçe mühendislik defteri olduğu bir satır; issue şablonu
    ("test on my printer": yazıcı, hotend, fan, Klipper sürümü). Başka süreç belgesi yok (sadelik).
 8. GitHub: açıklama, topics, social preview, Issues açık; görünürlük → public (kullanıcı).

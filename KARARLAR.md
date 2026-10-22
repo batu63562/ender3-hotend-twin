@@ -1065,3 +1065,38 @@ etkisiz: eksik güç, GUC, duraklatma, k/k_fil, baskıda güç tahmini (bias +0.
 **Not (ayrı oturumda denenecek, kullanıcı):** fenomenolojik geçiş kaybı Q = β·|dT/dt| (tutmada sıfır → alarm ve
 öğrenme etkilenmez), kapıdan "bilinen sınırlamanın fenomenolojik modeli" etiketiyle; zayıf yanı fiziksel gerekçe
 (kapı 1). Kök neden için ikinci sensör (heat break / heatsink termistörü, Klipper `temperature_sensor`).
+
+## K61 — Fenomenolojik geçiş kaybı Q = β·|dT1/dt| kapıdan GEÇMEDİ (2026-10-22, ANALİZ, MODEL DEĞİŞMEDİ)
+K60 notunun denemesi. Aday, "bilinen sınırlamanın fenomenolojik modeli" etiketiyle: blok düğümünde ek kayıp β·|dT1/dt|
+(tutmada sıfır → eksik güç, GUC, KAYIP, k/k_fil öğrenmesi değişmez). Yalnız bellekte: `benchmark/structure_transition_loss.py`
+(evaluate'in her yeniden yüklemesinden sonra `model_step`'i yamalar; `BETA`, `BETA_DOWN`, `TR_TAU`, `HEATER_ONLY`).
+Fit: 5 kalibrasyon logu (kalibrasyon_245_ilk, deney9, 14a, 14b, 15), log k'ları SABİT (0.965 / 1.102 / 1.015 / 0.975 /
+0.987, K59 kuralı), betikler scratchpad `beta/` (fit.py, score.py, summ.py, drain.py).
+**1. Ham terim tutmada sıfır DEĞİL:** örtük çözümde (C1·dT1/dt = F − β|dT1/dt| → ısınırken C1+β, soğurken C1−β) PID'in
+aç-kapa dalgalanması model T1'i tutmada ort. 0.76 K/s (!) oynatıyor (ısınma ~3.6 K/s); |·| bunu doğrultup tutmada net
+kayıp yapıyor (β 0.1: Eylül 245 tutma 2.89 → 3.21, bias +1.72 → +2.35). Çözüm: hızı τ = 5 s alçak geçirenle süzmek
+(tutmada 0.12 K/s, ısınmada 3.57; oran ~30:1). Bundan sonrası τ = 5 s.
+**2. Kalibrasyon logları "iki yönde ek kayıp" demiyor:** simetrik β = 0.077 ± 0.049 J/K (60 s korelasyonla; ham terimde
+−0.01 ± 0.04), rms 3.328 → 3.313 °C (%0.5). İki yön serbest: β_up −0.30 ± 0.07 (ısınırken KAZANÇ), β_down +0.43 ± 0.06,
+rms 3.00 → bu "geçiş kaybı" değil, iki yönde de efektif C1'i ~0.3–0.4 J/K (%15–20) küçültmek = K59'daki kapasite ödünleşimi.
+Sabit (tutma/tüm log) k'larla model kalibrasyon loglarında ısınmada zaten YAVAŞ (up bias model − gerçek −0.3…−2.8), ayar
+setinde canlı (tutmadan öğrenilmiş) k ile HIZLI (−1.77, gerçek − model) → K60'taki %5, terimin değil k tanımının farkı.
+**3. Karne** (RMSE, parantezde bias = gerçek − model; alarm: anomali satırı / arıza / k_anom — tüm adaylarda AYNI):
+| aday (τ 5 s) | Eylül ısınma / varış / 245 / soğuma / TÜMÜ | ayar canlı ısınma / varış / 245 / soğuma / TÜMÜ | ayar14 TÜMÜ (ısınma / varış / soğuma) | alarm (ayar) |
+|---|---|---|---|---|
+| bugünkü | 2.32 / 1.79 / 2.89 / 6.44 / 3.53 | 3.80 / 4.63 / 4.03 / 4.71 / 3.32 | 3.01 (4.02 / 4.93 / 4.76) | 8481 / 26 / 2707 |
+| β 0.077 (fit) | 2.01 / 1.24 / 2.97 / 5.80 / 3.28 | 3.59 / 4.99 / 4.09 / 4.39 / 3.33 | 3.02 (3.82 / 5.34 / 4.41) | aynı |
+| β 0.15 | 2.25 / 1.55 / 3.08 / 5.19 / 3.09 | 3.55 / 5.40 / 4.15 / 4.16 / 3.35 | 3.04 (3.76 / 5.78 / 4.15) | aynı |
+| β_up −0.30 / β_down 0.43 | 6.03 / 5.97 / 3.08 / 2.95 / 2.98 | 5.48 / 4.27 / 4.00 / 4.16 / 3.30 | 2.93 (5.51 / 4.19 / 4.02) | aynı |
+(ham, τ 0: β 0.1 ayar TÜMÜ 3.39, ayar14 3.07.)
+**Neden geçmiyor:** ayarda ısınma ve soğuma iyileşiyor ama varış belirgin kötüleşiyor (ayar14 4.93 → 5.34, bias +2.42 →
++3.10): ayar setinde model rampada ÖNDE, varıştan sonra GERİDE (15.10'daki ayna imzası = gecikme izi); hızla orantılı
+kayıp eğrinin tamamını aşağı iter, şeklini düzeltemez. Tutmalar hafif kötü (245: +0.06…+0.12, varıştaki açığın 52 s'lik
+açık çevrim kuyruğu). Ayar TÜMÜ düz/kötü (3.32 → 3.33, ayar14 3.01 → 3.02) → kapı 2 yok; kapı 1 zaten zayıftı ve fit değeri
+istatistiksel olarak sıfırdan ayrılmıyor. Eylül'de iyi (3.53 → 3.28, 245 tutma +0.08 dışında her faz iyi) ama ayarda
+tekrar etmediği için tek başına yetmez. Asimetrik varyant K59'un elenen kapasite küçültmesi (ısınma 4.02 → 5.51).
+Kapı 3 (sınav) koşulmadı; 5 (etiketler, yapay yavaş arıza) gereksiz: terim GUC/öğrenme zincirine girmiyor, alarm
+sayıları tüm varyantlarda birebir aynı (yapı gereği report_v02 / slow_fault_test çıktısı da aynı olur).
+**Sonuç: RET.** Asimetri K60'taki gibi sınırlama olarak kalır. Ders: (a) |·| içeren her terim, dalgalanan bir girdide
+tutmada sıfır değildir (doğrultma) — süzmeden "tutmada sıfır" iddiası yapılmaz; (b) sorun kayıp miktarı değil zamanlama
+(rampada önde, varışta geride) → aday yapı bir gecikme/ikinci depo, yani ikinci sensör (K60).

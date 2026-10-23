@@ -1182,7 +1182,50 @@ attığı için bayat k'nın yarattığı sapma kendi düzeltmesini geciktiriyor
 (çorap, bakım) sonra hedefte birkaç dakika tutma yeterli; kuyruğa/README'ye pratik not. Model değişikliği önerilmiyor.
 Rapor (`report_v02`): ayar 58 log 33.5 baskı saati, sınav 61 log 36.6 saat; yanlış duraklatma 0.
 
-## K65 — Sentetik ikinci yazıcı: kalibrasyon farklı hotend'i buluyor, ısıtıcı direnci (α) ayrı terim ister (2026-10-22, ANALİZ, MODEL DEĞİŞMEDİ)
+## K65 — v0.4 madde 1: iki aşamalı kalibrasyon `calibrate.py --staged` (2026-10-22, ARAÇ, MODEL DEĞİŞMEDİ)
+Yeni bir hotend'in kalibrasyon baskısından tek komutla `calibration.json`: `py calibrate.py LOG --staged --write
+calibration_new.json`. K59 kuralı yapıya gömülü: (1) kararlı tutmalar (hedef + fan ≥ 140 s sabit, son 90 s ısıtıcı
+gücü = kayıp) → blok kaybı ölçeği (HA1, CRAD birlikte) + fan eğrisi (HA2_FAN, FAN_F0; üs sabit), dinamik yok;
+(2) bu kayıplar sabitken yörüngeden C_ALL, R31, R_HB, CAP_T_COEF (prior ±0.3). k = 1 sabit: kalibrasyon baskısı
+referans kayıp seviyesini TANIMLAR (öğrenilen k o günkü duruma göre okunur). Kontroller: fan-off tutma < 2 sıcaklık
+→ dur; fan-on < 2 seviye → fan eğrisi korunur. Adım 0.3 s (Klipper rapor aralığı): 1 s'de kartuş τ ≈ 2.5 s çözülmüyor,
+sanal baskıda R31 %28 sapıyordu; 0.3 s'de sanal baskı (245 ve 210 kalibrasyon G-code'u, `virtual_print.py`) bilinen
+değerleri BİREBİR geri veriyor (aşama 1 iki sıcaklıkta da tam).
+Ender'in gerçek kalibrasyon baskısı (`kalibrasyon_245_ilk`): 13 tutma, güç rms 0.73 → 0.24 W; blok kaybı ×0.941,
+HA2_FAN 0.0368, eşik 0.160 (K44/K59 ile tutarlı); T1 rms 2.29 → 1.96 °C; C_ALL 0.944, R31 ×1.45, R_HB ×1.11,
+CAP_T_COEF ×1.08. Canlıya ALINMADI: model değişikliği → kapı (v0.4 madde 2: kendi yazıcımızda sıfırdan kalibrasyonun
+sınaması; K59'daki ısınma ödünleşimi beklenir, k anlamı değişir → değerlendirme zincirli ya da yeni kalibrasyon
+baskısı sonrası loglarla).
+
+## K66 — v0.4 madde 2 ÖN KAYIT: taze kalibrasyonun sınanması (2026-10-22, sonuç görülmeden donduruldu)
+Soru: `calibrate.py --staged` ile kendi yazıcımızı sıfırdan kalibre etmek (taze kalibrasyon baskısı, 23.10) bugünkü
+elle oturtulmuş sayılardan iyi mi, ve araç kendini tekrarlıyor mu? Araç: `benchmark/calibration_check.py CAL.json`.
+**Değerlendirme kurgusu (adil k):** iki model de 14.10+ ayar loglarında (bakım sonrası, zaman sırası) ZİNCİRLE oynatılır,
+ikisi de k = 1 başlar ve k'yı kendisi öğrenir (yeni kalibrasyon k = 1'i tanımlar; eski modelin kayıtlı canlı k'sı yeni
+modelde anlamsız, K59). Eylül seti taze k = 1 ile. Sınav yalnız onaydan sonra.
+**GEÇER, hepsi sağlanırsa:**
+1. ayar14 zincir TÜMÜ en az 0.05 °C iyileşir;
+2. çekirdek: ayar14 zincir fanlı tutma (tutma245fan) RMSE en çok +0.10 °C kötüleşir;
+3. GUC olayları: ayar14 zincirde etiketsiz/yanlış GUC sayısı artmaz; `report_v02` (tüm arşiv, yeni sayılarla) etiketli
+   arıza yakalama 24/31'den az değil, yanlış duraklatma 0;
+4. `slow_fault_test` (ayar): dört senaryonun hiçbirinde yakalanan sayısı azalmaz;
+5. Eylül fazları: ısınma ve soğuma (K60 sınırlaması) RAPORLANIR, ölçüt değil; tutma fazları (245, fanlı, diğer)
+   açıklamasız +0.3 °C'den fazla kötüleşmez (Eylül eski donanım: fan/kanal 13.10'da değişti, fan farkı açıklama sayılır).
+**Tekrarlanabilirlik (ayrı rapor, geçme ölçütü değil, v0.4 için asıl bilgi):** taze kalibrasyon ile 21.10 kalibrasyonu
+(`kalibrasyon_245_ilk`, aynı araç) arasında her parametre farkı birleşik ±2 se içinde mi; blok kaybı ölçeği ve fan
+eşiği/genliği özellikle. İkisi arasındaki k farkı (o günlerin kayıp seviyesi) ayrıca yazılır.
+Geçmezse: kalibrasyon aracı yine v0.4'te yeni yazıcılar için kullanılır (Ender'in elle oturtulmuş sayıları yerinde
+kalır); geçerse kullanıcı onayıyla `calibration.json` değişir, Pi'nin k ve k_ref'i 1.0'a döndürülür (k'nin anlamı yeni
+kalibrasyon günü).
+**K66 araç kuru koşusu (22.10, ölçütler yazıldıktan SONRA; asıl sınama değil):** `calibration_check.py` 21.10
+kalibrasyonunun `--staged` sonucuyla: ayar14 zincir TÜMÜ 3.22 → 3.27 (soğuma −0.63, geçiş −0.82 iyi; ısınma +0.40,
+245 tutma +0.42 kötü; fanlı tutma 2.40 → 2.39), Eylül ısınma/varış çok kötü (K59 ödünleşimi), etiketli 24/31 → 22/31,
+yavaş arıza fan açılınca 3 W 9 → 7/21, 4 W 14 → 12/14, ortada 18 → 16/19 → K66'ya göre GEÇMEZDİ. Araç çalışıyor;
+`TWIN_CALIBRATION` ortam değişkeni (realtime_websocket, ayarlanmazsa `calibration.json`) değerlendirme araçlarına başka
+kalibrasyon dosyası verir, `baseline_snapshot --check v0.3` IDENTICAL. Beklenti: taze kalibrasyonun da büyük olasılıkla
+aynı ödünleşimle geçmemesi; asıl kazanç tekrarlanabilirlik ölçüsü (v0.4'te yeni yazıcılar için aracın güvenilirliği).
+
+## K67 — Sentetik ikinci yazıcı: kalibrasyon farklı hotend'i buluyor, ısıtıcı direnci (α) ayrı terim ister (2026-10-22, ANALİZ, MODEL DEĞİŞMEDİ)
 Soru (Reddit, v0.3 paylaşımı): seramik ısıtıcının direnci sıcaklıkla değişir (PLA/ASA arası watt farkı), CPAP gibi
 çok farklı fan. v0.4 için diğer yazıcı yokken sanal deney (scratchpad `synth/synth.py`): `yazici/calibration_245.gcode`
 sanal yazıcıda (Klipper PID, kazançlar 40/P_MAX ile ölçekli) "gerçek" parametrelerle koşuldu, `calibrate.py`
@@ -1211,14 +1254,14 @@ C_ALL 0.93 → 0.76 kayıyor. Fit ısınma anomalisini α'ya yazıyor → α ser
 0'da kalır" sonucu anomalisiz yazıcı içindi). Ayırıcı test: aynı sıcaklıkta farklı güç (α gücü orantılı düşürür,
 anomali öyle ölçeklenmiyor), ama `max_power` G-code ile değişmiyor.
 
-## K66 — Isıtıcı direnç katsayısı α: seramik ısıtıcıda test edilene kadar EKLENMEDİ (2026-10-22, kullanıcı kararı)
+## K68 — Isıtıcı direnç katsayısı α: seramik ısıtıcıda test edilene kadar EKLENMEDİ (2026-10-22, kullanıcı kararı)
 Denendi ve geri alındı: P = pwm·P_MAX/(1 + α·(T3 − 25)), `profile.toml` `hotend.heater_alpha` (varsayılan 0), model
 adımı + eksik güç (T3 ile), k öğrenici + sınıflandırıcı (kararlı T3 = T1 + P·R31 kapalı çözümü). α = 0'da
 `baseline_snapshot --check v0.3` IDENTICAL; α = 0.001 Ender logunda RMSE 4.5 → 35 °C (bağlantı çalışıyor).
 Karar: α > 0 yolu gerçek bir seramik ısıtıcıda doğrulanmadan modele ve profile girmez. Kod commit b26eab4'te (geri
 alındı, revert ile); seramik ısıtıcılı testçi gelince oradan alınıp o yazıcının loglarıyla kapıdan geçirilir.
 
-## K67 — Prusa termal modeli (MK3/S firmware 3.12–3.13) kaynak koddan incelendi (2026-10-23, ANALİZ, MODEL DEĞİŞMEDİ)
+## K69 — Prusa termal modeli (MK3/S firmware 3.12–3.13) kaynak koddan incelendi (2026-10-23, ANALİZ, MODEL DEĞİŞMEDİ)
 Kaynak: Prusa-Firmware v3.13.0 (`Firmware/temperature.cpp`, `temp_model.h`, `temp_model/*.h`, `variants/*`); blog
 3.12-BETA yazısı (Reddit'te bir kullanıcı sordu). Lisans GPLv3 (bizimle uyumlu).
 - **Model:** tek düğüm, 0.27 s'de bir, ölçülen T'den bir adım ileri: P = P_nom·pwm·(U·T + V), kayıp (T − Ta)/R[fan]
@@ -1233,7 +1276,7 @@ Kaynak: Prusa-Firmware v3.13.0 (`Firmware/temperature.cpp`, `temp_model.h`, `tem
   fan %100'den 4 seviye (15/11/7/3) → R[i], arası interpolasyon. Her parametre tek tek altın oran araması.
   P, U, V, gecikme, filtre, eşikler FİT EDİLMEZ: hotend tipine göre sabit (Revo ayrı firmware).
 - **Isıtıcı sıcaklık katsayısı:** V6 (çelik kartuş) U = 0; Revo ve Revo HF 60 W (seramik) U = −0.0014, V = 1.05 →
-  250 °C'de güç ~%70. K65'teki seramik tahminiyle (α 0.001–0.002) uyumlu; K66 yaklaşımı (fit etme, hotend tipinden
+  250 °C'de güç ~%70. K67'teki seramik tahminiyle (α 0.001–0.002) uyumlu; K68 yaklaşımı (fit etme, hotend tipinden
   ver) ile aynı. Kural 7 gereği modele eklenmez; seramikli testçi için başlangıç değeri.
 - **Bizim için ipuçları:** (1) sensör gecikmesi V6'da 2.1 s taşıma gecikmesi olarak modelleniyor; bizim ısınma/soğuma
   asimetrisi (K59–K61, ~0.5–1 s denendi, soğumayı bozdu) için ayrı bir aday — model değişikliği, kapıdan geçmeli.

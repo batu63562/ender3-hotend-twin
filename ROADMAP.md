@@ -194,13 +194,19 @@ calibration print only. Testers are recruited after the open release at the end 
 explained physically.
 
 Preparation that needs no second printer (2026-10-22, partly from the first community feedback):
+- [x] Two-stage calibration `calibrate.py --staged`: steady holds give the loss and fan curve, then the trajectory
+      the capacities and resistances; exact on virtual prints ([K65]).
+- [x] Tester guide `TESTING.md` and profile guidance; `benchmark/calibration_check.py` scores a calibration file.
+- [ ] Fresh self-calibration of this printer, judged by pre-registered criteria ([K66]). Planned 23.10; waits for the
+      replacement nozzle. Open: whether [K66]'s comparison (logs from 14.10 on, old nozzle) still applies; decide before
+      printing, not after.
 - [x] Synthetic second printer: the calibration print run on a virtual printer with a different hotend (60 W,
       CPAP-like fan, other capacities and resistances). Calibration brings the steady missing power from +1…+9 W
-      to ±0.03 W; a heater whose power drops when hot (ceramic) is not covered by the model ([K65]).
+      to ±0.03 W; a heater whose power drops when hot (ceramic) is not covered by the model ([K67]).
 - [x] Tester issue template asks for heater type, sock, fan type (CPAP) and filament sensor.
 - [ ] Heater resistance coefficient α (P = pwm·P_MAX/(1 + α·(T3 − 25 °C))): tried and reverted, only after it is
       checked on a printer with a ceramic heater. Not fitted by `calibrate.py`: on the Ender's real calibration logs
-      a fit takes the heat-up anomaly for α ≈ 0.001 ([K65], [K66]). A test that separates the two is also open.
+      a fit takes the heat-up anomaly for α ≈ 0.001 ([K67], [K68]). A test that separates the two is also open.
 - [ ] Optional temperature × fan grid in `calibration_print.py` (fan steps at every hold temperature, as suggested
       by a tester); longer, so an option.
 - [ ] Heat-into-the-print test print: a generated tower (no slicer) whose sections change one thing each (flow,

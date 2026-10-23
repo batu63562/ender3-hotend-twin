@@ -1217,3 +1217,27 @@ adımı + eksik güç (T3 ile), k öğrenici + sınıflandırıcı (kararlı T3 
 `baseline_snapshot --check v0.3` IDENTICAL; α = 0.001 Ender logunda RMSE 4.5 → 35 °C (bağlantı çalışıyor).
 Karar: α > 0 yolu gerçek bir seramik ısıtıcıda doğrulanmadan modele ve profile girmez. Kod commit b26eab4'te (geri
 alındı, revert ile); seramik ısıtıcılı testçi gelince oradan alınıp o yazıcının loglarıyla kapıdan geçirilir.
+
+## K67 — Prusa termal modeli (MK3/S firmware 3.12–3.13) kaynak koddan incelendi (2026-10-23, ANALİZ, MODEL DEĞİŞMEDİ)
+Kaynak: Prusa-Firmware v3.13.0 (`Firmware/temperature.cpp`, `temp_model.h`, `temp_model/*.h`, `variants/*`); blog
+3.12-BETA yazısı (Reddit'te bir kullanıcı sordu). Lisans GPLv3 (bizimle uyumlu).
+- **Model:** tek düğüm, 0.27 s'de bir, ölçülen T'den bir adım ileri: P = P_nom·pwm·(U·T + V), kayıp (T − Ta)/R[fan]
+  (16 seviyeli tablo), dT = (P − kayıp)·Δt/C; tahmin taşıma gecikmesi (V6 2.1 s, Revo 0.27 s) + IIR filtreden geçer;
+  hata = gerçek dT − beklenen dT, IIR (fE 0.05 → τ ≈ 5 s). Ekstrüzyon terimi YOK, öğrenme YOK. Ortam = anakart
+  sensörü + Ta_corr (−7 K).
+- **Bu da bir güç dengesi:** hata K/s, ×C = anlık eksik güç. Eşikler: V6 uyarı 1.2 K/s × 12.1 J/K ≈ 15 W, hata
+  1.74 ≈ 21 W (ısıtmayı keser); Revo 0.85 / 1.23 K/s × 8.8 ≈ 7.5 / 11 W. Bizde 2.5 W, 20 s ortalama + 5 s onay.
+  → Aynı büyüklük, ~6 kat kaba eşik, ~4 kat kısa süre: termistör/kablo, cereyan, topak gibi büyük ani olaylar;
+  2–8 W'lık akış arızaları eşiğin altında.
+- **Kalibrasyon (M310 A, ~15 dk):** <50 °C'den 230 °C'ye ısınırken 60 s → C; 230 tutma 60 s → R0 (2 tur);
+  fan %100'den 4 seviye (15/11/7/3) → R[i], arası interpolasyon. Her parametre tek tek altın oran araması.
+  P, U, V, gecikme, filtre, eşikler FİT EDİLMEZ: hotend tipine göre sabit (Revo ayrı firmware).
+- **Isıtıcı sıcaklık katsayısı:** V6 (çelik kartuş) U = 0; Revo ve Revo HF 60 W (seramik) U = −0.0014, V = 1.05 →
+  250 °C'de güç ~%70. K65'teki seramik tahminiyle (α 0.001–0.002) uyumlu; K66 yaklaşımı (fit etme, hotend tipinden
+  ver) ile aynı. Kural 7 gereği modele eklenmez; seramikli testçi için başlangıç değeri.
+- **Bizim için ipuçları:** (1) sensör gecikmesi V6'da 2.1 s taşıma gecikmesi olarak modelleniyor; bizim ısınma/soğuma
+  asimetrisi (K59–K61, ~0.5–1 s denendi, soğumayı bozdu) için ayrı bir aday — model değişikliği, kapıdan geçmeli.
+  (2) Ortam vekili: Klipper'da Pi/MCU sıcaklığı Ta_corr ile denenebilir (README sınırlaması "oda sabit").
+- Reddit cevabındaki "Prusa sıcaklığa, biz güce bakıyoruz" ayrımı eksikti; doğrusu: ikisi de aynı enerji dengesi,
+  Prusa kaba/hızlı (güvenlik), biz ince/yavaş (baskı arızası) + öğrenme + ekstrüzyon terimi. Buddy firmware
+  (MK4/Core One) incelenmedi.

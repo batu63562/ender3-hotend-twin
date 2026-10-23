@@ -25,10 +25,10 @@ hem ikize en çok şeyi öğretenler.
 |---|---|---|---|---|
 | 1 | ~~İlk katmanı geniş parça + Pause/Resume~~ (21.10 BİTTİ: park doğrulandı, eksen kayması yakalandı, K47) | PETG | ne olursa | İlk katman ~2. dk sarı adayı (K37); park X0 Y220 ilk kez gerçek duraklatmada (K32) |
 | 2 | ~~Sıcaklık kulesi 250 → 230~~ (21.10 BİTTİ) (Orca: Kalibrasyon → Sıcaklık) | PETG | ~1 sa | Baskı içinde hedef değişimi: ısınma/varış, k_fil'in sıcaklıkla değişimi |
-| 3 | **TPU sıcaklık kulesi 235 → 215** | TPU | ~1 sa | **230 °C altında baskı** = PLA'daki durumun elindeki filamentle karşılığı (K42); log sonra yeni kodla yeniden oynatılır |
+| 3 | ~~TPU sıcaklık kulesi 235 → 215~~ (22.10 BİTTİ: 240 → 210, K64) | TPU | ~1 sa | **230 °C altında baskı** = PLA'daki durumun elindeki filamentle karşılığı (K42); log sonra yeni kodla yeniden oynatılır |
 | 4 | ~~Aynı parça iki kez: fan %40 ve %60~~ (21.10 BİTTİ: benchy, K48) | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |
 | 5 | **Uzun baskı (> 2 sa)**, gece de olur | PETG | > 2 sa | k ve k_fil'in uzun süre kararlılığı; aktif duraklatmanın gözetimsiz saati. 21.10 sol-üst (2 sa 3 dk) kusurlu bitti → temiz biri hâlâ gerekli |
-| 6 | **Çıkıntı / köprü testi** (Orca: Kalibrasyon) — **23.10 ilk iş** | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi ya da saati not et (sarkan köprü, kopan çıkıntı) |
+| 6 | ~~Çıkıntı / köprü testi~~ (22.10 BİTTİ: köprü testi ×3, K62) | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi ya da saati not et (sarkan köprü, kopan çıkıntı) |
 | 7 | **Bir TPU baskı daha** (normal sıcaklıkta) | TPU | ne olursa | k_fil çapası 1.33 TPU'da tutuyor mu |
 | 8+ | Ne istersen | PETG/TPU | — | Gözetimsiz çalışma verisi, yeni etiketler |
 
@@ -63,6 +63,13 @@ A1–A7 bitince gölge mod 14 baskıya çıkar → aktif duraklatma kararı içi
 
 PLA / ABS ile gerçek baskı yok: baskı içi doğrulama (k_fil çapası, %100 fanla baskı, PLA'da tespit hassasiyeti)
 v0.4 test kullanıcılarına kalır (K42).
+
+## Etiket bekleyenler (log gelince)
+
+- 23.10: TPU retraction testi, her katta ipliklenme (nemli TPU; kurutulacak) → `-` beklenir (ısıl arıza değil).
+- 23.10 12:00–13:00: TPU → PETG geçişinde nozzle tıkandı, elle açıldı (baskı yok) → `-`. Nozzle takılırken heatsink
+  vidaları gevşemiş, sıkıldı (donanım aynı). İkiz durumu önceden alınan yedekten geri yüklendi
+  (`durum_yedek/twin_state_kalibrasyon_oncesi.json`).
 
 ## Bitenler
 

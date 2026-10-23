@@ -285,7 +285,9 @@ A model change is accepted only through an **acceptance gate** (all of):
    hold, other holds, cool-down) — a total score must not hide a phase getting worse;
 4. no degradation on the test set;
 5. labelled faults detected as before **and** the synthetic slow-fault test not worse;
-6. one change at a time.
+6. one change at a time;
+7. a change that only matters on other hardware (e.g. a ceramic heater, a different fan) waits for logs from
+   such a printer: it is not added on synthetic data alone.
 
 Many intuitively right changes failed this gate (see `KARARLAR.md`), which is the point of having it.
 

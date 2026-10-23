@@ -1224,3 +1224,63 @@ yavaş arıza fan açılınca 3 W 9 → 7/21, 4 W 14 → 12/14, ortada 18 → 16
 `TWIN_CALIBRATION` ortam değişkeni (realtime_websocket, ayarlanmazsa `calibration.json`) değerlendirme araçlarına başka
 kalibrasyon dosyası verir, `baseline_snapshot --check v0.3` IDENTICAL. Beklenti: taze kalibrasyonun da büyük olasılıkla
 aynı ödünleşimle geçmemesi; asıl kazanç tekrarlanabilirlik ölçüsü (v0.4'te yeni yazıcılar için aracın güvenilirliği).
+
+## K67 — Sentetik ikinci yazıcı: kalibrasyon farklı hotend'i buluyor, ısıtıcı direnci (α) ayrı terim ister (2026-10-22, ANALİZ, MODEL DEĞİŞMEDİ)
+Soru (Reddit, v0.3 paylaşımı): seramik ısıtıcının direnci sıcaklıkla değişir (PLA/ASA arası watt farkı), CPAP gibi
+çok farklı fan. v0.4 için diğer yazıcı yokken sanal deney (scratchpad `synth/synth.py`): `yazici/calibration_245.gcode`
+sanal yazıcıda (Klipper PID, kazançlar 40/P_MAX ile ölçekli) "gerçek" parametrelerle koşuldu, `calibrate.py`
+(DEFAULT_PARAMS + FAN_F0, FAN_EXP) Ender değerleri + kullanıcının profile yazacağı P_MAX'ten başladı.
+Gerçek yazıcı: P_MAX 60, C1×1.3 C2×1.2 C3×1.4, R31×0.8, R_HB×1.2, HA1×1.15, HA2_FAN×2.5, FAN_F0 0.05, FAN_EXP 0.8
+(CPAP benzeri). Isıtıcı: P = pwm·P_MAX/(1 + α·(T3 − 25)).
+- Ender kendi verisinden: rms 0.19 °C, kararlı eksik güç ±0.01 W. R31 3 → 1.7 kayıyor (0.3 → 1 s yeniden örnekleme;
+  kararlı duruma etkisiz, araç notu).
+- α = 0: kalibrasyon öncesi kararlı eksik güç +1…+9 W (fanla büyür, yanlış alarm), sonrası ±0.03 W; fan eğrisi
+  bulundu (F0 0.052, EXP 0.79). Kalibrasyon farklı hotend + fanı karşılıyor (sanal veride).
+- α modelde yokken: α 0.0005 → kararlı hata ≤ 0.6 W (yutuluyor); α 0.002 (seramik mertebesi) → fit rms 7.9 °C,
+  k 1.30 sınırda, eksik güç −8…+29 W: alarmlar kullanılamaz.
+- α sabit tutularak fit (rms °C, α_fit 0 / 0.0005 / 0.001 / 0.002 / 0.003):
+  gerçek 0: 0.27 / 0.65 / 0.97 / 1.50 / 2.30; gerçek 0.001: 1.11 / 0.58 / 0.25 / 0.39 / 0.60;
+  gerçek 0.002: 2.32 / 1.14 / 0.65 / 0.23 / 0.23. → küçük α net, α yoksa 0'da kalıyor (uydurmuyor); büyük α'nın
+  varlığı net, büyüklüğü 0.002–0.003 arası belirsiz (kapasite/kayıp telafi ediyor). Ayırt eden bilgi soğuma
+  (ısıtıcısız) + tam güç rampası karşılaştırması.
+- Uyarı: Ender'in gerçek ısınma anomalisi (K59–K61, 230 °C'de 6–8 W) α'yı taklit edebilir; deney 14 güç düşüşünü
+  rampa anomalisinin sebebi olarak REDDETTİ (K59). α modele eklenmeden önce gerçek kalibrasyon loglarında fit
+  edilen α'nın ~0 kaldığı gösterilmeli.
+Sonuç: v0.4 hazırlığı olarak α (varsayılan 0, v0.3 skorları birebir) + calibrate.py'de fit adayı.
+**Gerçek loglarda α (aynı gün, ek):** kalibrasyon_245_ilk + deney9 + deney14a/b, α sabit, DEFAULT_PARAMS fit (rms °C):
+α 0 / 0.0003 / 0.0006 / 0.001 / 0.002 → 2.20 / 1.77 / 1.50 / **1.41** / 2.02. En iyi α ≈ 0.001, ama: çelik/NiCr
+kartuşta fiziksel değil (~0.0001), deney 14 güç düşüşünü reddetti (K59), ve α'yla k 0.94 → 1.12–1.30, CRAD /3,
+C_ALL 0.93 → 0.76 kayıyor. Fit ısınma anomalisini α'ya yazıyor → α serbest fit EDİLMEMELİ (sentetikteki "α yoksa
+0'da kalır" sonucu anomalisiz yazıcı içindi). Ayırıcı test: aynı sıcaklıkta farklı güç (α gücü orantılı düşürür,
+anomali öyle ölçeklenmiyor), ama `max_power` G-code ile değişmiyor.
+
+## K68 — Isıtıcı direnç katsayısı α: seramik ısıtıcıda test edilene kadar EKLENMEDİ (2026-10-22, kullanıcı kararı)
+Denendi ve geri alındı: P = pwm·P_MAX/(1 + α·(T3 − 25)), `profile.toml` `hotend.heater_alpha` (varsayılan 0), model
+adımı + eksik güç (T3 ile), k öğrenici + sınıflandırıcı (kararlı T3 = T1 + P·R31 kapalı çözümü). α = 0'da
+`baseline_snapshot --check v0.3` IDENTICAL; α = 0.001 Ender logunda RMSE 4.5 → 35 °C (bağlantı çalışıyor).
+Karar: α > 0 yolu gerçek bir seramik ısıtıcıda doğrulanmadan modele ve profile girmez. Kod commit b26eab4'te (geri
+alındı, revert ile); seramik ısıtıcılı testçi gelince oradan alınıp o yazıcının loglarıyla kapıdan geçirilir.
+
+## K69 — Prusa termal modeli (MK3/S firmware 3.12–3.13) kaynak koddan incelendi (2026-10-23, ANALİZ, MODEL DEĞİŞMEDİ)
+Kaynak: Prusa-Firmware v3.13.0 (`Firmware/temperature.cpp`, `temp_model.h`, `temp_model/*.h`, `variants/*`); blog
+3.12-BETA yazısı (Reddit'te bir kullanıcı sordu). Lisans GPLv3 (bizimle uyumlu).
+- **Model:** tek düğüm, 0.27 s'de bir, ölçülen T'den bir adım ileri: P = P_nom·pwm·(U·T + V), kayıp (T − Ta)/R[fan]
+  (16 seviyeli tablo), dT = (P − kayıp)·Δt/C; tahmin taşıma gecikmesi (V6 2.1 s, Revo 0.27 s) + IIR filtreden geçer;
+  hata = gerçek dT − beklenen dT, IIR (fE 0.05 → τ ≈ 5 s). Ekstrüzyon terimi YOK, öğrenme YOK. Ortam = anakart
+  sensörü + Ta_corr (−7 K).
+- **Bu da bir güç dengesi:** hata K/s, ×C = anlık eksik güç. Eşikler: V6 uyarı 1.2 K/s × 12.1 J/K ≈ 15 W, hata
+  1.74 ≈ 21 W (ısıtmayı keser); Revo 0.85 / 1.23 K/s × 8.8 ≈ 7.5 / 11 W. Bizde 2.5 W, 20 s ortalama + 5 s onay.
+  → Aynı büyüklük, ~6 kat kaba eşik, ~4 kat kısa süre: termistör/kablo, cereyan, topak gibi büyük ani olaylar;
+  2–8 W'lık akış arızaları eşiğin altında.
+- **Kalibrasyon (M310 A, ~15 dk):** <50 °C'den 230 °C'ye ısınırken 60 s → C; 230 tutma 60 s → R0 (2 tur);
+  fan %100'den 4 seviye (15/11/7/3) → R[i], arası interpolasyon. Her parametre tek tek altın oran araması.
+  P, U, V, gecikme, filtre, eşikler FİT EDİLMEZ: hotend tipine göre sabit (Revo ayrı firmware).
+- **Isıtıcı sıcaklık katsayısı:** V6 (çelik kartuş) U = 0; Revo ve Revo HF 60 W (seramik) U = −0.0014, V = 1.05 →
+  250 °C'de güç ~%70. K67'teki seramik tahminiyle (α 0.001–0.002) uyumlu; K68 yaklaşımı (fit etme, hotend tipinden
+  ver) ile aynı. Kural 7 gereği modele eklenmez; seramikli testçi için başlangıç değeri.
+- **Bizim için ipuçları:** (1) sensör gecikmesi V6'da 2.1 s taşıma gecikmesi olarak modelleniyor; bizim ısınma/soğuma
+  asimetrisi (K59–K61, ~0.5–1 s denendi, soğumayı bozdu) için ayrı bir aday — model değişikliği, kapıdan geçmeli.
+  (2) Ortam vekili: Klipper'da Pi/MCU sıcaklığı Ta_corr ile denenebilir (README sınırlaması "oda sabit").
+- Reddit cevabındaki "Prusa sıcaklığa, biz güce bakıyoruz" ayrımı eksikti; doğrusu: ikisi de aynı enerji dengesi,
+  Prusa kaba/hızlı (güvenlik), biz ince/yavaş (baskı arızası) + öğrenme + ekstrüzyon terimi. Buddy firmware
+  (MK4/Core One) incelenmedi.

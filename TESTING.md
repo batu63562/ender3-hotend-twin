@@ -12,8 +12,9 @@ we can talk there.
 
 - Klipper + Moonraker on a Raspberry Pi (or similar Linux host) with **Python 3.11 or newer**
   (Raspberry Pi OS / Debian 12 "Bookworm" has it: `python3 --version`).
-- In `printer.cfg`: the hotend heater is `[extruder]`, the part-cooling fan is `[fan]` (not `fan_generic`), the bed
-  heater is `[heater_bed]`. Other setups are not supported yet; tell us in the issue.
+- In `printer.cfg`: one hotend and its part-cooling fan. The stock names are `[extruder]`, `[fan]` and `[heater_bed]`;
+  if yours differ (a `[fan_generic part_fan]`, no heated bed), set them in `config.toml` under `[klipper]` (see
+  `config.example.toml`). Multi-tool printers (IDEX, tool changers) are not supported yet; tell us in the issue.
 - A thermistor that reads steadily (no jumps of more than ~1 °C at a constant temperature).
 - About 200 MB free on the Pi for logs.
 

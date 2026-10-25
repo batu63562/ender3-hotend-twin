@@ -1320,3 +1320,18 @@ değil (kural 7'nin güncel hali).
   std 0.07 °C (ayarlı PID ile aynı), pwm 0.411 = 0.619 × 40/60 (aynı watt); 2.85 mm cfg: akış 10.79 / 4.09 mm³/s =
   2.64 (beklenen 2.65), tutma std 0.19 °C. Sahte Moonraker: 2.85 → "filaman capi ... x2.65", 1.75 → sessiz, alan yok →
   uyarı.
+
+## K72 — Klipper nesne adları config.toml'da (fan_generic parça fanı, tablasız yazıcı) (2026-10-25, kullanıcı kararı, UYUMLULUK)
+İkiz yalnız `[extruder]`, `[fan]`, `[heater_bed]` adlarını dinliyordu; parça fanı `[fan_generic …]` olan ya da tablası
+olmayan yazıcılar desteklenmiyordu (TESTING.md'de açık engel). Yeni fizik değil (kural 7 kapsamı dışı).
+- `config.toml` `[klipper]` `hotend` / `part_fan` / `bed` (varsayılan stok adlar; `bed = ""` = tabla yok). Abonelik,
+  ilk durum, bildirimler, bağlanırken filaman çapı (`configfile.settings.<hotend>`) bu adları kullanır. Klipper'da
+  olmayan bir ad bağlanınca açıkça yazılır (hotend: "ikiz sicaklik alamaz", fan/tabla: "0 kabul ediliyor").
+- Plan: `Machine(cfg, hotend, bed, part_fan)` aynı adlarla (canlı ikiz geçirir). `[fan_generic X]` parça fanı
+  `SET_FAN_SPEED FAN=X SPEED=` ile okunur (M106 de okunmaya devam eder: çoğu yapılandırma M106'yı buna bağlar).
+  Tabla yoksa G-code'daki M140/M190 yok sayılır (yoksa plan bir tabla simüle edip besleme düşümü ekliyordu).
+- Çok takımlı yazıcılar (IDEX, takım değiştirici) hâlâ desteklenmiyor (TESTING.md).
+- Doğrulama: `baseline_snapshot --check v0.3` IDENTICAL; plan varsayılan adlarla değişiklik öncesiyle byte byte aynı;
+  `[fan_generic part_fan]` + `SET_FAN_SPEED … 0.50196` → fan 0.502, ısıtıcı farkı < 1e-9 W (M106 S128 ile aynı); ad
+  verilmezse fan komutu yok sayılır; tablasız: bed_pwm 0. Sahte Moonraker (deney10): stok adlar ve fan_generic +
+  tablasız config aynı 2 duraklatma kararı, fan %25 okunuyor; config'te ad yoksa iki uyarı, çökme yok.

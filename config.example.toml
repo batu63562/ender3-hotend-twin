@@ -16,3 +16,10 @@ printer_host = "192.168.1.50"
 # The twin's folder on the Raspberry Pi as this PC sees it (the Samba share of pi/install.sh); used by
 # sync_pi_logs.py to copy finished logs here. Forward slashes work on Windows too.
 # pi_share = "//192.168.1.60/ender3-twin"
+
+# Klipper object names, only if yours differ from the stock ones (see printer.cfg section headers):
+# a part fan defined as [fan_generic part_fan], a hotend that is not [extruder], or no heated bed (bed = "").
+# [klipper]
+# hotend = "extruder"
+# part_fan = "fan_generic part_fan"
+# bed = "heater_bed"

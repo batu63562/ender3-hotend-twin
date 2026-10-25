@@ -34,6 +34,12 @@ def load_config():
 CONFIG = load_config()
 PRINTER_HOST = str(CONFIG.get("printer_host", "")).strip()
 WS_URL = f"ws://{PRINTER_HOST}/websocket"
+# Klipper object names (config.toml [klipper]) for printers whose part fan is a [fan_generic], whose hotend is not
+# `extruder` or that have no heated bed (bed = ""); the defaults are the stock names [K72].
+_KLIPPER = CONFIG.get("klipper", {}) if isinstance(CONFIG.get("klipper"), dict) else {}
+OBJ_HOTEND = str(_KLIPPER.get("hotend", "extruder")).strip()
+OBJ_FAN = str(_KLIPPER.get("part_fan", "fan")).strip()
+OBJ_BED = str(_KLIPPER.get("bed", "heater_bed")).strip()
 
 # Hotend model, 3-node RC network:
 #   [heater cartridge T3] --R31--> [block near thermistor T1] --R_HB--> [nozzle/heat-break top T2]
@@ -1329,7 +1335,8 @@ def plan_job(filename, t0, init):
             cfg, cfg_src = CFG_FALLBACK, "yerel kopya"
         stamp = time.strftime("%Y%m%d_%H%M", time.localtime(t0))
         out = os.path.join(PLAN_DIR, f"tahmin_canli_{stamp}_{os.path.splitext(base)[0]}.csv")
-        summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init)
+        summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init,
+                                           names={"hotend": OBJ_HOTEND, "bed": OBJ_BED, "part_fan": OBJ_FAN})
     except Exception as e:  # noqa: BLE001 - the plan is a side feature, it must not stop monitoring
         return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material
     return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material
@@ -1519,9 +1526,9 @@ async def main():
                             "method": "printer.objects.subscribe",
                             "params": {
                                 "objects": {
-                                    "extruder": ["temperature", "power", "target"],
-                                    "heater_bed": ["temperature", "power", "target"],
-                                    "fan": ["speed"],
+                                    OBJ_HOTEND: ["temperature", "power", "target"],
+                                    **({OBJ_BED: ["temperature", "power", "target"]} if OBJ_BED else {}),
+                                    OBJ_FAN: ["speed"],
                                     "motion_report": ["live_extruder_velocity", "live_velocity", "live_position"],
                                     # print state and file: INPUT of the twin's G-code plan (the plan is not read from Klipper)
                                     "print_stats": ["state", "filename"],
@@ -1548,13 +1555,21 @@ async def main():
                             if first_response.get("id") == 1:
                                 break
                         # bed: notifications only carry the changed fields; initial values come from here
-                        for key, val in first_response.get("result", {}).get("status", {}).get("heater_bed", {}).items():
+                        snap0 = first_response.get("result", {}).get("status", {})
+                        if "result" in first_response:
+                            # a name in config.toml [klipper] that Klipper does not have is simply left out of the answer
+                            for what, name, need in (("hotend", OBJ_HOTEND, True), ("part_fan", OBJ_FAN, False),
+                                                     ("bed", OBJ_BED, False)):
+                                if name and name not in snap0:
+                                    print(f"[!! Klipper'da '{name}' yok (config.toml [klipper] {what}) - "
+                                          + ("ikiz sicaklik alamaz]" if need else "bu girdi 0 kabul ediliyor]"))
+                        for key, val in snap0.get(OBJ_BED, {}).items() if OBJ_BED else ():
                             if val is not None:
                                 bed[key] = val
                         # filament diameter ([extruder] filament_diameter is required by Klipper): the filament heat
                         # term scales with the cross-section [K71]
                         fd = (first_response.get("result", {}).get("status", {}).get("configfile", {})
-                              .get("settings", {}).get("extruder", {}).get("filament_diameter"))
+                              .get("settings", {}).get(OBJ_HOTEND.lower(), {}).get("filament_diameter"))
                         try:
                             fd = float(fd)
                         except (TypeError, ValueError):
@@ -1593,9 +1608,9 @@ async def main():
                         if twin is None:     # the twin is kept across reconnects
                             try:
                                 initial_status = first_response["result"]["status"]
-                                ex0 = initial_status["extruder"]
+                                ex0 = initial_status[OBJ_HOTEND]
                                 pwm0 = ex0.get("power", 0.0) or 0.0
-                                fan0 = initial_status.get("fan", {}).get("speed", 0.0) or 0.0
+                                fan0 = initial_status.get(OBJ_FAN, {}).get("speed", 0.0) or 0.0
                                 ext0 = initial_status.get("motion_report", {}).get("live_extruder_velocity", 0.0) or 0.0
                                 k0, kf0 = load_k()
                                 twin = Twin(*load_state(ex0["temperature"], pwm0, fan0), pwm0, fan0, ext0,
@@ -1610,10 +1625,10 @@ async def main():
                             # (Moonraker sends only CHANGED fields in notifications; if the fan changed during the
                             # outage the old value would stay until its next change)
                             st0 = first_response.get("result", {}).get("status", {})
-                            for key, val in (("pwm", st0.get("extruder", {}).get("power")),
-                                             ("fan", st0.get("fan", {}).get("speed")),
+                            for key, val in (("pwm", st0.get(OBJ_HOTEND, {}).get("power")),
+                                             ("fan", st0.get(OBJ_FAN, {}).get("speed")),
                                              ("ext", st0.get("motion_report", {}).get("live_extruder_velocity")),
-                                             ("target", st0.get("extruder", {}).get("target"))):
+                                             ("target", st0.get(OBJ_HOTEND, {}).get("target"))):
                                 if val is not None:
                                     setattr(twin, key, val)
 
@@ -1660,17 +1675,17 @@ async def main():
                             now = event_time if use_klipper_clock else wall_time
 
                             # a field not in the message stays None (Moonraker sends only what changed)
-                            ex = status.get("extruder", {})
+                            ex = status.get(OBJ_HOTEND, {})
                             T1_real = ex.get("temperature")
                             pwm = ex.get("power")
                             target = ex.get("target")
                             # bed: enters the nozzle twin only as power (supply voltage sag);
                             # its own twin (bed_model.BedTwin) below, in observation mode
-                            bed_msg = status.get("heater_bed", {})
+                            bed_msg = status.get(OBJ_BED, {}) if OBJ_BED else {}
                             for key, val in bed_msg.items():
                                 if val is not None:
                                     bed[key] = val
-                            fan = status.get("fan", {}).get("speed")
+                            fan = status.get(OBJ_FAN, {}).get("speed")
                             ext = status.get("motion_report", {}).get("live_extruder_velocity")
                             # head speed and position: logging only (does the bed loss grow as the bed moves along Y;
                             # nozzle-bed proximity from Z)

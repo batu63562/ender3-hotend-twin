@@ -70,9 +70,10 @@ def read_cfg(path):
 
 
 class Machine:
-    def __init__(self, cfg_path=DEFAULT_CFG):
+    def __init__(self, cfg_path=DEFAULT_CFG, hotend="extruder", bed="heater_bed", part_fan="fan"):
+        """hotend, bed, part_fan: Klipper section names (the live twin's config.toml [klipper]; bed "" = none) [K72]."""
         s, self.macros = read_cfg(cfg_path)
-        pr, ex = s["printer"], s["extruder"]
+        pr, ex = s["printer"], s[hotend]
         f = lambda sec, k, dflt: float(s.get(sec, {}).get(k, dflt))
         self.max_v, self.max_a = float(pr["max_velocity"]), float(pr["max_accel"])
         self.max_z_v, self.max_z_a = f("printer", "max_z_velocity", self.max_v), f("printer", "max_z_accel", self.max_a)
@@ -80,21 +81,24 @@ class Machine:
         self.min_cruise_ratio = f("printer", "minimum_cruise_ratio", 0.5)
         self.accel_to_decel = self.max_a * (1.0 - self.min_cruise_ratio)
         self.junction_dev = self.scv ** 2 * (math.sqrt(2.0) - 1.0) / self.max_a
-        nd, fd = f("extruder", "nozzle_diameter", 0.4), f("extruder", "filament_diameter", 1.75)
-        max_xs = f("extruder", "max_extrude_cross_section", 4.0 * nd * nd)
+        nd, fd = f(hotend, "nozzle_diameter", 0.4), f(hotend, "filament_diameter", 1.75)
+        max_xs = f(hotend, "max_extrude_cross_section", 4.0 * nd * nd)
         ratio = max_xs / (math.pi * (fd * .5) ** 2)
-        self.max_e_v = f("extruder", "max_extrude_only_velocity", self.max_v * ratio)
-        self.max_e_a = f("extruder", "max_extrude_only_accel", self.max_a * ratio)
-        self.instant_corner_v = f("extruder", "instantaneous_corner_velocity", 1.0)
-        hb = s.get("heater_bed", {})
+        self.max_e_v = f(hotend, "max_extrude_only_velocity", self.max_v * ratio)
+        self.max_e_a = f(hotend, "max_extrude_only_accel", self.max_a * ratio)
+        self.instant_corner_v = f(hotend, "instantaneous_corner_velocity", 1.0)
+        self.has_bed = bool(bed)   # no heated bed: bed commands in the G-code are ignored (Klipper rejects them)
+        hb = s.get(bed, {}) if bed else {}
+        # a [fan_generic] part fan is driven by SET_FAN_SPEED FAN=<name> (M106 only if the config maps it)
+        self.fan_generic = part_fan.split(None, 1)[1].lower() if part_fan.startswith("fan_generic ") else None
         self.fd = fd
         self.fil_area = math.pi * fd ** 2 / 4
         # heaters not under PID (control: watermark, or MPC on Kalico) have no gains: the plan then uses the reference
         # printer's tuned PID (scaled to this heater's power in Sim) as a stand-in for an ideal controller: full power
         # on the way up, the load's power at the target. Heat-up times are approximate [K71].
         self.notes = []
-        self.pid_hotend = self._pid(ex, "extruder")
-        self.pid_bed = self._pid(hb, "heater_bed")
+        self.pid_hotend = self._pid(ex, hotend)
+        self.pid_bed = self._pid(hb, bed) if bed else None
 
     def _pid(self, sec, name):
         try:
@@ -306,7 +310,7 @@ def parse(gcode_path, mc, abs_e=True):
             if cmd == "M109":
                 do_flush()
             ops.append(("temp", "hotend", args.get("S", 0.0), cmd == "M109"))
-        elif cmd in ("M140", "M190"):
+        elif cmd in ("M140", "M190") and mc.has_bed:
             if cmd == "M190":
                 do_flush()
             ops.append(("temp", "bed", args.get("S", 0.0), cmd == "M190"))
@@ -314,8 +318,14 @@ def parse(gcode_path, mc, abs_e=True):
             ops.append(("fan", min(1.0, args.get("S", 255.0) / 255.0)))
         elif cmd == "M107":
             ops.append(("fan", 0.0))
+        elif cmd == "SET_FAN_SPEED" and mc.fan_generic:
+            kv = {k.upper(): v for k, v in re.findall(r"(\w+)=([^\s]+)", code)}
+            if kv.get("FAN", "").lower() == mc.fan_generic:
+                ops.append(("fan", min(1.0, max(0.0, float(kv.get("SPEED", 0.0))))))
         elif cmd == "TURN_OFF_HEATERS":
-            ops.append(("temp", "hotend", 0.0, False)); ops.append(("temp", "bed", 0.0, False))
+            ops.append(("temp", "hotend", 0.0, False))
+            if mc.has_bed:
+                ops.append(("temp", "bed", 0.0, False))
     do_flush()
     return ops
 
@@ -544,12 +554,12 @@ def toolpath_path(plan_csv):
 
 
 def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b=0.0,
-                  tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True):
+                  tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True, names=None):
     """Called in the background by the live twin (realtime_websocket.py) when a print starts.
     The simulation starts from the state MEASURED at print start (a cold start on a warm machine would
     overestimate the heat-up by minutes). t0: print start (PC unix time) -> CSV 'time'.
     Returns: a one-line summary."""
-    mc, m = Machine(cfg), d.load_model()
+    mc, m = Machine(cfg, **(names or {})), d.load_model()
     k, _ = m.load_k()
     kfil = m.K_FIL_ANCHOR          # a new print starts from the anchor, as in the live twin [K27]
     sim = Sim(mc, m, k, T_h=T_h, T_b=T_b, pwm_h=pwm_h, pwm_b=pwm_b, tgt_h=tgt_h, tgt_b=tgt_b, fan=fan, kfil=kfil)

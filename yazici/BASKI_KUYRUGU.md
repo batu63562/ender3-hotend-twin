@@ -64,6 +64,13 @@ A1–A7 bitince gölge mod 14 baskıya çıkar → aktif duraklatma kararı içi
 PLA / ABS ile gerçek baskı yok: baskı içi doğrulama (k_fil çapası, %100 fanla baskı, PLA'da tespit hassasiyeti)
 v0.4 test kullanıcılarına kalır (K42).
 
+## Yeni nozzle takılınca (sırayla, önce Claude'a haber ver: durum yedeği)
+
+1. **Taze kalibrasyon** `yazici/calibration_245.gcode` (~55 dk, filamentsiz, nozzle boş). Önce K66 kararı: eski
+   nozzle'la alınmış loglarla karşılaştırma hâlâ geçerli mi (baskıdan ÖNCE karar verilir).
+2. **Isı kulesi** `yazici/heat_tower_245.gcode` (~43 dk, PETG ~11 g, tabla 80 °C; K73). Kalibrasyondan sonra, ayrı
+   iş. Analiz: `py yazici/heat_tower.py analyze LOG --sections yazici/heat_tower_245_sections.csv`.
+
 ## Etiket bekleyenler (log gelince)
 
 - 23.10: TPU retraction testi, her katta ipliklenme (nemli TPU; kurutulacak) → `-` beklenir (ısıl arıza değil).

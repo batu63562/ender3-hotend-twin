@@ -1335,3 +1335,24 @@ olmayan yazıcılar desteklenmiyordu (TESTING.md'de açık engel). Yeni fizik de
   `[fan_generic part_fan]` + `SET_FAN_SPEED … 0.50196` → fan 0.502, ısıtıcı farkı < 1e-9 W (M106 S128 ile aynı); ad
   verilmezse fan komutu yok sayılır; tablasız: bed_pwm 0. Sahte Moonraker (deney10): stok adlar ve fan_generic +
   tablasız config aynı 2 duraklatma kararı, fan %25 okunuyor; config'te ad yoksa iki uyarı, çökme yok.
+
+## K73 — Baskıya giden ısı test kulesi `yazici/heat_tower.py` (2026-10-25, ARAÇ, MODEL DEĞİŞMEDİ, gerçek baskı bekliyor)
+Fikir Reddit'ten (ekstrüzyon kalibrasyonu); havaya ekstrüzyon yalnız filamentin ısınmasını verir, nozzle'dan taze
+plastiğe iletim baskıda olur (K08) → slicer'sız üretilen bir kule. Kalibrasyon baskısından AYRI (kullanıcı kararı):
+tabla, filament ve sıra farklı; kulenin analizi kalibrasyonun kayıplarına dayanır.
+- **generate:** 40 mm kare, 4 duvar, 0.45 mm çizgi, bölüm içinde sabit hız. Merkez (4 mm³/s, fan %60, 0.2 mm) +
+  her seferinde tek değişken: akış 2/6, fan 0/30/100, katman 0.15/0.3; merkez her gruptan sonra tekrar (kayma
+  kontrolü); başta ölçülmeyen bir giriş bölümü (fan ilk açılınca nozzle tarafı depoladığı ısıyı bırakıyor). Baskıdan
+  önce fansız 150 s tutma (günün k'sı). Bölüm ≥ 180 s. 245 °C PETG: 12 bölüm, 32 mm, ~43 dk, ~11 g. Bölümlerin Z
+  aralıkları `_sections.csv`'de. 6 mm³/s üst sınır: K62'de ~8 eriyik sınırını aştı.
+- **analyze:** her bölümde baskıya giden ısı = ısıtıcı gücü − (k × (blok + fan kaybı) + heatsink yolu), öğrenicinin
+  denklemiyle aynı; ölçülen/beklenen filaman ısısı = bölümün k_fil'i. Bölüm başından 40 s (fan adımında depolanan ısı)
+  ve sondan 10 s (net besleme 10 s ortalama) atılır; yalnız bölümün kendi akışının yarısından fazlasıyla basılan ve
+  hedefi açık anlar. k: logdaki k_loss'un ilk bölümden hemen önceki değeri (ya da `--k`).
+- **Sentetik sınama** (`--synthetic`: planın simülasyonu, k_fil bilinen): k_fil 1.0 / 1.33 / 1.6 her bölümde
+  ±0.006 içinde geri bulundu (ilk taslakta ilk bölüm 1.24, son bölüm −2.0 / 1.39 idi → giriş bölümü, hedef ve uç
+  kırpma eklendi). Bölüm 90 s'de analiz penceresi ~50 s: R_PRINT'e göre gürültü ~1 W, ölçülen 1.3–3.7 W → 180 s'ye
+  çıkarıldı (~145 s analiz, ~0.6 W).
+- Sınırlar: geometri (ince duvar, dolgu, köprü) değişmiyor; kule k_fil için daha iyi bir başlangıç verir, baskı içi
+  öğrenme yine gerekir. Sentetik doğrulama aracın kendisini sınar, yazıcıyı değil: ilk gerçek baskı (yeni nozzle,
+  taze kalibrasyondan SONRA) asıl sınav.

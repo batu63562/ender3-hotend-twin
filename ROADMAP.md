@@ -209,9 +209,10 @@ Preparation that needs no second printer (2026-10-22, partly from the first comm
       a fit takes the heat-up anomaly for α ≈ 0.001 ([K67], [K68]). A test that separates the two is also open.
 - [ ] Optional temperature × fan grid in `calibration_print.py` (fan steps at every hold temperature, as suggested
       by a tester); longer, so an option.
-- [ ] Heat-into-the-print test print: a generated tower (no slicer) whose sections change one thing each (flow,
-      fan, layer height; 1–2 min each) so `k_fil` can start from a value predicted from the slicer settings
-      instead of a fixed anchor. Air extrusion alone only gives the filament heating ([K08], [K27]).
+- [ ] Heat-into-the-print test tower `yazici/heat_tower.py` (generate + analyze; [K73]): sections change one
+      setting each (flow, fan, layer height) around a centre point, so `k_fil` can later start from a value predicted
+      from the slicer settings instead of a fixed anchor. The analysis returns a known k_fil to ±0.006 on the plan
+      simulation; waiting for the first real print (after the fresh calibration, new nozzle).
 - [ ] A standard comparison print (e.g. Benchy) for testers, to compare printers on the same object.
 - [ ] Per-material `k` reference: evaluated, not now. The PLA/ASA shift on this printer is ~0.025 in `k`, inside
       the 0.08 band; splitting the reference would also split the maintenance indicator ([K20]). Revisit with

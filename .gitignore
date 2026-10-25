@@ -43,6 +43,9 @@ yazici/*
 !yazici/calibration_print.py
 !yazici/calibration_*.gcode
 !yazici/virtual_print.py
+!yazici/heat_tower.py
+!yazici/heat_tower_*.gcode
+!yazici/heat_tower_*_sections.csv
 son.gcode
 
 # Release assets staged for upload (sample data zips)

@@ -36,6 +36,7 @@ The acceptance test of v0.3: the Ender 3 runs from a profile and a calibration f
 | Constant | Today | Profile key (proposal) | Note |
 |---|---|---|---|
 | `P_MAX` | 40 W | `hotend.heater_power_w` | 30/40/50/60 W cartridges are common. Nominal at the supply voltage. |
+| `FILAMENT_DIAMETER` | 1.75 mm | `hotend.filament_diameter_mm` | Scales the filament heat term by (d/1.75)² (K_FIL is per mm/s of 1.75 mm). The live twin takes Klipper's `[extruder] filament_diameter` when it connects; the profile value is for the offline tools (K71). |
 | `BED_SAG` | 0.042 | `power.bed_sag` | Supply sag with the bed on. Default 0; can be calibrated (one bed-on hold). |
 | `FAN_F0`, `FAN_EXP` | 0.191, 0.508 | `part_fan.type` → defaults | Threshold and exponent depend on the blower and duct (4010 / 5015 / CPAP). Refined by the fan steps of the calibration print (K39: the 100 % factor alone does not carry to 25–40 %). |
 | `K_FIL` | 0.0054 | from `materials` | Filament heat = density × cp × filament area. Today fixed at a PETG value; `k_fil` corrects it per print (anchor 1.33, K27). |

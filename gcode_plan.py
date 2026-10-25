@@ -33,7 +33,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CFG = os.path.join(HERE, "yazici", "printer.cfg")
 STEP = kd.REPORT_TIME          # s - thermal simulation / PID step
 HOME_TIME = 15.0               # s - G28 duration (approximate; three axes, two-stage)
-FILAMENT_AREA = math.pi * 1.75 ** 2 / 4
+FILAMENT_AREA = math.pi * 1.75 ** 2 / 4   # mm^2 - default; Machine.fil_area holds the printer.cfg value [K71]
+REF_HEATER_W = 40.0   # W - heater power the reference PID gains (yazici/printer.cfg) were tuned for
 
 
 # ---------------------------------------------------------------------------
@@ -69,9 +70,10 @@ def read_cfg(path):
 
 
 class Machine:
-    def __init__(self, cfg_path=DEFAULT_CFG):
+    def __init__(self, cfg_path=DEFAULT_CFG, hotend="extruder", bed="heater_bed", part_fan="fan"):
+        """hotend, bed, part_fan: Klipper section names (the live twin's config.toml [klipper]; bed "" = none) [K72]."""
         s, self.macros = read_cfg(cfg_path)
-        pr, ex = s["printer"], s["extruder"]
+        pr, ex = s["printer"], s[hotend]
         f = lambda sec, k, dflt: float(s.get(sec, {}).get(k, dflt))
         self.max_v, self.max_a = float(pr["max_velocity"]), float(pr["max_accel"])
         self.max_z_v, self.max_z_a = f("printer", "max_z_velocity", self.max_v), f("printer", "max_z_accel", self.max_a)
@@ -79,15 +81,32 @@ class Machine:
         self.min_cruise_ratio = f("printer", "minimum_cruise_ratio", 0.5)
         self.accel_to_decel = self.max_a * (1.0 - self.min_cruise_ratio)
         self.junction_dev = self.scv ** 2 * (math.sqrt(2.0) - 1.0) / self.max_a
-        nd, fd = f("extruder", "nozzle_diameter", 0.4), f("extruder", "filament_diameter", 1.75)
-        max_xs = f("extruder", "max_extrude_cross_section", 4.0 * nd * nd)
+        nd, fd = f(hotend, "nozzle_diameter", 0.4), f(hotend, "filament_diameter", 1.75)
+        max_xs = f(hotend, "max_extrude_cross_section", 4.0 * nd * nd)
         ratio = max_xs / (math.pi * (fd * .5) ** 2)
-        self.max_e_v = f("extruder", "max_extrude_only_velocity", self.max_v * ratio)
-        self.max_e_a = f("extruder", "max_extrude_only_accel", self.max_a * ratio)
-        self.instant_corner_v = f("extruder", "instantaneous_corner_velocity", 1.0)
-        hb = s.get("heater_bed", {})
-        self.pid_hotend = tuple(float(ex[k]) for k in ("pid_kp", "pid_ki", "pid_kd"))
-        self.pid_bed = tuple(float(hb[k]) for k in ("pid_kp", "pid_ki", "pid_kd"))
+        self.max_e_v = f(hotend, "max_extrude_only_velocity", self.max_v * ratio)
+        self.max_e_a = f(hotend, "max_extrude_only_accel", self.max_a * ratio)
+        self.instant_corner_v = f(hotend, "instantaneous_corner_velocity", 1.0)
+        self.has_bed = bool(bed)   # no heated bed: bed commands in the G-code are ignored (Klipper rejects them)
+        hb = s.get(bed, {}) if bed else {}
+        # a [fan_generic] part fan is driven by SET_FAN_SPEED FAN=<name> (M106 only if the config maps it)
+        self.fan_generic = part_fan.split(None, 1)[1].lower() if part_fan.startswith("fan_generic ") else None
+        self.fd = fd
+        self.fil_area = math.pi * fd ** 2 / 4
+        # heaters not under PID (control: watermark, or MPC on Kalico) have no gains: the plan then uses the reference
+        # printer's tuned PID (scaled to this heater's power in Sim) as a stand-in for an ideal controller: full power
+        # on the way up, the load's power at the target. Heat-up times are approximate [K71].
+        self.notes = []
+        self.pid_hotend = self._pid(ex, hotend)
+        self.pid_bed = self._pid(hb, bed) if bed else None
+
+    def _pid(self, sec, name):
+        try:
+            return tuple(float(sec[k]) for k in ("pid_kp", "pid_ki", "pid_kd"))
+        except (KeyError, ValueError):
+            self.notes.append(f"{name}: PID yok (control = {sec.get('control', '?')}) - referans kontrolcu, "
+                              f"isinma sureleri yaklasik")
+            return None
 
     def expand(self, name, params):
         """Expands a macro into plain G-code lines (only {PARAM} substitution; Jinja 'set' lines are skipped)."""
@@ -291,7 +310,7 @@ def parse(gcode_path, mc, abs_e=True):
             if cmd == "M109":
                 do_flush()
             ops.append(("temp", "hotend", args.get("S", 0.0), cmd == "M109"))
-        elif cmd in ("M140", "M190"):
+        elif cmd in ("M140", "M190") and mc.has_bed:
             if cmd == "M190":
                 do_flush()
             ops.append(("temp", "bed", args.get("S", 0.0), cmd == "M190"))
@@ -299,10 +318,23 @@ def parse(gcode_path, mc, abs_e=True):
             ops.append(("fan", min(1.0, args.get("S", 255.0) / 255.0)))
         elif cmd == "M107":
             ops.append(("fan", 0.0))
+        elif cmd == "SET_FAN_SPEED" and mc.fan_generic:
+            kv = {k.upper(): v for k, v in re.findall(r"(\w+)=([^\s]+)", code)}
+            if kv.get("FAN", "").lower() == mc.fan_generic:
+                ops.append(("fan", min(1.0, max(0.0, float(kv.get("SPEED", 0.0))))))
         elif cmd == "TURN_OFF_HEATERS":
-            ops.append(("temp", "hotend", 0.0, False)); ops.append(("temp", "bed", 0.0, False))
+            ops.append(("temp", "hotend", 0.0, False))
+            if mc.has_bed:
+                ops.append(("temp", "bed", 0.0, False))
     do_flush()
     return ops
+
+
+def reference_gains(section, scale):
+    """PID gains of the reference printer (yazici/printer.cfg) for a heater that has none, times scale (the gains
+    act on the heater duty: a stronger heater needs proportionally smaller ones)."""
+    s, _ = read_cfg(DEFAULT_CFG)
+    return tuple(float(s[section][k]) * scale for k in ("pid_kp", "pid_ki", "pid_kd"))
 
 
 # ---------------------------------------------------------------------------
@@ -314,8 +346,9 @@ class Sim:
         self.mc, self.m, self.k, self.kfil = mc, m, k, kfil
         self.T1, self.T2, self.T3 = m.initial_state(T_h, pwm_h, fan)
         self.Tal, self.Tglass = T_b, tm.initial_glass(T_b, pwm_b)
-        self.pid_h = kd.KlipperPID(T_h, pwm_h, tgt_h, mc.pid_hotend)
-        self.pid_b = kd.KlipperPID(T_b, pwm_b, tgt_b, mc.pid_bed)
+        m.set_filament_diameter(mc.fd)
+        self.pid_h = kd.KlipperPID(T_h, pwm_h, tgt_h, mc.pid_hotend or reference_gains("extruder", REF_HEATER_W / m.P_MAX))
+        self.pid_b = kd.KlipperPID(T_b, pwm_b, tgt_b, mc.pid_bed or reference_gains("heater_bed", 1.0))
         self.sm_h, self.sm_b = T_h, T_b                      # Klipper smoothed_temp (smooth_time 1 s)
         self.tgt_h, self.tgt_b, self.fan = tgt_h, tgt_b, fan
         self.t = 0.0
@@ -339,7 +372,7 @@ class Sim:
             self.act_hist.popleft()
         act = sum(a for _, a in self.act_hist) / len(self.act_hist)
         self.rows.append((self.t, self.T1, pwm_h, self.Tal, pwm_b, self.tgt_h, self.tgt_b, self.fan,
-                          e_rate * FILAMENT_AREA, net * FILAMENT_AREA, self.layer, self.ftype))
+                          e_rate * self.mc.fil_area, net * self.mc.fil_area, self.layer, self.ftype))
         scale = 1.0 - m.BED_SAG * pwm_b
         self.T1, self.T2, self.T3 = m.model_step(self.T1, self.T2, self.T3, pwm_h * scale, self.fan, net, dt, self.k,
                                                  k_fil=self.kfil)
@@ -521,12 +554,12 @@ def toolpath_path(plan_csv):
 
 
 def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b=0.0,
-                  tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True):
+                  tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True, names=None):
     """Called in the background by the live twin (realtime_websocket.py) when a print starts.
     The simulation starts from the state MEASURED at print start (a cold start on a warm machine would
     overestimate the heat-up by minutes). t0: print start (PC unix time) -> CSV 'time'.
     Returns: a one-line summary."""
-    mc, m = Machine(cfg), d.load_model()
+    mc, m = Machine(cfg, **(names or {})), d.load_model()
     k, _ = m.load_k()
     kfil = m.K_FIL_ANCHOR          # a new print starts from the anchor, as in the live twin [K27]
     sim = Sim(mc, m, k, T_h=T_h, T_b=T_b, pwm_h=pwm_h, pwm_b=pwm_b, tgt_h=tgt_h, tgt_b=tgt_b, fan=fan, kfil=kfil)
@@ -538,7 +571,8 @@ def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b
     end = df.t[df.akis_anlik > 0].max() if (df.akis_anlik > 0).any() else df.t.iloc[-1]
     first = layers[0][1] if layers else 0.0
     return (f"{os.path.basename(out_path)} · ilk katmana {first / 60:.1f} dk, baski bitisi {end / 60:.1f} dk "
-            f"(k {k:.3f}, baslangic nozzle {T_h:.0f} C / tabla {T_b:.0f} C)")
+            f"(k {k:.3f}, baslangic nozzle {T_h:.0f} C / tabla {T_b:.0f} C)"
+            + "".join(f"; !! {n}" for n in mc.notes))
 
 
 def layer_times_log(log, sync_t):
@@ -609,7 +643,7 @@ def validate(gcode, log_path, mc, m, k=None):
     lg = log[log.t >= r0.t].copy()
     ser = lambda col: pd.Series(col.values, index=pd.to_datetime(lg.t.values, unit="s"))
     lg["P"] = ser(pd.to_numeric(lg.pwm, errors="coerce").ffill() * m.P_MAX).rolling("10s").mean().values
-    lg["Q"] = ser(lg.extrude_velocity * FILAMENT_AREA).rolling("10s").mean().values
+    lg["Q"] = ser(lg.extrude_velocity * mc.fil_area).rolling("10s").mean().values
     hold = (lg.target >= 230) & ((lg.T1_real - lg.target).abs() < 3)
     lg = lg[hold & (lg.t < s.t_warp.max())]
     for name, col in (("akis (mm3/s)", "Q"), ("isitici gucu (W)", "P")):
@@ -642,6 +676,8 @@ if __name__ == "__main__":
         print(f"takim yolu: {a.toolpath} ({n} segment)")
         raise SystemExit
     mc, m = Machine(a.cfg), d.load_model()
+    for n in mc.notes:
+        print(f"!! {n}")
     name = os.path.splitext(os.path.basename(a.log or a.gcode))[0]
     csv_path = a.csv or os.path.join(PLAN_DIR, f"tahmin_{name}.csv")
     if a.log:

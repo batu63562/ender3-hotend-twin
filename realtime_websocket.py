@@ -34,6 +34,12 @@ def load_config():
 CONFIG = load_config()
 PRINTER_HOST = str(CONFIG.get("printer_host", "")).strip()
 WS_URL = f"ws://{PRINTER_HOST}/websocket"
+# Klipper object names (config.toml [klipper]) for printers whose part fan is a [fan_generic], whose hotend is not
+# `extruder` or that have no heated bed (bed = ""); the defaults are the stock names [K72].
+_KLIPPER = CONFIG.get("klipper", {}) if isinstance(CONFIG.get("klipper"), dict) else {}
+OBJ_HOTEND = str(_KLIPPER.get("hotend", "extruder")).strip()
+OBJ_FAN = str(_KLIPPER.get("part_fan", "fan")).strip()
+OBJ_BED = str(_KLIPPER.get("bed", "heater_bed")).strip()
 
 # Hotend model, 3-node RC network:
 #   [heater cartridge T3] --R31--> [block near thermistor T1] --R_HB--> [nozzle/heat-break top T2]
@@ -59,6 +65,20 @@ HA2_FAN = 0.0293  # W/K - extra conductance from T2 by the part cooling fan at f
 FAN_EXP = 0.508   # fan cooling ~ ((f-F0)/(1-F0))**FAN_EXP (forced convection h ~ air speed^0.5) [K03]
 FAN_F0 = 0.191    # fan threshold: below this PWM the 5015 blower cannot overcome the duct resistance, cooling ~0 [K03]
 K_FIL = 0.0054   # W/(K*mm/s) - heat taken by the filament = K_FIL * net feed rate * (T1 - T_amb) (PETG cp) [K04]
+# K_FIL is per mm/s of 1.75 mm filament; another diameter carries (d/1.75)^2 times the plastic per mm. The diameter
+# comes from Klipper ([extruder] filament_diameter, read when connecting) or profile.toml; FLOW_RATIO multiplies
+# K_FIL everywhere (exactly 1.0 for 1.75 mm) [K71].
+K_FIL_DIAMETER = 1.75   # mm
+FILAMENT_DIAMETER = 1.75
+FLOW_RATIO = 1.0
+
+
+def set_filament_diameter(d):
+    """Sets FILAMENT_DIAMETER and FLOW_RATIO (the twin and the plan call it with Klipper's value)."""
+    global FILAMENT_DIAMETER, FLOW_RATIO
+    FILAMENT_DIAMETER = float(d)
+    FLOW_RATIO = (FILAMENT_DIAMETER / K_FIL_DIAMETER) ** 2
+
 
 MAX_SUBSTEP = 0.3      # s - upper limit of the RK4 substep
 RK4_STABILITY = 2.5    # RK4 needs |lambda*h| < 2.78 on the real axis; margin left
@@ -106,6 +126,7 @@ CAP_T0 = 140.0      # C - C(T) = C at this temperature
 PROFILE_FILE = os.path.join(HERE, "profile.toml")
 CALIBRATION_FILE = os.environ.get("TWIN_CALIBRATION") or os.path.join(HERE, "calibration.json")   # env: evaluate another file
 PROFILE_KEYS = {("", "room_c"): "T_AMB", ("hotend", "heater_power_w"): "P_MAX", ("power", "bed_sag"): "BED_SAG",
+                ("hotend", "filament_diameter_mm"): "FILAMENT_DIAMETER",
                 ("part_fan", "threshold"): "FAN_F0", ("part_fan", "exponent"): "FAN_EXP"}
 CALIBRATED = ("C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "FAN_F0", "FAN_EXP",
               "CAP_T_COEF", "K_FIL")
@@ -148,6 +169,7 @@ def load_printer_numbers():
     except (OSError, ValueError, AttributeError) as e:
         notes.append(f"{os.path.basename(CALIBRATION_FILE)} ignored: {type(e).__name__}: {e}")
     g["T_AMB_K"] = g["T_AMB"] + 273.15
+    set_filament_diameter(g["FILAMENT_DIAMETER"])
     return sources, notes
 
 
@@ -224,7 +246,19 @@ FAULT_TEXT.update(ENERGY_TEXT)
 # print is printing. SHADOW mode only logs "would pause" (CSV duraklat, ariza_raporlari.txt); active mode sends a
 # pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19]. KAYIP_* never pauses.
 PAUSE_AFTER = 150.0       # s
-PAUSE_MODE = "aktif"      # "golge" (shadow: log only) | "aktif" (active: pause via Moonraker) | "kapali" (off) [K50]
+PAUSE_MODES = ("golge", "aktif", "kapali")   # shadow: log only | active: pause via Moonraker | off [K50]
+# From config.toml (`pause_mode`), so a new printer can start in shadow mode without editing this file
+# (pi/install.sh writes "golge" for a new install); without the key: active, as on the author's printer.
+PAUSE_MODE = str(CONFIG.get("pause_mode", "aktif")).strip().lower()
+if PAUSE_MODE not in PAUSE_MODES:
+    print(f"[!! config.toml pause_mode = {PAUSE_MODE!r} bilinmiyor ({' | '.join(PAUSE_MODES)}): 'golge' kullaniliyor]")
+    PAUSE_MODE = "golge"
+# Shadow mode on a new printer: once it has seen SHADOW_REVIEW_HOURS of printing over SHADOW_REVIEW_PRINTS prints,
+# a note asks the user to review the "would pause" reports and switch to active (never automatic). The author's own
+# shadow phase before going active was 11 prints, ~22 print hours [K49].
+SHADOW_FILE = os.path.join(HERE, "golge_sayac.json")
+SHADOW_REVIEW_HOURS = 24.0
+SHADOW_REVIEW_PRINTS = 12
 
 # Material and backup: the material is read from the G-code header ("; filament_type = ") for the CSV; k_fil is not
 # stored per material any more, every print starts from K_FIL_ANCHOR [K27]. At every start a dated copy of
@@ -572,9 +606,9 @@ class KLossLearner:
         self.p_E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt
         self.p_E_T2 += HA2 * dT2 * dt
         if fan_conductance(fan) > 0:       # fan on: scaled by k_fil (learned)
-            self.p_E_fil += K_FIL * ext_v * (T1_real - T_AMB) * dt
+            self.p_E_fil += K_FIL * FLOW_RATIO * ext_v * (T1_real - T_AMB) * dt
         else:                              # fan off: filament heating only, factor 1.0 (fixed)
-            self.p_E_fil_off += K_FIL * ext_v * (T1_real - T_AMB) * dt
+            self.p_E_fil_off += K_FIL * FLOW_RATIO * ext_v * (T1_real - T_AMB) * dt
         self.p_T_min, self.p_T_max = min(self.p_T_min, T1_real), max(self.p_T_max, T1_real)
         self.p_valid += dt if energy_ok else 0.0
         self.p_ext += dt if ext_v > 0.0 else 0.0
@@ -641,7 +675,7 @@ def model_step(T1, T2, T3, pwm, fan, extrude_v, dt, k_loss=1.0, max_substep=None
 
     def deriv(T1, T2, T3):
         k_eff = k_loss   # at every temperature (the fade-out rule was removed on 2026-10-13)
-        Q_filament = k_fil * K_FIL * max(extrude_v, 0.0) * (T1 - T_AMB)
+        Q_filament = k_fil * K_FIL * FLOW_RATIO * max(extrude_v, 0.0) * (T1 - T_AMB)
         Q_conv1 = k_eff * natural_loss(T1) + Q_filament
 
         Q_heater_to_1 = (T3 - T1) / R31
@@ -756,7 +790,7 @@ class EnergyMonitor:
         fc = k_eff * fan_conductance(fan)
         P = pwm * P_MAX * power_scale
         loss = (k_eff * natural_loss(T1_prev) + (HA2 + fc) * (self.T2 - T_AMB)
-                + kfil * K_FIL * max(ext, 0.0) * (T1_prev - T_AMB))
+                + kfil * K_FIL * FLOW_RATIO * max(ext, 0.0) * (T1_prev - T_AMB))
         G2 = 1 / R_HB + HA2 + fc
         T2_inf = (T1_prev / R_HB + (HA2 + fc) * T_AMB) / G2
         self.T2 = T2_inf + (self.T2 - T2_inf) * math.exp(-dt * G2 / (C2 * cap_scale(self.T2)))
@@ -1152,6 +1186,62 @@ def summarize_session(path):
         return f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]"
 
 
+class ShadowCounter:
+    """Print hours, prints and "would pause" events while in shadow mode (SHADOW_FILE, kept across restarts)."""
+    SAVE_EVERY = 300.0   # s of printing between saves
+
+    def __init__(self):
+        self.data = {"saat": 0.0, "baski": 0, "olay": 0}
+        try:
+            with open(SHADOW_FILE, encoding="utf-8") as f:
+                self.data.update(json.load(f))
+        except (OSError, ValueError):
+            pass
+        self.last = None
+        self.unsaved = 0.0
+        self.noted = self.ready()
+
+    def save(self):
+        try:
+            tmp = SHADOW_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self.data, f)
+            os.replace(tmp, SHADOW_FILE)
+            self.unsaved = 0.0
+        except OSError as e:
+            print(f"[golge sayaci yazilamadi: {e}]")
+
+    def tick(self, now, printing):
+        """Called on every message with the twin's clock (Klipper eventtime); time counts only while printing, gaps
+        over 60 s (no data) are not counted."""
+        dt = now - self.last if self.last is not None else 0.0
+        self.last = now
+        if printing and 0.0 < dt < 60.0:
+            self.data["saat"] += dt / 3600.0
+            self.unsaved += dt
+            if self.unsaved >= self.SAVE_EVERY:
+                self.save()
+
+    def new_print(self):
+        self.data["baski"] += 1
+        self.save()
+
+    def event(self):
+        self.data["olay"] += 1
+        self.save()
+
+    def ready(self):
+        return self.data["saat"] >= SHADOW_REVIEW_HOURS and self.data["baski"] >= SHADOW_REVIEW_PRINTS
+
+    def note(self):
+        d = self.data
+        head = f"golge mod: {d['saat']:.1f} baski saati, {d['baski']} baski, {d['olay']} 'duraklatirdim' kaydi"
+        if not self.ready():
+            return f"{head} (aktif mod onerisi {SHADOW_REVIEW_HOURS:.0f} saat ve {SHADOW_REVIEW_PRINTS} baskidan sonra)"
+        return (f"{head}: kayitlari gozden gecir ({os.path.basename(REPORT_FILE)}); uygunsa config.toml'da "
+                f'pause_mode = "aktif" yap')
+
+
 def daily_jobs(live):
     """At start-up and once a day (24/7 operation): dated backup of twin_state.json and the maintenance indicator."""
     backup_state()
@@ -1245,7 +1335,8 @@ def plan_job(filename, t0, init):
             cfg, cfg_src = CFG_FALLBACK, "yerel kopya"
         stamp = time.strftime("%Y%m%d_%H%M", time.localtime(t0))
         out = os.path.join(PLAN_DIR, f"tahmin_canli_{stamp}_{os.path.splitext(base)[0]}.csv")
-        summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init)
+        summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init,
+                                           names={"hotend": OBJ_HOTEND, "bed": OBJ_BED, "part_fan": OBJ_FAN})
     except Exception as e:  # noqa: BLE001 - the plan is a side feature, it must not stop monitoring
         return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material
     return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material
@@ -1296,7 +1387,7 @@ const st=$('st');let msg='normal',col='--ok';
 if(d.ariza.length){msg='ARIZA: '+d.ariza.join(', ');col='--er'}
 if(d.yas>15){msg='veri gelmiyor ('+Math.round(d.yas)+' s)';col='--wa'}
 st.textContent=msg;st.style.background=css(col);st.style.color='#fff';
-$('kat').textContent=(d.bakim?d.bakim+'  ':'')+(d.kategori?('son kategori: '+d.kategori):'');$('up').textContent='son veri '+Math.round(d.yas)+' s once';draw(d.h)}
+$('kat').textContent=(d.golge?d.golge+'  ':'')+(d.bakim?d.bakim+'  ':'')+(d.kategori?('son kategori: '+d.kategori):'');$('up').textContent='son veri '+Math.round(d.yas)+' s once';draw(d.h)}
 catch(e){$('st').textContent='script calismiyor / baglanti yok';$('st').style.background=css('--er')}}
 tick();setInterval(tick,2000);
 </script></body></html>"""
@@ -1376,6 +1467,10 @@ async def main():
     bed_error = None
     mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
     daily_jobs(live)                                     # state backup + maintenance indicator (again every day)
+    shadow = ShadowCounter() if PAUSE_MODE == "golge" else None
+    print(f"[duraklatma modu: {PAUSE_MODE}" + (f" - {shadow.note()}]" if shadow else "]"))
+    if shadow:
+        live["golge"] = shadow.note()
     print(f"[kod surumu: {CODE_VERSION}]")
     print(f"[yazici sayilari: {', '.join(PRINTER_SOURCES) if PRINTER_SOURCES else 'kod varsayilanlari'}]")
     for note in PRINTER_NOTES:
@@ -1431,9 +1526,9 @@ async def main():
                             "method": "printer.objects.subscribe",
                             "params": {
                                 "objects": {
-                                    "extruder": ["temperature", "power", "target"],
-                                    "heater_bed": ["temperature", "power", "target"],
-                                    "fan": ["speed"],
+                                    OBJ_HOTEND: ["temperature", "power", "target"],
+                                    **({OBJ_BED: ["temperature", "power", "target"]} if OBJ_BED else {}),
+                                    OBJ_FAN: ["speed"],
                                     "motion_report": ["live_extruder_velocity", "live_velocity", "live_position"],
                                     # print state and file: INPUT of the twin's G-code plan (the plan is not read from Klipper)
                                     "print_stats": ["state", "filename"],
@@ -1460,9 +1555,31 @@ async def main():
                             if first_response.get("id") == 1:
                                 break
                         # bed: notifications only carry the changed fields; initial values come from here
-                        for key, val in first_response.get("result", {}).get("status", {}).get("heater_bed", {}).items():
+                        snap0 = first_response.get("result", {}).get("status", {})
+                        if "result" in first_response:
+                            # a name in config.toml [klipper] that Klipper does not have is simply left out of the answer
+                            for what, name, need in (("hotend", OBJ_HOTEND, True), ("part_fan", OBJ_FAN, False),
+                                                     ("bed", OBJ_BED, False)):
+                                if name and name not in snap0:
+                                    print(f"[!! Klipper'da '{name}' yok (config.toml [klipper] {what}) - "
+                                          + ("ikiz sicaklik alamaz]" if need else "bu girdi 0 kabul ediliyor]"))
+                        for key, val in snap0.get(OBJ_BED, {}).items() if OBJ_BED else ():
                             if val is not None:
                                 bed[key] = val
+                        # filament diameter ([extruder] filament_diameter is required by Klipper): the filament heat
+                        # term scales with the cross-section [K71]
+                        fd = (first_response.get("result", {}).get("status", {}).get("configfile", {})
+                              .get("settings", {}).get(OBJ_HOTEND.lower(), {}).get("filament_diameter"))
+                        try:
+                            fd = float(fd)
+                        except (TypeError, ValueError):
+                            fd = None
+                        if fd is None or not 1.0 < fd < 4.0:
+                            print(f"[!! filament_diameter okunamadi - {FILAMENT_DIAMETER:.2f} mm varsayiliyor]")
+                        elif fd != FILAMENT_DIAMETER:
+                            print(f"[filaman capi: {fd:.2f} mm (Klipper; {FILAMENT_DIAMETER:.2f} mm yerine), "
+                                  f"filaman isi terimi x{(fd / K_FIL_DIAMETER) ** 2:.2f}]")
+                            set_filament_diameter(fd)
                         # the position too: while the printer is idle live_position does not change and never comes.
                         # Without the initial value from here pos_* stay empty until the first move (2026-10-11: pos_e
                         # was unknown at plan start, so Unity could not compute the progress)
@@ -1491,9 +1608,9 @@ async def main():
                         if twin is None:     # the twin is kept across reconnects
                             try:
                                 initial_status = first_response["result"]["status"]
-                                ex0 = initial_status["extruder"]
+                                ex0 = initial_status[OBJ_HOTEND]
                                 pwm0 = ex0.get("power", 0.0) or 0.0
-                                fan0 = initial_status.get("fan", {}).get("speed", 0.0) or 0.0
+                                fan0 = initial_status.get(OBJ_FAN, {}).get("speed", 0.0) or 0.0
                                 ext0 = initial_status.get("motion_report", {}).get("live_extruder_velocity", 0.0) or 0.0
                                 k0, kf0 = load_k()
                                 twin = Twin(*load_state(ex0["temperature"], pwm0, fan0), pwm0, fan0, ext0,
@@ -1508,10 +1625,10 @@ async def main():
                             # (Moonraker sends only CHANGED fields in notifications; if the fan changed during the
                             # outage the old value would stay until its next change)
                             st0 = first_response.get("result", {}).get("status", {})
-                            for key, val in (("pwm", st0.get("extruder", {}).get("power")),
-                                             ("fan", st0.get("fan", {}).get("speed")),
+                            for key, val in (("pwm", st0.get(OBJ_HOTEND, {}).get("power")),
+                                             ("fan", st0.get(OBJ_FAN, {}).get("speed")),
                                              ("ext", st0.get("motion_report", {}).get("live_extruder_velocity")),
-                                             ("target", st0.get("extruder", {}).get("target"))):
+                                             ("target", st0.get(OBJ_HOTEND, {}).get("target"))):
                                 if val is not None:
                                     setattr(twin, key, val)
 
@@ -1558,17 +1675,17 @@ async def main():
                             now = event_time if use_klipper_clock else wall_time
 
                             # a field not in the message stays None (Moonraker sends only what changed)
-                            ex = status.get("extruder", {})
+                            ex = status.get(OBJ_HOTEND, {})
                             T1_real = ex.get("temperature")
                             pwm = ex.get("power")
                             target = ex.get("target")
                             # bed: enters the nozzle twin only as power (supply voltage sag);
                             # its own twin (bed_model.BedTwin) below, in observation mode
-                            bed_msg = status.get("heater_bed", {})
+                            bed_msg = status.get(OBJ_BED, {}) if OBJ_BED else {}
                             for key, val in bed_msg.items():
                                 if val is not None:
                                     bed[key] = val
-                            fan = status.get("fan", {}).get("speed")
+                            fan = status.get(OBJ_FAN, {}).get("speed")
                             ext = status.get("motion_report", {}).get("live_extruder_velocity")
                             # head speed and position: logging only (does the bed loss grow as the bed moves along Y;
                             # nozzle-bed proximity from Z)
@@ -1600,6 +1717,8 @@ async def main():
                                     # resuming from pause is not a new print
                                     if pstat.get("state") == "printing" and was != "paused":
                                         print(f"[baski basladi: {pstat.get('filename', '?')} - G-code plani hazirlaniyor]")
+                                        if shadow:
+                                            shadow.new_print()
                                         # one log per print: the part before (idle, the previous print's cool-down)
                                         # is archived and summarized; this message is the new file's first row
                                         old = log.rotate()
@@ -1619,6 +1738,12 @@ async def main():
                                         fut = loop.run_in_executor(None, plan_job, pstat.get("filename", ""),
                                                                    wall_time, init)
                                         fut.add_done_callback(on_plan)
+                            if shadow:
+                                shadow.tick(now, pstat.get("state") == "printing")
+                                live["golge"] = shadow.note()
+                                if shadow.ready() and not shadow.noted:
+                                    shadow.noted = True
+                                    print(f"\n!! {shadow.note()}\n")
 
                             if twin is None:
                                 # the initial state could not be read: collect inputs, set up the model at the first temperature
@@ -1691,6 +1816,8 @@ async def main():
                                         rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  DURAKLATMA  {msg}\n")
                                 except OSError:
                                     pass
+                                if shadow:
+                                    shadow.event()
                                 if PAUSE_MODE == "aktif":
                                     pf = loop.run_in_executor(None, request_pause)
                                     pf.add_done_callback(lambda f: print(f.result()))

@@ -1284,3 +1284,75 @@ Kaynak: Prusa-Firmware v3.13.0 (`Firmware/temperature.cpp`, `temp_model.h`, `tem
 - Reddit cevabındaki "Prusa sıcaklığa, biz güce bakıyoruz" ayrımı eksikti; doğrusu: ikisi de aynı enerji dengesi,
   Prusa kaba/hızlı (güvenlik), biz ince/yavaş (baskı arızası) + öğrenme + ekstrüzyon terimi. Buddy firmware
   (MK4/Core One) incelenmedi.
+
+## K70 — Duraklatma modu config.toml'da; yeni kurulum gölge modda, 24 baskı saati + 12 baskı sonra aktif önerisi (2026-10-25, kullanıcı kararı, MODEL DEĞİŞMEDİ)
+Sorun: TESTING.md testçiden ilk iki hafta gölge mod istiyordu ama yolu `realtime_websocket.py` içinde `PAUSE_MODE`'u
+elle değiştirmekti: "kod değişikliği olmadan" (v0.4) iddiasıyla çelişiyor, `git pull`'da da kayboluyor.
+- `config.toml` `pause_mode` = golge | aktif | kapali; anahtar yoksa **aktif** (yazarın Pi'si değişmez); bilinmeyen
+  değer → golge (güvenli taraf). `pi/install.sh` yeni kurulumda `pause_mode = "golge"` yazar.
+- Süre takvimle değil baskıyla (kullanıcı: "iki hafta" kişiden kişiye çok farklı): gölge modda baskı saati (Klipper
+  eventtime ile, yalnız `printing` durumunda, 60 s'den uzun boşluk sayılmaz), baskı sayısı (standby/complete →
+  printing; duraklat/devam ve ikizin baskı ortasında başlaması sayılmaz) ve "duraklatırdım" sayısı `golge_sayac.json`'da.
+  **24 baskı saati ve 12 baskı** sonra açılışta, bir kez konsolda ve telefon sayfasında öneri; geçiş OTOMATİK DEĞİL
+  (kullanıcı kayıtları gözden geçirip `pause_mode = "aktif"` yapar). Referans: yazarın gölge evresi 11 baskı, ~22 saat
+  (K49); kullanıcı biraz yukarı aldı.
+- Doğrulama: sahte Moonraker'a deney10 (mandal açık) logu oynatıldı: gölge 2 karar, Moonraker'a istek 0, sayaç +0.73 sa,
+  +2 olay; standby → printing ile 12. baskıda eşik mesajı bir kez; aktif ve anahtarsız config 2 duraklatma isteği
+  gönderdi. `baseline_snapshot --check v0.3` IDENTICAL.
+
+## K71 — Filaman çapı Klipper'dan; PID'siz ısıtıcıda plan referans kontrolcüyle (2026-10-25, kullanıcı kararı, UYUMLULUK, kural 7 kapsamı dışı)
+Başka yazıcı engelleri taramasından (K70 ile aynı gün). İkisi de bilinen geometri/yapılandırmadan gelir, yeni fizik
+değil (kural 7'nin güncel hali).
+- **Filaman çapı:** K_FIL 1.75 mm filamentin mm/s'si başına tanımlıydı; 2.85 mm'de aynı uzunlukta (2.85/1.75)² = 2.65 kat
+  plastik akar, k_fil (tavan 1.6) bunu karşılayamaz → yanlış alarm/kaçırma. Artık `FLOW_RATIO = (d/1.75)²` K_FIL'in
+  kullanıldığı her yerde (model adımı, eksik güç, öğrenicinin iki baskı terimi, sınıflandırıcı). d: canlıda bağlanırken
+  Klipper'ın `configfile.settings.extruder.filament_diameter`'ı (Klipper'da zorunlu alan), okunamazsa uyarı + profil
+  değeri; çevrimdışı araçlar `profile.toml` `hotend.filament_diameter_mm` (varsayılan 1.75). Plan `printer.cfg`'deki
+  çapı kullanır (sabit 1.75 kaldırıldı). 1.75'te oran tam 1.0 → sonuçlar birebir.
+- **PID'siz ısıtıcı:** plan `printer.cfg`'den pid_kp/ki/kd okuyordu; watermark ya da MPC'li yazıcıda plan "KeyError"
+  ile düşüyordu (ikiz etkilenmiyordu). Kullanıcı "ideal kontrolcü"yü seçti; simülasyonda sıcaklığı her an hedefte
+  tutan bir kontrolcü 3 düğümlü modelde gecikme yüzünden kararsız, bu yüzden ideal kontrolcü referans yazıcının ayarlı
+  PID'siyle gerçeklendi (yazici/printer.cfg; nozzle kazançları 40 W / P_MAX ile ölçekli, tabla aynen): ısınmada tam
+  güç, hedefte yükün gücü. Konsolda ve plan özetinde "PID yok (control = watermark) - referans kontrolcu, isinma sureleri
+  yaklasik" uyarısı.
+- Doğrulama: `baseline_snapshot --check v0.3` IDENTICAL. Plan (30 katmanlı deneme G-code'u): normal printer.cfg ile
+  CSV değişiklik öncesiyle byte byte aynı; PID'siz cfg + 60 W profil: hedefe 0.52 dk (40 W: 0.89), tutmada T1 − hedef
+  std 0.07 °C (ayarlı PID ile aynı), pwm 0.411 = 0.619 × 40/60 (aynı watt); 2.85 mm cfg: akış 10.79 / 4.09 mm³/s =
+  2.64 (beklenen 2.65), tutma std 0.19 °C. Sahte Moonraker: 2.85 → "filaman capi ... x2.65", 1.75 → sessiz, alan yok →
+  uyarı.
+
+## K72 — Klipper nesne adları config.toml'da (fan_generic parça fanı, tablasız yazıcı) (2026-10-25, kullanıcı kararı, UYUMLULUK)
+İkiz yalnız `[extruder]`, `[fan]`, `[heater_bed]` adlarını dinliyordu; parça fanı `[fan_generic …]` olan ya da tablası
+olmayan yazıcılar desteklenmiyordu (TESTING.md'de açık engel). Yeni fizik değil (kural 7 kapsamı dışı).
+- `config.toml` `[klipper]` `hotend` / `part_fan` / `bed` (varsayılan stok adlar; `bed = ""` = tabla yok). Abonelik,
+  ilk durum, bildirimler, bağlanırken filaman çapı (`configfile.settings.<hotend>`) bu adları kullanır. Klipper'da
+  olmayan bir ad bağlanınca açıkça yazılır (hotend: "ikiz sicaklik alamaz", fan/tabla: "0 kabul ediliyor").
+- Plan: `Machine(cfg, hotend, bed, part_fan)` aynı adlarla (canlı ikiz geçirir). `[fan_generic X]` parça fanı
+  `SET_FAN_SPEED FAN=X SPEED=` ile okunur (M106 de okunmaya devam eder: çoğu yapılandırma M106'yı buna bağlar).
+  Tabla yoksa G-code'daki M140/M190 yok sayılır (yoksa plan bir tabla simüle edip besleme düşümü ekliyordu).
+- Çok takımlı yazıcılar (IDEX, takım değiştirici) hâlâ desteklenmiyor (TESTING.md).
+- Doğrulama: `baseline_snapshot --check v0.3` IDENTICAL; plan varsayılan adlarla değişiklik öncesiyle byte byte aynı;
+  `[fan_generic part_fan]` + `SET_FAN_SPEED … 0.50196` → fan 0.502, ısıtıcı farkı < 1e-9 W (M106 S128 ile aynı); ad
+  verilmezse fan komutu yok sayılır; tablasız: bed_pwm 0. Sahte Moonraker (deney10): stok adlar ve fan_generic +
+  tablasız config aynı 2 duraklatma kararı, fan %25 okunuyor; config'te ad yoksa iki uyarı, çökme yok.
+
+## K73 — Baskıya giden ısı test kulesi `yazici/heat_tower.py` (2026-10-25, ARAÇ, MODEL DEĞİŞMEDİ, gerçek baskı bekliyor)
+Fikir Reddit'ten (ekstrüzyon kalibrasyonu); havaya ekstrüzyon yalnız filamentin ısınmasını verir, nozzle'dan taze
+plastiğe iletim baskıda olur (K08) → slicer'sız üretilen bir kule. Kalibrasyon baskısından AYRI (kullanıcı kararı):
+tabla, filament ve sıra farklı; kulenin analizi kalibrasyonun kayıplarına dayanır.
+- **generate:** 40 mm kare, 4 duvar, 0.45 mm çizgi, bölüm içinde sabit hız. Merkez (4 mm³/s, fan %60, 0.2 mm) +
+  her seferinde tek değişken: akış 2/6, fan 0/30/100, katman 0.15/0.3; merkez her gruptan sonra tekrar (kayma
+  kontrolü); başta ölçülmeyen bir giriş bölümü (fan ilk açılınca nozzle tarafı depoladığı ısıyı bırakıyor). Baskıdan
+  önce fansız 150 s tutma (günün k'sı). Bölüm ≥ 180 s. 245 °C PETG: 12 bölüm, 32 mm, ~43 dk, ~11 g. Bölümlerin Z
+  aralıkları `_sections.csv`'de. 6 mm³/s üst sınır: K62'de ~8 eriyik sınırını aştı.
+- **analyze:** her bölümde baskıya giden ısı = ısıtıcı gücü − (k × (blok + fan kaybı) + heatsink yolu), öğrenicinin
+  denklemiyle aynı; ölçülen/beklenen filaman ısısı = bölümün k_fil'i. Bölüm başından 40 s (fan adımında depolanan ısı)
+  ve sondan 10 s (net besleme 10 s ortalama) atılır; yalnız bölümün kendi akışının yarısından fazlasıyla basılan ve
+  hedefi açık anlar. k: logdaki k_loss'un ilk bölümden hemen önceki değeri (ya da `--k`).
+- **Sentetik sınama** (`--synthetic`: planın simülasyonu, k_fil bilinen): k_fil 1.0 / 1.33 / 1.6 her bölümde
+  ±0.006 içinde geri bulundu (ilk taslakta ilk bölüm 1.24, son bölüm −2.0 / 1.39 idi → giriş bölümü, hedef ve uç
+  kırpma eklendi). Bölüm 90 s'de analiz penceresi ~50 s: R_PRINT'e göre gürültü ~1 W, ölçülen 1.3–3.7 W → 180 s'ye
+  çıkarıldı (~145 s analiz, ~0.6 W).
+- Sınırlar: geometri (ince duvar, dolgu, köprü) değişmiyor; kule k_fil için daha iyi bir başlangıç verir, baskı içi
+  öğrenme yine gerekir. Sentetik doğrulama aracın kendisini sınar, yazıcıyı değil: ilk gerçek baskı (yeni nozzle,
+  taze kalibrasyondan SONRA) asıl sınav.

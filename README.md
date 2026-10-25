@@ -286,8 +286,10 @@ A model change is accepted only through an **acceptance gate** (all of):
 4. no degradation on the test set;
 5. labelled faults detected as before **and** the synthetic slow-fault test not worse;
 6. one change at a time;
-7. a change that only matters on other hardware (e.g. a ceramic heater, a different fan) waits for logs from
-   such a printer: it is not added on synthetic data alone.
+7. a model change that only matters on other hardware (a new physical term or parameter, e.g. a ceramic heater's
+   power loss) waits for logs from such a printer: it is not added on synthetic data alone. Support that follows
+   from known geometry or configuration (filament diameter, Klipper section names, settings moved to a file) is not
+   a model change: it is added when this printer's scores reproduce exactly.
 
 Many intuitively right changes failed this gate (see `KARARLAR.md`), which is the point of having it.
 

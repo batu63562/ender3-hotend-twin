@@ -12,6 +12,7 @@ heater_power_w = 40          # cartridge power at the supply voltage (30 / 40 / 
 # Not sure? It is printed on the cartridge or in the hotend's documentation. Or measure the cartridge resistance R
 # (printer off, unplugged at the board) and use V^2 / R: 24 V and 14.4 ohm -> 40 W. A 10 % error is absorbed by the
 # calibration print; a wrong voltage (12 V cartridge on 24 V) is not, and is unsafe anyway.
+filament_diameter_mm = 1.75  # used by the offline tools; the live twin reads it from Klipper ([extruder] filament_diameter)
 
 [part_fan]
 threshold = 0.191            # fan PWM below which the blower does not cool the nozzle (0-1)

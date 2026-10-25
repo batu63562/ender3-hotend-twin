@@ -1284,3 +1284,18 @@ Kaynak: Prusa-Firmware v3.13.0 (`Firmware/temperature.cpp`, `temp_model.h`, `tem
 - Reddit cevabındaki "Prusa sıcaklığa, biz güce bakıyoruz" ayrımı eksikti; doğrusu: ikisi de aynı enerji dengesi,
   Prusa kaba/hızlı (güvenlik), biz ince/yavaş (baskı arızası) + öğrenme + ekstrüzyon terimi. Buddy firmware
   (MK4/Core One) incelenmedi.
+
+## K70 — Duraklatma modu config.toml'da; yeni kurulum gölge modda, 24 baskı saati + 12 baskı sonra aktif önerisi (2026-10-25, kullanıcı kararı, MODEL DEĞİŞMEDİ)
+Sorun: TESTING.md testçiden ilk iki hafta gölge mod istiyordu ama yolu `realtime_websocket.py` içinde `PAUSE_MODE`'u
+elle değiştirmekti: "kod değişikliği olmadan" (v0.4) iddiasıyla çelişiyor, `git pull`'da da kayboluyor.
+- `config.toml` `pause_mode` = golge | aktif | kapali; anahtar yoksa **aktif** (yazarın Pi'si değişmez); bilinmeyen
+  değer → golge (güvenli taraf). `pi/install.sh` yeni kurulumda `pause_mode = "golge"` yazar.
+- Süre takvimle değil baskıyla (kullanıcı: "iki hafta" kişiden kişiye çok farklı): gölge modda baskı saati (Klipper
+  eventtime ile, yalnız `printing` durumunda, 60 s'den uzun boşluk sayılmaz), baskı sayısı (standby/complete →
+  printing; duraklat/devam ve ikizin baskı ortasında başlaması sayılmaz) ve "duraklatırdım" sayısı `golge_sayac.json`'da.
+  **24 baskı saati ve 12 baskı** sonra açılışta, bir kez konsolda ve telefon sayfasında öneri; geçiş OTOMATİK DEĞİL
+  (kullanıcı kayıtları gözden geçirip `pause_mode = "aktif"` yapar). Referans: yazarın gölge evresi 11 baskı, ~22 saat
+  (K49); kullanıcı biraz yukarı aldı.
+- Doğrulama: sahte Moonraker'a deney10 (mandal açık) logu oynatıldı: gölge 2 karar, Moonraker'a istek 0, sayaç +0.73 sa,
+  +2 olay; standby → printing ile 12. baskıda eşik mesajı bir kez; aktif ve anahtarsız config 2 duraklatma isteği
+  gönderdi. `baseline_snapshot --check v0.3` IDENTICAL.

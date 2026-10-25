@@ -224,7 +224,19 @@ FAULT_TEXT.update(ENERGY_TEXT)
 # print is printing. SHADOW mode only logs "would pause" (CSV duraklat, ariza_raporlari.txt); active mode sends a
 # pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19]. KAYIP_* never pauses.
 PAUSE_AFTER = 150.0       # s
-PAUSE_MODE = "aktif"      # "golge" (shadow: log only) | "aktif" (active: pause via Moonraker) | "kapali" (off) [K50]
+PAUSE_MODES = ("golge", "aktif", "kapali")   # shadow: log only | active: pause via Moonraker | off [K50]
+# From config.toml (`pause_mode`), so a new printer can start in shadow mode without editing this file
+# (pi/install.sh writes "golge" for a new install); without the key: active, as on the author's printer.
+PAUSE_MODE = str(CONFIG.get("pause_mode", "aktif")).strip().lower()
+if PAUSE_MODE not in PAUSE_MODES:
+    print(f"[!! config.toml pause_mode = {PAUSE_MODE!r} bilinmiyor ({' | '.join(PAUSE_MODES)}): 'golge' kullaniliyor]")
+    PAUSE_MODE = "golge"
+# Shadow mode on a new printer: once it has seen SHADOW_REVIEW_HOURS of printing over SHADOW_REVIEW_PRINTS prints,
+# a note asks the user to review the "would pause" reports and switch to active (never automatic). The author's own
+# shadow phase before going active was 11 prints, ~22 print hours [K49].
+SHADOW_FILE = os.path.join(HERE, "golge_sayac.json")
+SHADOW_REVIEW_HOURS = 24.0
+SHADOW_REVIEW_PRINTS = 12
 
 # Material and backup: the material is read from the G-code header ("; filament_type = ") for the CSV; k_fil is not
 # stored per material any more, every print starts from K_FIL_ANCHOR [K27]. At every start a dated copy of
@@ -1152,6 +1164,62 @@ def summarize_session(path):
         return f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]"
 
 
+class ShadowCounter:
+    """Print hours, prints and "would pause" events while in shadow mode (SHADOW_FILE, kept across restarts)."""
+    SAVE_EVERY = 300.0   # s of printing between saves
+
+    def __init__(self):
+        self.data = {"saat": 0.0, "baski": 0, "olay": 0}
+        try:
+            with open(SHADOW_FILE, encoding="utf-8") as f:
+                self.data.update(json.load(f))
+        except (OSError, ValueError):
+            pass
+        self.last = None
+        self.unsaved = 0.0
+        self.noted = self.ready()
+
+    def save(self):
+        try:
+            tmp = SHADOW_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self.data, f)
+            os.replace(tmp, SHADOW_FILE)
+            self.unsaved = 0.0
+        except OSError as e:
+            print(f"[golge sayaci yazilamadi: {e}]")
+
+    def tick(self, now, printing):
+        """Called on every message with the twin's clock (Klipper eventtime); time counts only while printing, gaps
+        over 60 s (no data) are not counted."""
+        dt = now - self.last if self.last is not None else 0.0
+        self.last = now
+        if printing and 0.0 < dt < 60.0:
+            self.data["saat"] += dt / 3600.0
+            self.unsaved += dt
+            if self.unsaved >= self.SAVE_EVERY:
+                self.save()
+
+    def new_print(self):
+        self.data["baski"] += 1
+        self.save()
+
+    def event(self):
+        self.data["olay"] += 1
+        self.save()
+
+    def ready(self):
+        return self.data["saat"] >= SHADOW_REVIEW_HOURS and self.data["baski"] >= SHADOW_REVIEW_PRINTS
+
+    def note(self):
+        d = self.data
+        head = f"golge mod: {d['saat']:.1f} baski saati, {d['baski']} baski, {d['olay']} 'duraklatirdim' kaydi"
+        if not self.ready():
+            return f"{head} (aktif mod onerisi {SHADOW_REVIEW_HOURS:.0f} saat ve {SHADOW_REVIEW_PRINTS} baskidan sonra)"
+        return (f"{head}: kayitlari gozden gecir ({os.path.basename(REPORT_FILE)}); uygunsa config.toml'da "
+                f'pause_mode = "aktif" yap')
+
+
 def daily_jobs(live):
     """At start-up and once a day (24/7 operation): dated backup of twin_state.json and the maintenance indicator."""
     backup_state()
@@ -1296,7 +1364,7 @@ const st=$('st');let msg='normal',col='--ok';
 if(d.ariza.length){msg='ARIZA: '+d.ariza.join(', ');col='--er'}
 if(d.yas>15){msg='veri gelmiyor ('+Math.round(d.yas)+' s)';col='--wa'}
 st.textContent=msg;st.style.background=css(col);st.style.color='#fff';
-$('kat').textContent=(d.bakim?d.bakim+'  ':'')+(d.kategori?('son kategori: '+d.kategori):'');$('up').textContent='son veri '+Math.round(d.yas)+' s once';draw(d.h)}
+$('kat').textContent=(d.golge?d.golge+'  ':'')+(d.bakim?d.bakim+'  ':'')+(d.kategori?('son kategori: '+d.kategori):'');$('up').textContent='son veri '+Math.round(d.yas)+' s once';draw(d.h)}
 catch(e){$('st').textContent='script calismiyor / baglanti yok';$('st').style.background=css('--er')}}
 tick();setInterval(tick,2000);
 </script></body></html>"""
@@ -1376,6 +1444,10 @@ async def main():
     bed_error = None
     mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
     daily_jobs(live)                                     # state backup + maintenance indicator (again every day)
+    shadow = ShadowCounter() if PAUSE_MODE == "golge" else None
+    print(f"[duraklatma modu: {PAUSE_MODE}" + (f" - {shadow.note()}]" if shadow else "]"))
+    if shadow:
+        live["golge"] = shadow.note()
     print(f"[kod surumu: {CODE_VERSION}]")
     print(f"[yazici sayilari: {', '.join(PRINTER_SOURCES) if PRINTER_SOURCES else 'kod varsayilanlari'}]")
     for note in PRINTER_NOTES:
@@ -1600,6 +1672,8 @@ async def main():
                                     # resuming from pause is not a new print
                                     if pstat.get("state") == "printing" and was != "paused":
                                         print(f"[baski basladi: {pstat.get('filename', '?')} - G-code plani hazirlaniyor]")
+                                        if shadow:
+                                            shadow.new_print()
                                         # one log per print: the part before (idle, the previous print's cool-down)
                                         # is archived and summarized; this message is the new file's first row
                                         old = log.rotate()
@@ -1619,6 +1693,12 @@ async def main():
                                         fut = loop.run_in_executor(None, plan_job, pstat.get("filename", ""),
                                                                    wall_time, init)
                                         fut.add_done_callback(on_plan)
+                            if shadow:
+                                shadow.tick(now, pstat.get("state") == "printing")
+                                live["golge"] = shadow.note()
+                                if shadow.ready() and not shadow.noted:
+                                    shadow.noted = True
+                                    print(f"\n!! {shadow.note()}\n")
 
                             if twin is None:
                                 # the initial state could not be read: collect inputs, set up the model at the first temperature
@@ -1691,6 +1771,8 @@ async def main():
                                         rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  DURAKLATMA  {msg}\n")
                                 except OSError:
                                     pass
+                                if shadow:
+                                    shadow.event()
                                 if PAUSE_MODE == "aktif":
                                     pf = loop.run_in_executor(None, request_pause)
                                     pf.add_done_callback(lambda f: print(f.result()))

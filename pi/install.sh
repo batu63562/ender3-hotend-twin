@@ -33,8 +33,9 @@ fi
 
 # Moonraker runs on this Pi: talk to it directly on its own port (no web server in between).
 if [ ! -f "$APP_DIR/config.toml" ]; then
-    printf 'printer_host = "127.0.0.1:7125"\nweb_port = %s\n' "$WEB_PORT" > "$APP_DIR/config.toml"
-    echo "== wrote config.toml (Moonraker at 127.0.0.1:7125, phone page on port $WEB_PORT)"
+    # a new printer starts in shadow mode: "would pause" is only logged until the user switches to active
+    printf 'printer_host = "127.0.0.1:7125"\nweb_port = %s\npause_mode = "golge"\n' "$WEB_PORT" > "$APP_DIR/config.toml"
+    echo "== wrote config.toml (Moonraker at 127.0.0.1:7125, phone page on port $WEB_PORT, shadow mode)"
 fi
 
 # Raspberry Pi OS keeps the journal in RAM (40-rpi-volatile-storage.conf, ~33 MB, lost on reboot): keep it on disk

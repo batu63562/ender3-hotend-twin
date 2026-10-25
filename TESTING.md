@@ -3,7 +3,7 @@
 Thank you for trying this. The goal of the test (roadmap v0.4) is to find out whether the twin works on a printer
 it has never seen, with **no code change**: only a profile file and one calibration print. Nothing is added to
 your printer; the twin only reads what Klipper already reports. Allow about one hour of setup, one hour of
-calibration print (no filament used), and then your normal printing for a week or two.
+calibration print (no filament used), and then your normal printing: at least 24 print hours over 12 prints.
 
 Before you start, please open a ["Test on my printer" issue](../../issues/new?template=test-on-my-printer.md) so
 we can talk there.
@@ -36,15 +36,12 @@ journalctl -u ender3-twin -f
 You should see one line per message with `T1_real`, `T1_model` and `residual`. The phone page is at
 `http://<pi address>:8090`.
 
-**Start in shadow mode.** By default the twin pauses a print when it is sure a fault is happening. On a new printer,
-let it only record what it would do for the first two weeks: in `realtime_websocket.py` set
-
-```python
-PAUSE_MODE = "golge"
-```
-
-and restart with `sudo systemctl restart ender3-twin`. ("golge" is Turkish for shadow; it logs "would pause" to
-`ariza_raporlari.txt` instead of pausing.)
+**It starts in shadow mode.** The install script writes `pause_mode = "golge"` into `config.toml` ("golge" is Turkish
+for shadow): when the twin is sure a fault is happening it only logs "would pause" to `ariza_raporlari.txt` instead of
+pausing the print. It counts print hours and prints in this mode; after **24 print hours over at least 12 prints** it
+says so at start-up and on the phone page. Then post the "would pause" entries in the issue (were they real faults?),
+and if they were, switch it on: set `pause_mode = "aktif"` in `config.toml` and run
+`sudo systemctl restart ender3-twin`. Nothing in the code needs editing.
 
 ## 3. Describe your printer: `profile.toml`
 
@@ -102,7 +99,7 @@ The start-up lines in `journalctl -u ender3-twin -f` should show `calibration.js
 
 ## 6. Print normally
 
-Print whatever you normally print, for a week or two. **Start the twin before the print starts** (it is a service,
+Print whatever you normally print, at least 24 print hours over 12 prints (the twin counts them). **Start the twin before the print starts** (it is a service,
 so it always is), so that it can plan the print from the G-code.
 
 When something goes wrong in a print (clog, filament ran out, a blob on the nozzle, a layer shift, the sock fell

@@ -16,6 +16,7 @@ Ender-3 Parts/
 
 # Live state and runtime output
 twin_state*.json
+golge_sayac.json
 twin.lock
 bakim_durumu.json
 bakim_izleme.csv

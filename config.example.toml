@@ -7,6 +7,12 @@ printer_host = "192.168.1.50"
 # Port of the phone status page (http://<this computer>:<port>). 0 turns it off.
 # web_port = 8080
 
+# What the twin does when it is sure a fault is happening (missing power for 150 s while printing):
+# "golge" (shadow) only logs "would pause" to ariza_raporlari.txt, "aktif" pauses the print, "kapali" does nothing.
+# Without this line: "aktif". A new printer should start in "golge"; after 24 print hours over 12 prints the twin
+# says so on start-up and on the phone page, review the reports and switch to "aktif" if they were all real faults.
+# pause_mode = "golge"
+
 # The twin's folder on the Raspberry Pi as this PC sees it (the Samba share of pi/install.sh); used by
 # sync_pi_logs.py to copy finished logs here. Forward slashes work on Windows too.
 # pi_share = "//192.168.1.60/ender3-twin"

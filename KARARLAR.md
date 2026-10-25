@@ -1299,3 +1299,24 @@ elle değiştirmekti: "kod değişikliği olmadan" (v0.4) iddiasıyla çelişiyo
 - Doğrulama: sahte Moonraker'a deney10 (mandal açık) logu oynatıldı: gölge 2 karar, Moonraker'a istek 0, sayaç +0.73 sa,
   +2 olay; standby → printing ile 12. baskıda eşik mesajı bir kez; aktif ve anahtarsız config 2 duraklatma isteği
   gönderdi. `baseline_snapshot --check v0.3` IDENTICAL.
+
+## K71 — Filaman çapı Klipper'dan; PID'siz ısıtıcıda plan referans kontrolcüyle (2026-10-25, kullanıcı kararı, UYUMLULUK, kural 7 kapsamı dışı)
+Başka yazıcı engelleri taramasından (K70 ile aynı gün). İkisi de bilinen geometri/yapılandırmadan gelir, yeni fizik
+değil (kural 7'nin güncel hali).
+- **Filaman çapı:** K_FIL 1.75 mm filamentin mm/s'si başına tanımlıydı; 2.85 mm'de aynı uzunlukta (2.85/1.75)² = 2.65 kat
+  plastik akar, k_fil (tavan 1.6) bunu karşılayamaz → yanlış alarm/kaçırma. Artık `FLOW_RATIO = (d/1.75)²` K_FIL'in
+  kullanıldığı her yerde (model adımı, eksik güç, öğrenicinin iki baskı terimi, sınıflandırıcı). d: canlıda bağlanırken
+  Klipper'ın `configfile.settings.extruder.filament_diameter`'ı (Klipper'da zorunlu alan), okunamazsa uyarı + profil
+  değeri; çevrimdışı araçlar `profile.toml` `hotend.filament_diameter_mm` (varsayılan 1.75). Plan `printer.cfg`'deki
+  çapı kullanır (sabit 1.75 kaldırıldı). 1.75'te oran tam 1.0 → sonuçlar birebir.
+- **PID'siz ısıtıcı:** plan `printer.cfg`'den pid_kp/ki/kd okuyordu; watermark ya da MPC'li yazıcıda plan "KeyError"
+  ile düşüyordu (ikiz etkilenmiyordu). Kullanıcı "ideal kontrolcü"yü seçti; simülasyonda sıcaklığı her an hedefte
+  tutan bir kontrolcü 3 düğümlü modelde gecikme yüzünden kararsız, bu yüzden ideal kontrolcü referans yazıcının ayarlı
+  PID'siyle gerçeklendi (yazici/printer.cfg; nozzle kazançları 40 W / P_MAX ile ölçekli, tabla aynen): ısınmada tam
+  güç, hedefte yükün gücü. Konsolda ve plan özetinde "PID yok (control = watermark) - referans kontrolcu, isinma sureleri
+  yaklasik" uyarısı.
+- Doğrulama: `baseline_snapshot --check v0.3` IDENTICAL. Plan (30 katmanlı deneme G-code'u): normal printer.cfg ile
+  CSV değişiklik öncesiyle byte byte aynı; PID'siz cfg + 60 W profil: hedefe 0.52 dk (40 W: 0.89), tutmada T1 − hedef
+  std 0.07 °C (ayarlı PID ile aynı), pwm 0.411 = 0.619 × 40/60 (aynı watt); 2.85 mm cfg: akış 10.79 / 4.09 mm³/s =
+  2.64 (beklenen 2.65), tutma std 0.19 °C. Sahte Moonraker: 2.85 → "filaman capi ... x2.65", 1.75 → sessiz, alan yok →
+  uyarı.

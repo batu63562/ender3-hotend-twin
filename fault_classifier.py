@@ -115,7 +115,7 @@ def signals(df, m):
     s["L_blok"] = m.HA1 * (T - m.T_AMB) + m.CRAD * ((T + 273.15) ** 4 - m.T_AMB_K ** 4)
     s["L_hs"] = m.HA2 * (T2 - m.T_AMB)
     s["L_fan"] = fanc * (T2 - m.T_AMB)
-    s["L_fil"] = m.K_FIL * s.flow * (T - m.T_AMB)
+    s["L_fil"] = m.K_FIL * m.FLOW_RATIO * s.flow * (T - m.T_AMB)
     s["store"] = (m.C1 * np.gradient(T, g) + m.C2 * np.gradient(T2, g) + m.C3 * np.gradient(T3, g))
 
     n = max(1, int(round(SMOOTH / GRID_DT)))
@@ -237,7 +237,7 @@ def _sim(ctx, i0, i1, kn, kf, kfil, base=None):
 
     def f(T1, T2, T3, u, fc, q, kn, kfil):
         q31 = (T3 - T1) / m.R31; qhb = (T1 - T2) / m.R_HB
-        d1 = (q31 - qhb - kn * m.natural_loss(T1) - kfil * m.K_FIL * q * (T1 - m.T_AMB)) / m.C1
+        d1 = (q31 - qhb - kn * m.natural_loss(T1) - kfil * m.K_FIL * m.FLOW_RATIO * q * (T1 - m.T_AMB)) / m.C1
         d2 = (qhb - m.HA2 * (T2 - m.T_AMB) - fc * (T2 - m.T_AMB)) / m.C2
         return d1, d2, (u * m.P_MAX - q31) / m.C3
 

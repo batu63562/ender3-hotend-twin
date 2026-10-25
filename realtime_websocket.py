@@ -59,6 +59,20 @@ HA2_FAN = 0.0293  # W/K - extra conductance from T2 by the part cooling fan at f
 FAN_EXP = 0.508   # fan cooling ~ ((f-F0)/(1-F0))**FAN_EXP (forced convection h ~ air speed^0.5) [K03]
 FAN_F0 = 0.191    # fan threshold: below this PWM the 5015 blower cannot overcome the duct resistance, cooling ~0 [K03]
 K_FIL = 0.0054   # W/(K*mm/s) - heat taken by the filament = K_FIL * net feed rate * (T1 - T_amb) (PETG cp) [K04]
+# K_FIL is per mm/s of 1.75 mm filament; another diameter carries (d/1.75)^2 times the plastic per mm. The diameter
+# comes from Klipper ([extruder] filament_diameter, read when connecting) or profile.toml; FLOW_RATIO multiplies
+# K_FIL everywhere (exactly 1.0 for 1.75 mm) [K71].
+K_FIL_DIAMETER = 1.75   # mm
+FILAMENT_DIAMETER = 1.75
+FLOW_RATIO = 1.0
+
+
+def set_filament_diameter(d):
+    """Sets FILAMENT_DIAMETER and FLOW_RATIO (the twin and the plan call it with Klipper's value)."""
+    global FILAMENT_DIAMETER, FLOW_RATIO
+    FILAMENT_DIAMETER = float(d)
+    FLOW_RATIO = (FILAMENT_DIAMETER / K_FIL_DIAMETER) ** 2
+
 
 MAX_SUBSTEP = 0.3      # s - upper limit of the RK4 substep
 RK4_STABILITY = 2.5    # RK4 needs |lambda*h| < 2.78 on the real axis; margin left
@@ -106,6 +120,7 @@ CAP_T0 = 140.0      # C - C(T) = C at this temperature
 PROFILE_FILE = os.path.join(HERE, "profile.toml")
 CALIBRATION_FILE = os.environ.get("TWIN_CALIBRATION") or os.path.join(HERE, "calibration.json")   # env: evaluate another file
 PROFILE_KEYS = {("", "room_c"): "T_AMB", ("hotend", "heater_power_w"): "P_MAX", ("power", "bed_sag"): "BED_SAG",
+                ("hotend", "filament_diameter_mm"): "FILAMENT_DIAMETER",
                 ("part_fan", "threshold"): "FAN_F0", ("part_fan", "exponent"): "FAN_EXP"}
 CALIBRATED = ("C1", "C2", "C3", "R31", "R_HB", "HA1", "CRAD", "HA2", "HA2_FAN", "FAN_F0", "FAN_EXP",
               "CAP_T_COEF", "K_FIL")
@@ -148,6 +163,7 @@ def load_printer_numbers():
     except (OSError, ValueError, AttributeError) as e:
         notes.append(f"{os.path.basename(CALIBRATION_FILE)} ignored: {type(e).__name__}: {e}")
     g["T_AMB_K"] = g["T_AMB"] + 273.15
+    set_filament_diameter(g["FILAMENT_DIAMETER"])
     return sources, notes
 
 
@@ -584,9 +600,9 @@ class KLossLearner:
         self.p_E_loss += (natural_loss(T1_real) + fan_conductance(fan) * dT2) * dt
         self.p_E_T2 += HA2 * dT2 * dt
         if fan_conductance(fan) > 0:       # fan on: scaled by k_fil (learned)
-            self.p_E_fil += K_FIL * ext_v * (T1_real - T_AMB) * dt
+            self.p_E_fil += K_FIL * FLOW_RATIO * ext_v * (T1_real - T_AMB) * dt
         else:                              # fan off: filament heating only, factor 1.0 (fixed)
-            self.p_E_fil_off += K_FIL * ext_v * (T1_real - T_AMB) * dt
+            self.p_E_fil_off += K_FIL * FLOW_RATIO * ext_v * (T1_real - T_AMB) * dt
         self.p_T_min, self.p_T_max = min(self.p_T_min, T1_real), max(self.p_T_max, T1_real)
         self.p_valid += dt if energy_ok else 0.0
         self.p_ext += dt if ext_v > 0.0 else 0.0
@@ -653,7 +669,7 @@ def model_step(T1, T2, T3, pwm, fan, extrude_v, dt, k_loss=1.0, max_substep=None
 
     def deriv(T1, T2, T3):
         k_eff = k_loss   # at every temperature (the fade-out rule was removed on 2026-10-13)
-        Q_filament = k_fil * K_FIL * max(extrude_v, 0.0) * (T1 - T_AMB)
+        Q_filament = k_fil * K_FIL * FLOW_RATIO * max(extrude_v, 0.0) * (T1 - T_AMB)
         Q_conv1 = k_eff * natural_loss(T1) + Q_filament
 
         Q_heater_to_1 = (T3 - T1) / R31
@@ -768,7 +784,7 @@ class EnergyMonitor:
         fc = k_eff * fan_conductance(fan)
         P = pwm * P_MAX * power_scale
         loss = (k_eff * natural_loss(T1_prev) + (HA2 + fc) * (self.T2 - T_AMB)
-                + kfil * K_FIL * max(ext, 0.0) * (T1_prev - T_AMB))
+                + kfil * K_FIL * FLOW_RATIO * max(ext, 0.0) * (T1_prev - T_AMB))
         G2 = 1 / R_HB + HA2 + fc
         T2_inf = (T1_prev / R_HB + (HA2 + fc) * T_AMB) / G2
         self.T2 = T2_inf + (self.T2 - T2_inf) * math.exp(-dt * G2 / (C2 * cap_scale(self.T2)))
@@ -1535,6 +1551,20 @@ async def main():
                         for key, val in first_response.get("result", {}).get("status", {}).get("heater_bed", {}).items():
                             if val is not None:
                                 bed[key] = val
+                        # filament diameter ([extruder] filament_diameter is required by Klipper): the filament heat
+                        # term scales with the cross-section [K71]
+                        fd = (first_response.get("result", {}).get("status", {}).get("configfile", {})
+                              .get("settings", {}).get("extruder", {}).get("filament_diameter"))
+                        try:
+                            fd = float(fd)
+                        except (TypeError, ValueError):
+                            fd = None
+                        if fd is None or not 1.0 < fd < 4.0:
+                            print(f"[!! filament_diameter okunamadi - {FILAMENT_DIAMETER:.2f} mm varsayiliyor]")
+                        elif fd != FILAMENT_DIAMETER:
+                            print(f"[filaman capi: {fd:.2f} mm (Klipper; {FILAMENT_DIAMETER:.2f} mm yerine), "
+                                  f"filaman isi terimi x{(fd / K_FIL_DIAMETER) ** 2:.2f}]")
+                            set_filament_diameter(fd)
                         # the position too: while the printer is idle live_position does not change and never comes.
                         # Without the initial value from here pos_* stay empty until the first move (2026-10-11: pos_e
                         # was unknown at plan start, so Unity could not compute the progress)

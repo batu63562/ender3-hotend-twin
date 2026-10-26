@@ -211,8 +211,10 @@ Preparation that needs no second printer (2026-10-22, partly from the first comm
       by a tester); longer, so an option.
 - [ ] Heat-into-the-print test tower `yazici/heat_tower.py` (generate + analyze; [K73]): sections change one
       setting each (flow, fan, layer height) around a centre point, so `k_fil` can later start from a value predicted
-      from the slicer settings instead of a fixed anchor. The analysis returns a known k_fil to ±0.006 on the plan
-      simulation; waiting for the first real print (after the fresh calibration, new nozzle).
+      from the slicer settings instead of a fixed anchor. Each section starts with a tare (same fan, no extrusion),
+      so the heat into the print is a power step and does not depend on `k`: a model-based balance needs `k` to
+      ~0.01 ([K77]). Line width from `printer.cfg`'s nozzle. Returns a known k_fil to ±0.001 on the plan simulation,
+      also with `k` 0.1 off; waiting for the first real print (after the fresh calibration, new nozzle).
 - [ ] A standard comparison print (e.g. Benchy) for testers, to compare printers on the same object.
 - [ ] Per-material `k` reference: evaluated, not now. The PLA/ASA shift on this printer is ~0.025 in `k`, inside
       the 0.08 band; splitting the reference would also split the maintenance indicator ([K20]). Revisit with

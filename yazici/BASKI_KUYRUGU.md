@@ -66,13 +66,15 @@ v0.4 test kullanıcılarına kalır (K42).
 
 ## Yeni nozzle takılınca (TZ3.0 bi-metal sertleştirilmiş çelik; K74 sırası)
 
-0. Takmadan önce: uyumluluk (MK8/Ender hotend'i), heat break'e dayanmalı, sıcakken sık.
+0. Takmadan önce: uyumluluk (MK8/Ender hotend'i), heat break'e dayanmalı, sıcakken sık. Yeni nozzle 0.4 mm:
+   `printer.cfg` `nozzle_diameter: 0.400` + Klipper yeniden başlat, Orca'da 0.4 profili.
 1. **Yedek:** `twin_state.json` → `durum_yedek/`.
 2. **Takarken ikiz KAPALI:** `sudo systemctl stop ender3-twin`.
-3. **İkizi başlat, 245 °C fansız 5 dk bekle** (baskı yok). Telefon sayfasında k'yı izle: başlangıç ve 5. dk değerini,
-   KAYIP alarmı çalarsa saatini not et (beklenen). İsteğe bağlı: fan %60, 3 dk daha.
+3. **İkizi başlat, nozzle soğuyunca (< 40 °C) deney16** `yazici/deney16_fan_hafiza.gcode` (~24 dk, filamentsiz; K76).
+   Tutma A eski "245 °C fansız 5 dk" adımının yerine (k'nın başlangıç ve 5. dk değeri); A > B ≈ C mi, fan hafızası
+   çelikte de var mı? Bir iş olduğu için öğrendiği k baskı başında geri alınmaz (K75; boşta tutma alınırdı).
 4. **Kalibrasyon baskısı** `yazici/calibration_245.gcode` (~55 dk, filamentsiz). Durumu geri YÜKLEME (yeni nozzle'ın k'sı).
-5. **Isı kulesi** `yazici/heat_tower_245.gcode` (~43 dk, PETG ~11 g, tabla 80 °C; K73).
+5. **Isı kulesi** `yazici/heat_tower_245.gcode` (~56 dk, PETG ~11 g, tabla 80 °C; 0.4 nozzle, bölüm başı dara; K73, K77).
 6. **Normal PETG baskılar**, toplam ≥ 4 saat (K74 sınama verisi). Logları Claude'a ver.
 
 ## Etiket bekleyenler (log gelince)

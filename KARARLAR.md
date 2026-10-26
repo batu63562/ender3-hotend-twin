@@ -1460,3 +1460,26 @@ yüklendi (doğrulandı). K75 canlıda: baskı başında alarm yoktu, geri alma 
   Model için anlamı: her baskının fansız ilk katmanı "fan öncesi" durumda; etki kalırsa ilk katmanda ~+2 W fazla kayıp
   (GUC_ARTTI yönü) beklenir.
 
+## K77 — Isı kulesi: bölüm başı dara, çizgi genişliği printer.cfg'den (2026-10-26, ARAÇ, MODEL DEĞİŞMEDİ, basılmadan)
+Kuru prova (kullanıcı: kendi kullanmadan paylaşmamak). Klipper sınırları, E modu, başlangıç/bitiş sorunsuz; iki sorun:
+- **k duyarlılığı:** K73 analizi baskıya giden ısıyı "ölçülen güç − k × model kaybı" diye okuyordu; fan %60'ta kayıp
+  ~23 W, sinyal ~2.5 W (büyük iki sayının farkı). Sentetik koşuda analize k'yı kaydırınca merkez k_fil (doğrusu 1.33):
+  +0.05 → 0.75, +0.10 → 0.18, −0.10 → 2.48. k ise kulenin fansız 150 s tutmasından (fan hiç dönmemişken, K76 fan
+  hafızası ~+0.1) ve gün içi gezinmeden (0.02–0.05) geliyordu → sonuç kullanılamazdı.
+  **Dara:** her analiz bölümünden önce (giriş hariç) 1 mm geri çekme, kule tepesinin 1.1 mm üstü, ilk köşenin 3 mm
+  dışı, bölümün fanında 80 s; baskıya giden ısı = baskı gücü − daranın son 40 s gücü (küçük sıcaklık farkı model
+  kaybıyla düzeltilir). k ve fan hafızası farkta sadeleşir, gezinme her bölümde yeniden daralanır. Baştaki fansız
+  tutma kaldırıldı. Model tabanlı tahmin `k_fil_model` sütunu olarak karşılaştırmaya kaldı. Kule ~43 → ~56 dk.
+  Sentetik: k 0.9 / 1.0 / 1.1 ve k_fil 1.0 / 1.33 / 1.6'da her bölüm ±0.001 (model sütunu aynı k hatalarında
+  0.18…3.59). Sınır: sentetikte dara ile baskı konumu arasında kayıp farkı yok; gerçekte nozzle kulenin üstündeyken
+  ve yanındayken fan akışı biraz farklı (tekrarlanan merkez bölümleri bunun ve kaymanın tutarlılığını gösterir).
+- **Z filtresi hatası (K73'ten):** bölüm satırları `z ≥ z_from − 0.001` ile seçiliyordu; z_from = önceki tepe + 0.001
+  olduğundan önceki bölümün son katmanı da bölüme giriyordu (sentetikte görünmüyordu, gerçekte fan %100'ün son katmanı
+  merkeze sayılırdı). Tolerans 0.0005'e indi.
+- **Çizgi genişliği:** 0.45 sabitti (0.4 nozzle); Klipper'da şu an 0.6. Artık `--cfg` printer.cfg'nin
+  `nozzle_diameter` × 1.125 (0.4 → 0.45, 0.6 → 0.68), filament çapı da oradan (K71 gibi); `--nozzle`, `--width`
+  elle. Prime çizgisi de bu genişlikte. `; filament_type` satırı eklendi (`--material`, ikiz CSV'ye yazar).
+  `heat_tower_245.gcode` yeni nozzle için `--nozzle 0.4` ile üretildi (repo'daki printer.cfg kopyası hâlâ 0.6).
+- Nozzle günü sırasına (BASKI_KUYRUGU) eklendi: `nozzle_diameter: 0.400`, Orca 0.4 profili, eski "245 °C fansız
+  5 dk" boşta tutmasının yerine deney16 (bir iş: K75 öğrenilen k'yı geri almaz).
+

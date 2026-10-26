@@ -1379,9 +1379,9 @@ uyum sağlayabilmeli"): eski sayılarla devam edip k'yı öğrenmeye bırakmak m
 - **Nozzle günü sırası:** yedek → takarken ikiz KAPALI (elle müdahale tutma sanılmasın, K22) → ikizi başlat, 245 °C
   fansız 5 dk (isteğe bağlı fan %60 3 dk) → kalibrasyon baskısı → ısı kulesi → normal baskılar. Logları Claude'a ver.
 - **Ek (2026-10-26, basılmadan): değişimden önce pirinç referansı.** Kalibrasyon baskısı filamentsiz, tıkalı asıl
-  pirinç nozzle'la basılabilir (akış yok; tıkaçtaki plastiğin ısı kapasitesi ~%1). Amaç: (a) `calibration_245.gcode`'u
-  paylaşmadan önce yazarın kendi yazıcısında çalıştırmak; (b) 23.10'da heatsink vidaları sıkıldığı için 21.10
-  kalibrasyonu bugünkü "eski donanımı" temsil etmeyebilir → nozzle dışında her şey aynıyken bir "önce" (A'). İkinci
+  pirinç nozzle'la basılabilir (akış yok; tıkaçtaki plastiğin ısı kapasitesi ~%1). Amaç: 23.10'da heatsink vidaları
+  sıkıldığı için 21.10 kalibrasyonu (K45) bugünkü "eski donanımı" temsil etmeyebilir → nozzle dışında her şey
+  aynıyken bir "önce" (A'); aynı baskının ikinci tekrarı, aracın tekrarlanabilirliğini de gösterir. İkinci
   pirinç nozzle (uzun, fan akışını bozuyor) KULLANILMAZ: fan kaybı geometrisi değişir. A' **ölçüt değil**: K74'ün
   modelleri (A, B), sınama verisi ve dört ölçütü değişmez. Raporlanacak: A' ile 21.10'un C/R farkı (vida etkisi,
   ±2 se) ve B'nin farkı A'ya göre (nozzle etkisi). Baskıdan sonra ikiz durumu yedekten geri yüklenir (fan tutmaları

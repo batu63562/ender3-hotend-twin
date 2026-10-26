@@ -207,6 +207,10 @@ K_ALARM_BAND = 0.08
 K_ALARM_CLEAR = 0.06        # the alarm closes only when the deviation drops below this (experiment 8: k 0.92 at the band edge toggled 13 times)
 K_ACCEPT_TIME = 30 * 60.0   # s - hot (T1 > ADAPT_TMIN) time spent outside the band AND steady
 K_ACCEPT_RANGE = 0.02       # k counts as "steady" while it stays within this range
+# Hands-on work between prints (needle, cold pull, nozzle swap) looks like a hold to the learner. A KAYIP alarm that
+# started outside a print job and is still on when the next job starts is not carried into it: k returns to k_ref
+# (last accepted level). Uses the alarm band; a separate, tighter threshold is an open item [K75].
+IDLE_K_REVERT = True
 
 # Fault detection (TWO alarms since 2026-10-12): fast faults GUC_* (missing power, below), slow drift KAYIP_*
 # (learned k vs. its reference). The temperature residual alarm (SICAKLIK_*) was removed: the open-loop model wanders
@@ -862,6 +866,7 @@ class Twin:
         self.kst_t = 0.0                            # hot time spent in this window (s)
         self.kout_t = 0.0                           # hot time the loss alarm has been on (s)
         self.k_alarm = False                        # loss alarm state (with hysteresis, see K_ALARM_CLEAR)
+        self.k_alarm_idle = False                   # the loss alarm started outside a print job (IDLE_K_REVERT)
         self.faults = FaultMonitor(confirm_by_code={c: ENERGY_CONFIRM for c in ENERGY_TEXT})
         self.energy = EnergyMonitor()      # does not touch the twin's computation
         self.energy_error = None
@@ -893,17 +898,26 @@ class Twin:
         Returns: dt, yeni_sicaklik (new temperature), residual (None without a temperature), anomali (an official
         fault is active), k_anomali (learned loss factor outside its band), senkron, eksik_guc (W, None if invalid),
         ariza_basladi (newly confirmed fault codes), ariza_bitti ([(code, start, end)])."""
+        out = {"dt": 0.0, "new_temperature": T1_real is not None,
+               "residual": None, "anomali": False, "k_anomali": False, "resynced": False,
+               "faults_started": [], "faults_ended": [], "eksik_guc": None,
+               "k_accepted": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
+               "k_reverted": None,   # (k, k_ref): an idle loss shift was not carried into the print (IDLE_K_REVERT)
+               "duraklat": False}  # GUC_AZALDI has lasted PAUSE_AFTER s without interruption (once per event)
         # 0) new print: k_fil is a property of the print, not carried over from the previous one [K27]
         if print_state is not None:
             if (print_state == "printing" and self.print_state is not None
                     and self.print_state not in ("printing", "paused")):
                 self.anchor_kfil()
+                if IDLE_K_REVERT and self.k_alarm and self.k_alarm_idle:
+                    out["k_reverted"] = (self.learner.k, self.k_ref)
+                    self.learner.k = self.k_ref
+                    self.k_alarm = self.k_alarm_idle = False
+                    self.kout_t = 0.0
+                    self.kst_lo = self.kst_hi = self.k_ref
+                    self.kst_t = 0.0
             self.print_state = print_state
-        out = {"dt": 0.0, "new_temperature": T1_real is not None,
-               "residual": None, "anomali": False, "k_anomali": False, "resynced": False,
-               "faults_started": [], "faults_ended": [], "eksik_guc": None,
-               "k_accepted": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
-               "duraklat": False}  # GUC_AZALDI has lasted PAUSE_AFTER s without interruption (once per event)
+        idle = self.print_state not in (None, "", "printing", "paused")
 
         # 1) advance the elapsed interval with the inputs valid at its start
         if self.prev_time is not None:
@@ -1004,7 +1018,10 @@ class Twin:
             self.T1_real = T1_real
             out["residual"] = 0.0 if out["resynced"] else T1_real - self.T1_model
         dev = abs(self.learner.k - self.k_ref)
+        was_on = self.k_alarm
         self.k_alarm = dev > (K_ALARM_CLEAR if self.k_alarm else K_ALARM_BAND)   # hysteresis: no toggling at the band edge
+        if self.k_alarm and not was_on:
+            self.k_alarm_idle = idle
         out["k_anomali"] = self.k_alarm
 
         # 4) fault tracking - only on messages with a new temperature (conditions are based on measurements)
@@ -1802,6 +1819,16 @@ async def main():
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
                                         rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  KAYIP_KABUL  {msg}\n")
+                                except OSError:
+                                    pass
+                            if r["k_reverted"]:
+                                k_old, k_new = r["k_reverted"]
+                                msg = (f"KAYIP geri alindi: baski disinda k {k_old:.3f}'e kaymisti (bakim/elle mudahale?), "
+                                       f"baski k {k_new:.3f} (son kabul edilen seviye) ile basliyor")
+                                print(f"\n[{msg}]\n")
+                                try:
+                                    with open(REPORT_FILE, "a", encoding="utf-8") as rf:
+                                        rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  KAYIP_GERI_ALINDI  {msg}\n")
                                 except OSError:
                                     pass
                             if r["duraklat"] and PAUSE_MODE != "kapali" and pstat.get("state") == "printing":

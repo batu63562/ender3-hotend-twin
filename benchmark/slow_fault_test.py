@@ -9,7 +9,8 @@ the clean replay of the same log; the delay is counted from the injection start.
 
 Injection points per print (print_state == printing): when the part fan first turns on, and the print's midpoint;
 a point is used only if the print runs at least ramp + TAIL_MIN after it. Faults: 3 W / 10 min, 4 W / 30 min.
-Variants: "new" = the current code; "old" = printing threshold fixed at 230 C (the code before K54).
+Variants: "new" = the current code; "old" = printing threshold fixed at 230 C (the code before K54);
+"revert" = IDLE_K_REVERT on (candidate).
 Analysis only: touches neither the model nor the alarms.
 
 Usage (in dt/):   py benchmark/slow_fault_test.py [--set calibration|test] [--variants new,old] [--jobs N]
@@ -35,6 +36,8 @@ def load(variant):
     m = ev.load_model()
     if variant == "old":
         m.hot_threshold = lambda target: 230.0
+    elif variant == "revert":
+        m.IDLE_K_REVERT = True
     return m
 
 
@@ -100,7 +103,7 @@ def run_log(args):
 def main():
     ap = argparse.ArgumentParser(description="Synthetic slow-fault test (acceptance gate, criterion 5).")
     ap.add_argument("--set", choices=["calibration", "test"], default="calibration")
-    ap.add_argument("--variants", default="new,old", help="comma list of new, old (old = fixed 230 C threshold)")
+    ap.add_argument("--variants", default="new,old", help="comma list of new, old, revert (old = fixed 230 C threshold, revert = IDLE_K_REVERT on)")
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     a = ap.parse_args()
     variants = a.variants.split(",")

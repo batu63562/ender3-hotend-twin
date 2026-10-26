@@ -1387,3 +1387,38 @@ uyum sağlayabilmeli"): eski sayılarla devam edip k'yı öğrenmeye bırakmak m
   ±2 se) ve B'nin farkı A'ya göre (nozzle etkisi). Baskıdan sonra ikiz durumu yedekten geri yüklenir (fan tutmaları
   k'yı oynatır).
 
+## K75 — Baskı dışındaki k kayması baskıya taşınmaz (`IDLE_K_REVERT`) (2026-10-26, MODEL DEĞİŞİKLİĞİ — KAPI, kullanıcı onayı)
+Olay: 23–26.10 nozzle açma (iğne, cold pull, nozzle değişimi) sırasında ikiz açıktı (Pi servisi; kullanıcı kapalı
+sanıyordu). Tutma öğrenicisi elle müdahaleyi kayıp ölçümü saydı: 23.10 tıkanma oturumu sonu k 0.850 (alt sınır),
+25.10 12:45–12:49 0.85 → 1.15 (üst sınır), 26.10 cold pull sonrası 1.093 (k_ref 1.007). 26.10 iki Benchy k 1.093 ile
+başladı; baskılar k'yı öğretmediği için k baskı boyunca ~1.09 kaldı, yalnız duraklatılmış 245 °C beklemede 1.006'ya
+döndü (gerçek değer). Kirli durum `durum_yedek/twin_state_bakim_kirli_20261026.json`'a alınıp 23.10 yedeği geri
+yüklenecek (kullanıcı).
+- **Kural:** KAYIP alarmı baskı dışında (print_state bilinen ve printing/paused değil) başladıysa ve sonraki baskı
+  başında hâlâ açıksa k → k_ref (son kabul edilen seviye), alarm ve kabul sayaçları sıfırlanır; konsol ve
+  `ariza_raporlari.txt`'ye "KAYIP_GERI_ALINDI". Geri dönüş noktası k_ref, "son baskı sonundaki k" DEĞİL: baskılar k'yı
+  neredeyse öğretmediğinden o, gerçek bir bakım değişikliğini her baskı başında yeniden geri alırdı. Yeni eşik yok:
+  KAYIP bandı (0.08) kullanılır. K22'nin reddettiği "yalnız baskıda öğren" bu değil: baskı dışı öğrenme sürer.
+- **Kapı:** (1) fiziksel: baskı dışında elle yapılan iş donanımın durumunu ölçmüyor. (2) ayar (canlı başlangıç) TÜMÜ
+  3.50 = 3.50, tüm fazlar birebir: 13 log içi baskı başlangıcının hiçbirinde baskı dışı açık alarm yok. 19.10'dan beri
+  log baskı başında bölündüğü için log başına oynatma etkiyi göremez → olaylar servis çalışması başına birleştirilip
+  oynatıldı (aşağıda). Kapalı varyant "baskı dışında KAYIP kabulü yok" da birebir aynı → alınmadı. (3) Eylül birebir
+  (print_state yok, kural devre dışı). (4) sınav (onaydan sonra) TÜMÜ 3.81 = 3.81, tüm fazlar ve alarmlar birebir;
+  not: `report_v02` arşivin tamamını oynattığı için sınav alarm sayıları onaydan önce görüldü (iki varyantta aynı, kural
+  ayarlanmadı). (5) etiketler: 153 log, 67 GUC olayı, 24/31 yakalama, 5 duraklatma birebir; yavaş arıza ayar ve sınavda
+  değişen senaryo 0. (6) tek değişiklik. `baseline_snapshot --check v0.3` IDENTICAL (kural açıkken de).
+- **26.10 olayı (servis çalışması 11:56 → 12:47 birleşik):** kapalı: 12:25 baskı k 1.093, 12:33 GUC_AZALDI 64 s
+  (kullanıcı iptal), 12:34 baskı k 1.093, 12:42 GUC_AZALDI 175 s → duraklatma; normal bölümde eksik güç ort +0.91 W.
+  Açık: 12:25'te 1.093 → 1.007, ilk Benchy'de alarm yok, ikinci Benchy k 1.005, GUC_AZALDI 164 s → yine duraklatma;
+  normal bölümde −0.30 W. Kullanıcı: ilk baskıda küçük sorun vardı ve bekleniyordu; mesele duraklatma değil k.
+  23.10 ve 25–26.10 gecesi oturumlarında baskı yok (değişmez; kayma 26.10 ilk baskı başında geri alınıyor).
+- **Sınırlar:** bant altı kaymalar geçer (17.10/K22: 0.057, ~1 W). 26.10'da pay 0.006 idi (1.093 − 1.007 = 0.086).
+  Gerçek donanım değişikliği 30 dk sabit boşta tutma olmadan baskıya girerse geri alınır; nozzle gününde kalibrasyon
+  baskısı (iş) k'yı yeniden öğrenir (K74 sırası uygun). Bakımda ikizi durdurmak hâlâ en temizi; kural güvenlik ağı.
+- **AÇIK — ayrı geri alma eşiği:** geri alma için banttan dar bir eşik (ör. 0.05) bugünkü olayı güvenle yakalardı ama
+  ayarlanacak tek olay var (veriyi ezberleme riski). Bant altı ya da kıl payı bakım kaymaları tekrarlarsa ayrı aday
+  olarak kapıdan geçirilecek (kullanıcı kararı 26.10). Not: 0.08 bandının kendisinin de türetilmiş gerekçesi yok
+  (v0.1 öncesinden; geriye dönük: doğal gezinme 0.02–0.05'in ~2 katı, ilk katmanda ≈ 1.4 W, GUC eşiğinin ~yarısı).
+- Canlı konsol mesajı sahte Moonraker ile SINANMADI (araç eski oturumun scratchpad'inde); `Twin` yolu olay
+  oynatmasıyla sınandı.
+

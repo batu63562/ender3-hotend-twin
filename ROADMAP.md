@@ -197,9 +197,9 @@ Preparation that needs no second printer (2026-10-22, partly from the first comm
 - [x] Two-stage calibration `calibrate.py --staged`: steady holds give the loss and fan curve, then the trajectory
       the capacities and resistances; exact on virtual prints ([K65]).
 - [x] Tester guide `TESTING.md` and profile guidance; `benchmark/calibration_check.py` scores a calibration file.
-- [ ] Fresh self-calibration of this printer, judged by pre-registered criteria ([K66]). Planned 23.10; waits for the
-      replacement nozzle. Open: whether [K66]'s comparison (logs from 14.10 on, old nozzle) still applies; decide before
-      printing, not after.
+- [ ] Fresh self-calibration of this printer ([K66]): replaced by [K74] because the brass nozzle is swapped for a
+      hardened-steel one. Pre-registered question: after a part change, is online learning of `k` enough, or is a
+      fresh calibration needed? Judged on the new nozzle's logs (heat tower + first normal prints, at least 4 h).
 - [x] Synthetic second printer: the calibration print run on a virtual printer with a different hotend (60 W,
       CPAP-like fan, other capacities and resistances). Calibration brings the steady missing power from +1…+9 W
       to ±0.03 W; a heater whose power drops when hot (ceramic) is not covered by the model ([K67]).

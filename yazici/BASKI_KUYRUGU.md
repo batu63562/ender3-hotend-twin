@@ -64,12 +64,16 @@ A1–A7 bitince gölge mod 14 baskıya çıkar → aktif duraklatma kararı içi
 PLA / ABS ile gerçek baskı yok: baskı içi doğrulama (k_fil çapası, %100 fanla baskı, PLA'da tespit hassasiyeti)
 v0.4 test kullanıcılarına kalır (K42).
 
-## Yeni nozzle takılınca (sırayla, önce Claude'a haber ver: durum yedeği)
+## Yeni nozzle takılınca (TZ3.0 bi-metal sertleştirilmiş çelik; K74 sırası)
 
-1. **Taze kalibrasyon** `yazici/calibration_245.gcode` (~55 dk, filamentsiz, nozzle boş). Önce K66 kararı: eski
-   nozzle'la alınmış loglarla karşılaştırma hâlâ geçerli mi (baskıdan ÖNCE karar verilir).
-2. **Isı kulesi** `yazici/heat_tower_245.gcode` (~43 dk, PETG ~11 g, tabla 80 °C; K73). Kalibrasyondan sonra, ayrı
-   iş. Analiz: `py yazici/heat_tower.py analyze LOG --sections yazici/heat_tower_245_sections.csv`.
+0. Takmadan önce: uyumluluk (MK8/Ender hotend'i), heat break'e dayanmalı, sıcakken sık.
+1. **Yedek:** `twin_state.json` → `durum_yedek/`.
+2. **Takarken ikiz KAPALI:** `sudo systemctl stop ender3-twin`.
+3. **İkizi başlat, 245 °C fansız 5 dk bekle** (baskı yok). Telefon sayfasında k'yı izle: başlangıç ve 5. dk değerini,
+   KAYIP alarmı çalarsa saatini not et (beklenen). İsteğe bağlı: fan %60, 3 dk daha.
+4. **Kalibrasyon baskısı** `yazici/calibration_245.gcode` (~55 dk, filamentsiz). Durumu geri YÜKLEME (yeni nozzle'ın k'sı).
+5. **Isı kulesi** `yazici/heat_tower_245.gcode` (~43 dk, PETG ~11 g, tabla 80 °C; K73).
+6. **Normal PETG baskılar**, toplam ≥ 4 saat (K74 sınama verisi). Logları Claude'a ver.
 
 ## Etiket bekleyenler (log gelince)
 

@@ -1455,7 +1455,8 @@ yüklendi (doğrulandı). K75 canlıda: baskı başında alarm yoktu, geri alma 
   21.10'da YOKTU, 23–26.10 nozzle işlerinden (tıkanma, iğne, cold pull, vida sıkma) sonra çıktı; fan sonrası seviye de
   21.10'dan +0.8 W. Uzaktan ayrılamayan adaylar: çorap oturmuyor (ısıl çevrimde açılıp fan akışıyla oturuyor),
   dişlerden sızan plastik bloğu sarıyor, blok/heat break teması, fan kanalı konumu. Nozzle günü fiziksel kontrol +
-  değişimden sonra deney16 bir kez daha: etki kaybolursa kaynak eski nozzle/dişler.
+  değişimden sonra deney16 bir kez daha: etki kaybolursa kaynak eski nozzle/dişler. Kullanıcı kontrolü (26.10 15:30):
+  çorap ve dişlerde görünür bir şey yok → görünür sızıntı/çorap adayı zayıfladı; karar nozzle günündeki deney16'ya.
   Model için anlamı: her baskının fansız ilk katmanı "fan öncesi" durumda; etki kalırsa ilk katmanda ~+2 W fazla kayıp
   (GUC_ARTTI yönü) beklenir.
 

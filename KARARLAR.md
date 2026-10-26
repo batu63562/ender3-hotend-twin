@@ -1386,6 +1386,12 @@ uyum sağlayabilmeli"): eski sayılarla devam edip k'yı öğrenmeye bırakmak m
   modelleri (A, B), sınama verisi ve dört ölçütü değişmez. Raporlanacak: A' ile 21.10'un C/R farkı (vida etkisi,
   ±2 se) ve B'nin farkı A'ya göre (nozzle etkisi). Baskıdan sonra ikiz durumu yedekten geri yüklenir (fan tutmaları
   k'yı oynatır).
+- **Ek 2 (2026-10-26, nozzle gelmeden): bakım göstergesinin referansı.** Çelik nozzle'ın kalibrasyon baskısında fan
+  SONRASI fansız tutmaların k'sı (o günkü calibration.json'a göre; K76 fan hafızası yüzünden fan öncesi tutmalar
+  sayılmaz) 1.00 ± 0.06 içindeyse sabit referans 1.00 kalır; dışındaysa referans o değere yenilenir (donanım değişti,
+  K20 "referans yalnız donanım değişince elle değişir"). Bant K20'nin kendi bandı: soru "eski referans yanlış BAKIM
+  ÖNERİSİ üretir mi" ve gösterge bunu tam ±0.06 ile karar verir. K63 sarı seviye sayacı bu kurala BAĞLANMADI (k seviyesi
+  değil k_fil/ilk katman davranışı önemli; karar nozzle sonrası, parça değişimi konusuyla birlikte).
 
 ## K75 — Baskı dışındaki k kayması baskıya taşınmaz (`IDLE_K_REVERT`) (2026-10-26, MODEL DEĞİŞİKLİĞİ — KAPI, kullanıcı onayı)
 Olay: 23–26.10 nozzle açma (iğne, cold pull, nozzle değişimi) sırasında ikiz açıktı (Pi servisi; kullanıcı kapalı

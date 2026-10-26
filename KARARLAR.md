@@ -1417,6 +1417,10 @@ yüklenecek (kullanıcı).
   (kullanıcı iptal), 12:34 baskı k 1.093, 12:42 GUC_AZALDI 175 s → duraklatma; normal bölümde eksik güç ort +0.91 W.
   Açık: 12:25'te 1.093 → 1.007, ilk Benchy'de alarm yok, ikinci Benchy k 1.005, GUC_AZALDI 164 s → yine duraklatma;
   normal bölümde −0.30 W. Kullanıcı: ilk baskıda küçük sorun vardı ve bekleniyordu; mesele duraklatma değil k.
+  **Etiket sonrası (26.10 akşam):** ilk Benchy'de ilk katman tabladan uzaktı ve filaman nozzle'a dolanmaya başladı
+  (B|C); kullanıcı babystep yapıp iptal etti. Yani K75 açıkken kaybolan 64 s'lik alarm gerçek (küçük) bir sorundu:
+  doğru k ile eşik altı kalıyor, yanlış k onu tesadüfen eşiğin üstüne itmişti. Bu bir tespit kaybı değil, yanlış k'nın
+  verdiği şans; ama eşik altı ilk katman sorunları K63 sarı seviyenin konusu olarak not edildi.
   23.10 ve 25–26.10 gecesi oturumlarında baskı yok (değişmez; kayma 26.10 ilk baskı başında geri alınıyor).
 - **Sınırlar:** bant altı kaymalar geçer (17.10/K22: 0.057, ~1 W). 26.10'da pay 0.006 idi (1.093 − 1.007 = 0.086).
   Gerçek donanım değişikliği 30 dk sabit boşta tutma olmadan baskıya girerse geri alınır; nozzle gününde kalibrasyon

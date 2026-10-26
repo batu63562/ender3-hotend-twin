@@ -79,10 +79,7 @@ v0.4 test kullanıcılarına kalır (K42).
 
 ## Etiket bekleyenler (log gelince)
 
-- 23.10: TPU retraction testi, her katta ipliklenme (nemli TPU; kurutulacak) → `-` beklenir (ısıl arıza değil).
-- 23.10 12:00–13:00: TPU → PETG geçişinde nozzle tıkandı, elle açıldı (baskı yok) → `-`. Nozzle takılırken heatsink
-  vidaları gevşemiş, sıkıldı (donanım aynı). İkiz durumu önceden alınan yedekten geri yüklendi
-  (`durum_yedek/twin_state_kalibrasyon_oncesi.json`).
+(yok; 23–26.10 etiketlendi, 26.10)
 
 ## Bitenler
 

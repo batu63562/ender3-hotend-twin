@@ -1224,6 +1224,10 @@ yavaş arıza fan açılınca 3 W 9 → 7/21, 4 W 14 → 12/14, ortada 18 → 16
 `TWIN_CALIBRATION` ortam değişkeni (realtime_websocket, ayarlanmazsa `calibration.json`) değerlendirme araçlarına başka
 kalibrasyon dosyası verir, `baseline_snapshot --check v0.3` IDENTICAL. Beklenti: taze kalibrasyonun da büyük olasılıkla
 aynı ödünleşimle geçmemesi; asıl kazanç tekrarlanabilirlik ölçüsü (v0.4'te yeni yazıcılar için aracın güvenilirliği).
+**Ek (2026-10-26, taze kalibrasyon basılmadan, sonuç görülmeden):** pirinç nozzle 23.10'da tıkandı, yerine farklı tip
+gelecek (TZ3.0 bi-metal sertleştirilmiş çelik). Ölçütler yerinde kalır ama bu sınama YAPILAMAZ: kalibre edilecek donanım
+(yeni nozzle) ile sınama verisi (14.10+ loglar, eski nozzle) farklı; çelik ısıyı pirinçten kötü iletir, nozzle tarafı
+iletimi (R_HB), heatsink yolu ve baskıya giden ısı değişir, öğrenilen k bunların yalnız bir kısmını karşılar. Yerine K74.
 
 ## K67 — Sentetik ikinci yazıcı: kalibrasyon farklı hotend'i buluyor, ısıtıcı direnci (α) ayrı terim ister (2026-10-22, ANALİZ, MODEL DEĞİŞMEDİ)
 Soru (Reddit, v0.3 paylaşımı): seramik ısıtıcının direnci sıcaklıkla değişir (PLA/ASA arası watt farkı), CPAP gibi
@@ -1356,3 +1360,22 @@ tabla, filament ve sıra farklı; kulenin analizi kalibrasyonun kayıplarına da
 - Sınırlar: geometri (ince duvar, dolgu, köprü) değişmiyor; kule k_fil için daha iyi bir başlangıç verir, baskı içi
   öğrenme yine gerekir. Sentetik doğrulama aracın kendisini sınar, yazıcıyı değil: ilk gerçek baskı (yeni nozzle,
   taze kalibrasyondan SONRA) asıl sınav.
+
+## K74 — ÖN KAYIT: nozzle değişiminde uyum mu, yeniden kalibrasyon mu? (2026-10-26, sonuç görülmeden donduruldu)
+K66'nın yerine (K66 eki). Pirinç → TZ3.0 bi-metal sertleştirilmiş çelik nozzle. Soru (kullanıcı: "ikiz değişen parçalara
+uyum sağlayabilmeli"): eski sayılarla devam edip k'yı öğrenmeye bırakmak mı yeterli, yoksa taze kalibrasyon mu gerekli?
+- **Modeller:** A = bugünkü sayılar (eski nozzle, calibration.json/kod), B = yeni nozzle'ın taze kalibrasyonu
+  (`calibrate.py --staged`, `calibration_245` baskısı). İkisi de k = 1 başlar ve k'yı kendisi öğrenir (zincir oynatma).
+- **Sınama verisi:** yalnız yeni nozzle kayıtları, kalibrasyon baskısının KENDİSİ HARİÇ (B ona fit edilir): ısı kulesi +
+  sonraki ilk normal PETG baskıları, toplam ≥ 4 baskı saati. Kısa tutuldu (kullanıcı: 10–15 saat beklemek adil değil).
+- **Ölçütler (K66 ile aynı):** B kabul edilir, hepsi sağlanırsa: (1) TÜMÜ en az 0.05 °C iyileşir; (2) fanlı tutma RMSE
+  en çok +0.10 °C kötüleşir; (3) etiketsiz/yanlış GUC olayı artmaz; (4) `slow_fault_test` dört senaryoda yakalanan
+  azalmaz. Eylül ve eski etiketli arşiv bu sınamada kullanılmaz (eski donanım). Geçmezse A kalır ve "aynı yazıcıda nozzle
+  değişimini öğrenme karşılıyor" sonucu yazılır; geçerse kullanıcı onayıyla calibration.json B olur.
+- **Raporlanacak (ölçüt değil):** değişim sonrası 245 °C fansız 5 dk tutmada k'nın seyri (başlangıç, 5. dk) ve KAYIP
+  alarmının kabul süresi; ısı kulesinde k_fil (çelik uç taze plastiğe daha az ısı verebilir); B'nin C/R değerlerinin
+  21.10 kalibrasyonundan farkı (±2 se ile); bakım göstergesinin sabit 1.00 referansına göre kayması (k kalıcı ±0.06'dan
+  fazla kayarsa yanlış bakım önerisi riski).
+- **Nozzle günü sırası:** yedek → takarken ikiz KAPALI (elle müdahale tutma sanılmasın, K22) → ikizi başlat, 245 °C
+  fansız 5 dk (isteğe bağlı fan %60 3 dk) → kalibrasyon baskısı → ısı kulesi → normal baskılar. Logları Claude'a ver.
+

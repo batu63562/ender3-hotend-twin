@@ -1446,4 +1446,16 @@ yüklendi (doğrulandı). K75 canlıda: baskı başında alarm yoktu, geri alma 
   (kök neden anlaşılınca, tek tek): G-code başında koşulsuz bir fan adımı; `calibrate.py --staged` aynı sıcaklık/fan
   tutmaları arasında > ~0.5 W fark görürse uyarsın. Nozzle gününde (K74 adım 4) uç ve çorap kalibrasyon baskısından
   önce kontrol edilecek.
+- **Deney16 (`yazici/deney16_fan_hafiza.gcode`, 26.10 14:52, soğuk başlangıç 25 °C, log
+  `loglar/deneyler/deney16_fan_hafiza.csv`):** 245 °C fansız tutmalar A (fan hiç dönmemiş) 19.9–20.3 W, B (2 dk %100
+  sonrası) 18.2–18.3 W, C (ikinci çalışma sonrası) 17.9–18.4 W → **tekrarlanabilir**, tek seferlik iplik değil; tutma
+  içinde sönüm yok (ısıl kütle değil, bir "durum" değişiyor). Kullanıcı uçta iplik/damla görmedi. Fanlı %100 ikinci
+  çalışmada 1.5 W daha yüksek (24.1 → 25.6 W). **Yeni:** arşiv taraması (aynı oturumda fan öncesi ve sonrası 245 °C
+  fansız tutma) yalnız deney15'i buluyor: 21.10 soğuk başlangıç (23 °C), önce 17.37 / sonra 17.14 W (+0.22) → etki
+  21.10'da YOKTU, 23–26.10 nozzle işlerinden (tıkanma, iğne, cold pull, vida sıkma) sonra çıktı; fan sonrası seviye de
+  21.10'dan +0.8 W. Uzaktan ayrılamayan adaylar: çorap oturmuyor (ısıl çevrimde açılıp fan akışıyla oturuyor),
+  dişlerden sızan plastik bloğu sarıyor, blok/heat break teması, fan kanalı konumu. Nozzle günü fiziksel kontrol +
+  değişimden sonra deney16 bir kez daha: etki kaybolursa kaynak eski nozzle/dişler.
+  Model için anlamı: her baskının fansız ilk katmanı "fan öncesi" durumda; etki kalırsa ilk katmanda ~+2 W fazla kayıp
+  (GUC_ARTTI yönü) beklenir.
 

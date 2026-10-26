@@ -1422,3 +1422,28 @@ yüklenecek (kullanıcı).
 - Canlı konsol mesajı sahte Moonraker ile SINANMADI (araç eski oturumun scratchpad'inde); `Twin` yolu olay
   oynatmasıyla sınandı.
 
+## K76 — Pirinç referansı (A', K74 eki): ikinci kalibrasyon baskısı ilk 10 dakikada +2 W (2026-10-26, ANALİZ, MODEL DEĞİŞMEDİ)
+`calibration_245.gcode` 26.10 13:37–14:31, tıkalı (iğne + cold pull ile açılmış) asıl pirinç nozzle, filamentsiz;
+log `loglar/deneyler/kalibrasyon_245_ikinci.csv`. Öncesinde durum yedeği (k 1.031, k_ref 1.007), sonra geri
+yüklendi (doğrulandı). K75 canlıda: baskı başında alarm yoktu, geri alma olmadı (beklenen).
+- **Tam log `--staged`, 21.10 (`_ilk`) ile aynı araç:** güç rms 1.05 → 0.62 W (21.10: 0.73 → 0.24), blok kaybı
+  ×1.015 (×0.941), HA2_FAN 0.0307 (0.0368), eşik 0.076 (0.160), T1 rms 5.34 → 5.19 °C (2.29 → 1.96); C_ALL 1.026 ±0.007
+  (0.944), R31 ×1.65 ±0.09 (×1.45), R_HB ×1.40 ±0.07 (×1.11). Çoğu fark ±2 se DIŞINDA → bu hâliyle tekrarlanamaz.
+- **Neden:** 245 °C fansız tutmalar 3.2 ve 8.8. dk'da 20.0 W, 24.4 ve 28.6. dk'da 18.1–18.3 W; 21.10'da beşi de
+  17.3–17.6 W. Basamak arada, 11–23. dk fan tutmaları sırasında; tutmaların İÇİNDE sönüm yok. Ortak nokta: iki baskıda
+  da fan bir kez çalıştıktan sonraki fansız kayıp aynı seviyede. 21.10 sıcak başladı (T1 66 °C, tabla 70 °C) ve G-code'un
+  "soğuk başlangıç" adımı fanı %100'de T < 40'a kadar çalıştırdı; 26.10 soğuk başladı (26 °C), adım atlandı, fan ilk
+  kez 11. dk'da döndü. Fizik adayı açık: nozzle ucunda asılı PETG (cold pull artığı, ısınınca sarkan iplik = kanat) ya
+  da gevşek oturan çorap, ikisini de fan akışı değiştirebilir; "soğuk çevre" ısınması değil (tutma içinde sönüm yok).
+  Kullanıcıya soruldu (kâğıtta damla, uçta iplik, çorap).
+- **Fan sonrası kısım (23.5. dk'dan, tanı amaçlı kesim, 6 tutma):** güç rms 0.53 → 0.05 W; blok kaybı ×0.964 (21.10'a
+  göre +%2.4), HA2_FAN 0.0371 / eşik 0.158 (21.10: 0.0368 / 0.160, aynı); R31 ×1.29 ±0.13, R_HB ×1.17 ±0.10 (21.10
+  ile ±2 se içinde); C_ALL 0.905 ±0.010 ve CAP_T_COEF ×1.53 kesimde ısınma rampası olmadığından birbirine bağlı
+  (karşılaştırılamaz). → 23.10 vida sıkma ve nozzle temizliği donanımı ölçülebilir biçimde DEĞİŞTİRMEMİŞ (kayıp
+  +%2–4, fan eğrisi birebir). K74'ün "önce"si için fan sonrası değerler kullanılır; tam log değil.
+- **Paylaşmadan önce ders (K74'ün de nedeni):** kalibrasyon baskısının başlangıcı başlangıç sıcaklığına bağlı
+  (soğuk başlangıç adımı koşullu) ve araç ilk tutmalardaki bir geçici olayı fark etmeden fit ediyor. Aday düzeltmeler
+  (kök neden anlaşılınca, tek tek): G-code başında koşulsuz bir fan adımı; `calibrate.py --staged` aynı sıcaklık/fan
+  tutmaları arasında > ~0.5 W fark görürse uyarsın. Nozzle gününde (K74 adım 4) uç ve çorap kalibrasyon baskısından
+  önce kontrol edilecek.
+

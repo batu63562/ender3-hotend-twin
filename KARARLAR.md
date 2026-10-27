@@ -1583,3 +1583,20 @@ henüz girmedi (K74 sınama verisi ayrı).
   `baseline_snapshot --check v0.3` öncesi/sonrası skorlar birebir aynı (63 fark yalnız karneden sonra eklenen loglar).
   Canlı döngü sahte Moonraker'la SINANMADI; doğrulama ilk baskıda "G-code plani hazir … (k X)" satırının ikizin
   k'sına eşit olması.
+
+## K79 — Deney işaretli işlerde öğrenilen durum iş sonunda geri yüklenir (2026-10-28, ÖN KAYIT, kod yazılmadan)
+Sorun: filamentsiz deneyler (deney16/17 …) tutmaları bilerek uç koşullarda yapar (fan %100, uç kirli/temiz); öğrenici
+bunları normal tutma sayıp k'yı (ve kabul olursa k_ref'i) taşır. Bugün elle: yedek → deney → sudo ile geri yükleme
+(27.10'da bir kez unutuldu). Öneri: G-code'da `; twin: experiment` satırı (yeni dışa açık arayüz → İngilizce, kalıcı)
+olan iş bitince (printing/paused → başka durum) ikiz k, k'nin kovaryansı, k_ref ve KAYIP alarm/kabul sayaçlarını iş
+başındaki değerlerine kendi içinde döndürür (K75 geri alımından SONRAKİ değerler); k_fil zaten her baskı başında
+çapalanır. Log tam yazılır (analiz kaybı yok); deney sırasında alarm/öğrenme davranışı değişmez. İşaret G-code planıyla
+birlikte okunur (planın indirdiği dosyadan); okunamazsa geri yükleme olmaz (güvenli varsayılan: bugünkü davranış).
+**Kalibrasyon baskısı İŞARETLENMEZ:** donanım değişiminden sonra amacı yeni seviyeyi öğretmek (K74 sırası); aynı
+donanımda tekrar kalibrasyonda geri yükleme elle kalır. Bilinen sınır: deney sırasında servis yeniden başlarsa iş başı
+durumu kaybolur (yedek yok), geri yükleme olmaz.
+**Kapı (ölçütler, sonuç görülmeden):** (1) fiziksel gerekçe yukarıda; (2)–(5) işaretsiz loglarda davranış BİREBİR
+aynı: `baseline_snapshot --check v0.3` öncesi/sonrası aynı skorlar (evaluate işaret görmez; etiketli arızalar ve yavaş
+arıza testi bu yüzden değişemez); (6) işlev testi: çelik deney16 logu (k 1.025 → 1.018, arada fan %100'de 0.95) işaretli
+oynatılınca iş sonunda k, k_ref ve alarm durumu iş başıyla aynı; işaretsiz oynatmada k serisi bugünküyle birebir aynı.
+Kullanıcı onayı (tek değişiklik).

@@ -26,6 +26,7 @@
 ; Cancel when the edge curls up more than ~1 mm (the nozzle can catch it); note the time.
 ; Safety: low; cancel early rather than late.
 ; filament_type = PETG
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200   ; pauses wait for the user
 START_GCODE BED_TEMP=85 EXTRUDER_TEMP=245
 M83                             ; relative extrusion

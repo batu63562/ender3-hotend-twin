@@ -10,6 +10,7 @@
 ; Ekstruzyon YOK, tabla KAPALI (24 V dusmesi karismasin), nozzle tablanin ortasinda 50 mm yukarida. Sure ~35 dk.
 ; Baslarken nozzle SOGUK olmali (asagida 40 C'ye kadar beklenir): ilk rampa oda sicakligindan baslar.
 ; Ikiz Pi'de calisiyor; dosya baski gibi baslatilir (kendi logu olur). Deneyden sonra Pi'deki k/k_fil kontrol edilir.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S0
 M104 S0

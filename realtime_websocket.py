@@ -211,6 +211,9 @@ K_ACCEPT_RANGE = 0.02       # k counts as "steady" while it stays within this ra
 # started outside a print job and is still on when the next job starts is not carried into it: k returns to k_ref
 # (last accepted level). Uses the alarm band; a separate, tighter threshold is an open item [K75].
 IDLE_K_REVERT = True
+# Filament-free experiments push the holds to extremes on purpose (fan 100 %, a dirty or cleaned tip); a job whose
+# G-code has this line gets k, k_ref and the loss-alarm state back at its end. Not in the calibration print [K79].
+EXPERIMENT_MARK = "; twin: experiment"
 
 # Fault detection (TWO alarms since 2026-10-12): fast faults GUC_* (missing power, below), slow drift KAYIP_*
 # (learned k vs. its reference). The temperature residual alarm (SICAKLIK_*) was removed: the open-loop model wanders
@@ -875,6 +878,21 @@ class Twin:
         self.material = None               # material of the print (G-code header), logging only
         self.print_state = None            # Klipper print_stats.state of the previous message (None = unknown)
         self.pause_flagged = False         # pause already requested for this GUC_AZALDI event (PAUSE_AFTER)
+        self.experiment = False            # this job's G-code is marked EXPERIMENT_MARK (set by the live loop) [K79]
+        self.job_start = None              # learned state at this job's start, restored at its end if an experiment
+
+    def learned_state(self):
+        """What the twin has learned about the hotend: k, its variance, the alarm reference and alarm counters."""
+        return {"k": self.learner.k, "P00": self.learner.P[0][0], "k_ref": self.k_ref, "k_alarm": self.k_alarm,
+                "k_alarm_idle": self.k_alarm_idle, "kout_t": self.kout_t, "kst_lo": self.kst_lo,
+                "kst_hi": self.kst_hi, "kst_t": self.kst_t}
+
+    def restore_learned(self, s):
+        """Back to a learned_state(); k_fil is not touched (anchored at every print start) [K79]."""
+        self.learner.k, self.learner.P[0][0], self.k_ref = s["k"], s["P00"], s["k_ref"]
+        self.k_alarm, self.k_alarm_idle, self.kout_t = s["k_alarm"], s["k_alarm_idle"], s["kout_t"]
+        self.kst_lo, self.kst_hi, self.kst_t = s["kst_lo"], s["kst_hi"], s["kst_t"]
+        self.learner.reset()
 
     def anchor_kfil(self):
         """k_fil back to K_FIL_ANCHOR with the start uncertainty (P0_FIL); k is not touched (a hotend property)."""
@@ -903,11 +921,12 @@ class Twin:
                "faults_started": [], "faults_ended": [], "eksik_guc": None,
                "k_accepted": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
                "k_reverted": None,   # (k, k_ref): an idle loss shift was not carried into the print (IDLE_K_REVERT)
+               "k_restored": None,   # (k, k at job start): an experiment's learning was undone at its end [K79]
                "duraklat": False}  # GUC_AZALDI has lasted PAUSE_AFTER s without interruption (once per event)
         # 0) new print: k_fil is a property of the print, not carried over from the previous one [K27]
         if print_state is not None:
-            if (print_state == "printing" and self.print_state is not None
-                    and self.print_state not in ("printing", "paused")):
+            in_job = self.print_state in ("printing", "paused")
+            if print_state == "printing" and self.print_state is not None and not in_job:
                 self.anchor_kfil()
                 if IDLE_K_REVERT and self.k_alarm and self.k_alarm_idle:
                     out["k_reverted"] = (self.learner.k, self.k_ref)
@@ -916,6 +935,13 @@ class Twin:
                     self.kout_t = 0.0
                     self.kst_lo = self.kst_hi = self.k_ref
                     self.kst_t = 0.0
+                self.experiment, self.job_start = False, self.learned_state()
+            elif in_job and print_state not in ("printing", "paused"):
+                # job ended: an experiment's holds (fan 100 %, a dirty or cleaned tip) do not teach the hotend [K79]
+                if self.experiment and self.job_start is not None:
+                    out["k_restored"] = (self.learner.k, self.job_start["k"])
+                    self.restore_learned(self.job_start)
+                self.experiment, self.job_start = False, None
             self.print_state = print_state
         idle = self.print_state not in (None, "", "printing", "paused")
 
@@ -1323,27 +1349,31 @@ def request_pause():
 
 
 def gcode_material(path):
-    """'; filament_type = X' from the settings block of an Orca/Prusa G-code (block at the end of the file; else None)."""
-    found = None
+    """('; filament_type = X' from the settings block of an Orca/Prusa G-code (block at the end of the file; else None),
+    True if the file has the EXPERIMENT_MARK line)."""
+    found, experiment = None, False
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             if line.startswith("; filament_type ="):
                 found = line.split("=", 1)[1].strip().split(";")[0].strip() or None
-    return found
+            elif line.strip() == EXPERIMENT_MARK:
+                experiment = True
+    return found, experiment
 
 
 def plan_job(filename, t0, init):
     """Background thread: at print start downloads the G-code + printer.cfg and produces the twin's plan.
     init: the state measured at print start (initial condition of the simulation).
-    Returns: (console line, material or None). On an error the live monitoring is not affected, it is only logged."""
-    material = None
+    Returns: (console line, material or None, experiment-marked). On an error the live monitoring is not affected, it
+    is only logged."""
+    material, experiment = None, False
     try:
         import urllib.parse
         os.makedirs(GCODE_DIR, exist_ok=True)
         base = os.path.basename(filename)
         gpath = os.path.join(GCODE_DIR, base)
         _download(f"{HTTP_URL}/server/files/gcodes/{urllib.parse.quote(filename)}", gpath)
-        material = gcode_material(gpath)
+        material, experiment = gcode_material(gpath)
         import gcode_plan   # late import: pandas is loaded only when a print starts
         cfg, cfg_src = os.path.join(GCODE_DIR, "printer.cfg"), "Pi"
         try:
@@ -1355,8 +1385,8 @@ def plan_job(filename, t0, init):
         summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init,
                                            names={"hotend": OBJ_HOTEND, "bed": OBJ_BED, "part_fan": OBJ_FAN})
     except Exception as e:  # noqa: BLE001 - the plan is a side feature, it must not stop monitoring
-        return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material
-    return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material
+        return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material, experiment
+    return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material, experiment
 
 
 def show_category(text, live):
@@ -1498,8 +1528,11 @@ async def main():
         """Plan job finished (runs in the event loop): console line + the print's material (k_fil restarts from the
         anchor if it changed)."""
         nonlocal mat_last
-        msg, mat = fut.result()
+        msg, mat, experiment = fut.result()
         print(msg)
+        if experiment and twin is not None and twin.job_start is not None:
+            twin.experiment = True
+            print("[deney isi: bittiginde ogrenilen k ve k_ref is basindaki degerlerine donecek (K79)]")
         if not mat:
             return
         if twin is None:
@@ -1835,6 +1868,16 @@ async def main():
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
                                         rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  KAYIP_GERI_ALINDI  {msg}\n")
+                                except OSError:
+                                    pass
+                            if r["k_restored"]:
+                                k_old, k_new = r["k_restored"]
+                                msg = (f"Deney bitti: deneyin ogrettigi k {k_old:.3f} geri alindi, k {k_new:.3f} ve "
+                                       f"k_ref {twin.k_ref:.3f} is basindaki degerlerinde (K79)")
+                                print(f"\n[{msg}]\n")
+                                try:
+                                    with open(REPORT_FILE, "a", encoding="utf-8") as rf:
+                                        rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  DENEY_GERI_YUKLENDI  {msg}\n")
                                 except OSError:
                                     pass
                             if r["duraklat"] and PAUSE_MODE != "kapali" and pstat.get("state") == "printing":

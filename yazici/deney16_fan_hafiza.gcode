@@ -3,7 +3,8 @@
 ; Holds A (fan never ran since cold), B (after 2 min fan 100 %), C (after a second fan run).
 ; A > B = C: the first fan run changes something for good (repeatable). A = B = C: 26.10 was a one-off.
 ; No extrusion, bed off, nozzle 50 mm above the bed centre. START COLD (nozzle < 40 C).
-; Back up the twin's twin_state.json before, restore it after (fan runs move the learned k). ~24 min.
+; The twin restores its learned k at the end (marker below, K79): no state backup needed. ~24 min.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S0
 M104 S0

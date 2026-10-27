@@ -23,6 +23,7 @@
 ; Safety: none special (latch open = idler not pressing, the gear spins freely, no grinding).
 ; Labels: fault = Resume 1 -> Pause 2 (B); control = Resume 2 -> end (-). Taken from print_state.
 ; filament_type = PETG
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200   ; pauses wait for the user
 START_GCODE BED_TEMP=85 EXTRUDER_TEMP=245
 M83                             ; relative extrusion

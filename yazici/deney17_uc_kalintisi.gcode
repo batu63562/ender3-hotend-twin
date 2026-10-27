@@ -7,7 +7,8 @@
 ; RUN AFTER A NORMAL PETG PRINT, filament loaded, nozzle NOT cleaned, nozzle < 40 C. Bed off, nozzle 50 mm above
 ; X117 Y117 (same spot as deney16 and the calibration print). At each PAUSE the head parks: clean the tip at
 ; temperature (brass brush / tweezers, careful, 245 C), write down what you removed, then RESUME. ~38 min.
-; Back up the twin's twin_state.json before, restore it after (fan run and pauses move the learned k).
+; The twin restores its learned k at the end (marker below, K79): no state backup needed.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S0
 M104 S0

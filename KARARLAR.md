@@ -1600,3 +1600,12 @@ aynı: `baseline_snapshot --check v0.3` öncesi/sonrası aynı skorlar (evaluate
 arıza testi bu yüzden değişemez); (6) işlev testi: çelik deney16 logu (k 1.025 → 1.018, arada fan %100'de 0.95) işaretli
 oynatılınca iş sonunda k, k_ref ve alarm durumu iş başıyla aynı; işaretsiz oynatmada k serisi bugünküyle birebir aynı.
 Kullanıcı onayı (tek değişiklik).
+**K79 karnesi (28.10, kod yazıldıktan sonra):** (2)–(5) `baseline_snapshot --check v0.3` skorları öncesi/sonrası
+BİREBİR aynı (63 fark yalnız karneden sonra eklenen loglar, değişiklikten önce de vardı). (6) çelik deney16 logu iş
+başı k 1.025 / k_ref 1.007 ile: işaretsiz oynatmada k 0.947–1.047 gezip 0.990'da bitiyor, seri `evaluate.replay` ile
+birebir; işaretli oynatmada iş sonuna kadar seri aynı, `complete` satırında k 1.008 → 1.025 geri, k_ref, alarm ve k
+varyansı iş başıyla aynı. SINANMAYAN: deney içinde KAYIP kabulü (bu logda olmadı; aynı yol, k_ref de geri döner),
+canlı döngüde işaret okuma (`plan_job` → `on_plan`; sahte Moonraker yok, ilk işaretli deneyde konsol satırı ve
+`DENEY_GERI_YUKLENDI` raporu). İşaret 12 `yazici/deney*.gcode`'a ve `ariza_deneyleri.py` üretecine eklendi (üreteç
+deney10–13'ü işaret dışında birebir yeniden üretiyor); kalibrasyon ve ısı kulesi işaretsiz.
+**K79 KABUL** (28.10, kullanıcı onayı): commit + deney dosyaları Mainsail'e; Pi'ye deploy kullanıcıda.

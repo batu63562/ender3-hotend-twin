@@ -10,6 +10,7 @@
 ; Ekstruzyon YOK, parca fani KAPALI, tabla KAPALI (tabla acikken 24 V duser: BED_SAG karismasin).
 ; Nozzle tablanin ortasinda, 50 mm yukarida bekler (sizan PETG tablaya yapismasin). Sure ~45 dk.
 ; Ikizi (ikiz_baslat.bat) bu dosyayi baslatmadan ONCE ac.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S0
 M106 S0

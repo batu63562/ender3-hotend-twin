@@ -7,9 +7,9 @@ Bir madde bitince Claude'a söyle; işaretler, logu alır ve inceler.
 
 - **İkiz hep açık** (Pi'de servis): ayrıca bir şey başlatma. Her baskı kendi log dosyası olur.
 - **Görünür bir kusur olursa** (kalkma, sünme, topak, kayma): saatini ya da Z yüksekliğini not et → etiket olur.
-- **Deneylerden (bölüm B) önce Claude'a haber ver**: Pi'deki öğrenilmiş k / k_fil'i kaydeder. Fanlı tutmalar k'yı
-  oynatır (deney14a'da 1.007 → 0.959); deneyden sonra geri yükleme komutunu verir (sudo, sende):
-  `ssh -t batu63562@192.168.0.25 "sudo systemctl stop ender3-twin && cp ~/ender3-twin/durum_yedek/<YEDEK>.json ~/ender3-twin/twin_state.json && sudo systemctl start ender3-twin"`
+- **Deneylerde yedek gerekmez (K79, 28.10):** `yazici/deney*.gcode` dosyalarında `; twin: experiment` satırı var;
+  ikiz iş bitince öğrendiği k / k_ref'i iş başındaki değerlere kendisi döndürür (konsolda "Deney bitti … geri alindi").
+  Kalibrasyon baskısı ve ısı kulesi İŞARETSİZ (öğrenmeleri istenir); aynı donanımda kalibrasyon tekrarı ise elle yedek.
 - Deneyler filament harcamaz (ekstrüzyon yok, nozzle 50 mm havada); yazıcının başında durman gerekmez.
 
 ## A. Normal baskılar

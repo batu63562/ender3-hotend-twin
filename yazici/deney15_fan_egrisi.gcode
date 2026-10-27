@@ -8,6 +8,7 @@
 ; Ikiz Pi'de calisiyor; dosya baski gibi baslatilir (kendi logu olur).
 ; DIKKAT: fanli tutmalar Pi'deki ogrenilmis k'yi oynatir (deney14a'da 1.007 -> 0.959). Deneyden sonra durum geri
 ; yuklenecek (sudo ister): oncesinde k / k_fil kaydedilir.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S0
 M106 S0

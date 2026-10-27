@@ -2,6 +2,7 @@
 ; isi kaybini azaltiyor mu? Nozzle 245 C, tabla 85 C, ekstruzyon YOK. Nozzle tablanin ortasinda
 ; farkli yuksekliklerde 3'er dakika bekletilir; ikiz tutma gucunu olcer. Sure ~35 dk.
 ; Ikizi (ikiz_baslat.bat) bu dosyayi baslatmadan ONCE ac.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S85
 M104 S245

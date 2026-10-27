@@ -20,6 +20,7 @@
 ; Safety: low (the part may warp a little; the bed PID compensates, the bed twin will see it too).
 ; Labels: Resume 1 -> Pause 2 (C), Resume 2 -> end (-).
 ; filament_type = PETG
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200   ; pauses wait for the user
 START_GCODE BED_TEMP=85 EXTRUDER_TEMP=245
 M83                             ; relative extrusion

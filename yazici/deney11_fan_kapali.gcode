@@ -24,6 +24,7 @@
 ; Safety: low (overhang/bridging quality only; a blower does not overheat with a blocked intake).
 ; Labels: Resume 1 -> Pause 2 (A, fan 25 %), Resume 3 -> Pause 4 (A, fan 60 %), the windows after (-).
 ; filament_type = PETG
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200   ; pauses wait for the user
 START_GCODE BED_TEMP=85 EXTRUDER_TEMP=245
 M83                             ; relative extrusion

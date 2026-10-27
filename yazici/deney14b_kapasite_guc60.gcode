@@ -4,6 +4,7 @@
 ;  (a) dP gucle (x0.6), (b) dP hizla, (c) dP guc x hizla olceklenir -> 14a'nin A1 rampasiyla karsilastirilir.
 ; Hedefler 245 degil 235 ve 200: 24 W ile 245'te kayip (~20 W) neredeyse tum gucu yer, varis cok uzar.
 ; Fan KAPALI, ekstruzyon YOK, tabla KAPALI, nozzle 50 mm yukarida. Sure ~20 dk. Nozzle SOGUK baslar.
+; twin: experiment
 SET_IDLE_TIMEOUT TIMEOUT=7200
 M140 S0
 M104 S0

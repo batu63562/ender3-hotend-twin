@@ -83,6 +83,7 @@ def start(g, header):
     for ln in header.strip("\n").splitlines():
         g.add("; " + ln if ln else ";")
     g.add("; filament_type = PETG")
+    g.add("; twin: experiment")           # the twin restores its learned k after the job [K79]
     g.add("SET_IDLE_TIMEOUT TIMEOUT=7200   ; pauses wait for the user")
     g.add(f"START_GCODE BED_TEMP={BED} EXTRUDER_TEMP={HOT}")
     g.add("M83                             ; relative extrusion")

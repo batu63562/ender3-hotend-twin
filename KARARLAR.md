@@ -1609,3 +1609,20 @@ canlı döngüde işaret okuma (`plan_job` → `on_plan`; sahte Moonraker yok, i
 `DENEY_GERI_YUKLENDI` raporu). İşaret 12 `yazici/deney*.gcode`'a ve `ariza_deneyleri.py` üretecine eklendi (üreteç
 deney10–13'ü işaret dışında birebir yeniden üretiyor); kalibrasyon ve ısı kulesi işaretsiz.
 **K79 KABUL** (28.10, kullanıcı onayı): commit + deney dosyaları Mainsail'e; Pi'ye deploy kullanıcıda.
+
+## K80 — Kalibrasyon araçlarında printer.cfg sınırları ve uyarılar (2026-10-28, ARAÇ, MODEL DEĞİŞMEDİ)
+Başka bir yazıcıda kalibrasyonun sessizce yanlış sayı üretmesine karşı (K78'den sonraki "neden çalışmaz" listesi).
+- **`yazici/calibration_print.py`:** konum, park ve sıcaklık sınırı `--cfg` printer.cfg'den: merkez = X/Y hareket
+  aralığının ortası (tam mm'ye aşağı; Ender 0–235 → 117, eskisiyle aynı), park X_min, Y_max − 15 (Ender X0 Y220, K32),
+  `--temp` > `max_temp` − 5 ise ya da merkez aralık dışındaysa ya da Z < 60 mm ise durur. 245/210/255 dosyaları komut
+  olarak BİREBİR aynı (yalnız başlık: kalibrasyon K79 işaretsiz, aynı donanımda yedek elle).
+- **`calibrate.py --staged` kontrolleri (uyarır, durdurmaz; başka hotend gerçekten farklı olabilir):** (1) aynı sıcaklık
+  ve fandaki tutmalar > 0.5 W farklı → baskı sırasında hotend değişti (uç plastiği, çorap, oturma; K78); (2) bir tutma
+  fit edilen kayıp eğrisinden > 0.5 W uzak (fan eşiğinin ±0.05'i hariç: modelin keskin eşiği orada bilinen
+  basitleştirme, 21.10 fan %15 −0.70 W); (3) aşama 2 T1 rms > 3 °C → model bu hotend'i izlemiyor; (4) çarpanlar
+  profile göre aralık dışı (kayıp ×0.7–1.4, C ×0.7–1.4, R31 ×0.5–2.5, R_HB ×0.6–1.7, HA2_FAN ×0.4–2.5); (5) kayıp ve
+  C aynı yönde > ~%10 → `heater_power_w` şüpheli (ikisi de güçle ölçeklenir).
+- **Sınama (arşiv):** 21.10 pirinç 0 uyarı; 27.10 çelik 0 uyarı; 26.10 pirinç (oturum durumu olan baskı) 3 uyarı:
+  245 °C fansız tutmalar 20.20 / 19.93 / 18.07 W (2.13 W fark), 6 tutma eğri dışı, aşama 2 rms 5.19 °C. Kartuş gücü
+  yanlış girilmiş gibi (21.10 logu P_MAX ile): 48 W (+%20) → kayıp ×1.14, C ×1.12 → uyarı (tahmin ×1.13); 32 W (−%20) →
+  ×0.74 / ×0.76 → uyarı. Eşik ilk denemede 0.15'ti, +%20'yi kaçırdı → 0.10 (çelik 0.92 / 0.87 eşiğin altında kalıyor).

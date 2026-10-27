@@ -129,6 +129,16 @@ def write_calibration(path, names, se, info, data, k_logs, fit_rms, args):
 
 
 STAGED_DYNAMIC = ["C_ALL", "R31", "R_HB", "CAP_T_COEF"]   # stage 2: storage and internal resistances
+# Sanity checks of a staged calibration: they warn, they do not stop it (another hotend may really differ).
+HOLD_SPREAD_W = 0.5     # W - same temperature and fan, different power: the hotend changed during the print
+                        # (27.10: 18.8 vs 17.2 W an hour apart, plastic on the tip?, K78); in-hold noise ~0.2 W
+HOLD_RESIDUAL_W = 0.5   # W - a hold the fitted loss curve does not explain
+TRAJ_RMS_C = 3.0        # C - stage 2 misfit above this: the 3-node structure may not suit the hotend (26.10: 5.2)
+# factor ranges relative to the profile (the author's Ender, brass and steel nozzle: loss x0.92-1.02, C x0.87-1.03,
+# R31 x1.3-1.8, R_HB x1.1-1.4, HA2_FAN x0.67-1.0); outside: check the profile, or the hotend is very different
+FACTOR_RANGE = {"loss": (0.7, 1.4), "HA2_FAN": (0.4, 2.5), "C_ALL": (0.7, 1.4), "R31": (0.5, 2.5),
+                "R_HB": (0.6, 1.7), "CAP_T_COEF": (0.3, 3.0)}
+POWER_HINT = 0.10       # loss and C both off by > ~10 % the same way: heater_power_w is suspect (+-20 % test: both caught)
 
 
 def holds(path, min_len=140.0, tail=90.0):
@@ -173,6 +183,15 @@ def staged(a):
     off = sorted({round(T) for _, (T, f, _) in hl if f <= rw.FAN_F0})
     on = [h for _, h in hl if h[1] > rw.FAN_F0 + 0.05]
     print(f"stage 1, holds: {len(hl)} ({len(hl) - len(on)} fan below threshold at {off} C, {len(on)} fan on)")
+    warn = []
+    groups = {}
+    for n, (T, f, P) in hl:
+        groups.setdefault((round(T), round(f, 2)), []).append(P)
+    for (T, f), Ps in sorted(groups.items()):
+        if len(Ps) > 1 and max(Ps) - min(Ps) > HOLD_SPREAD_W:
+            warn.append(f"holds at {T} C fan {f:.2f} differ by {max(Ps) - min(Ps):.2f} W ({', '.join(f'{P:.2f}' for P in Ps)}"
+                        " W, in print order): the hotend changed during the print (plastic on the tip, a sock or "
+                        "nozzle settling); clean and check the tip, then print it again")
     if len(off) < 2:
         sys.exit("need fan-off holds at >= 2 temperatures (the calibration G-code has them; was the print complete?)")
     fit_fan = len({round(f, 2) for _, f, _ in on}) >= 2
@@ -193,8 +212,16 @@ def staged(a):
     print(f"  heater power rms {rms(r_before):.2f} -> {rms(f1.fun):.2f} W; block loss x{s:.3f}"
           + (f", part fan HA2_FAN {rw.HA2_FAN:.4f} threshold {rw.FAN_F0:.3f}" if fit_fan else ", fan curve kept"
              " (fan-on holds at < 2 levels)"))
-    for (n, (T, f, P)), r in zip(hl, f1.fun):
-        print(f"    {n:30s} {T:5.0f} C fan {f:4.2f}: {P:5.2f} W, model {r:+5.2f}")
+    # a fan level next to the threshold is not checked: the model's sharp threshold is a known simplification there
+    # (21.10: fan 15 % with the threshold at 16 %, -0.70 W)
+    off_curve = [abs(r) > HOLD_RESIDUAL_W and abs(f - rw.FAN_F0) > 0.05 for (_, (_, f, _)), r in zip(hl, f1.fun)]
+    for (n, (T, f, P)), r, bad in zip(hl, f1.fun, off_curve):
+        print(f"    {n:30s} {T:5.0f} C fan {f:4.2f}: {P:5.2f} W, model {r:+5.2f}" + ("  !!" if bad else ""))
+    if any(off_curve):
+        warn.append(f"{sum(off_curve)} hold(s) off the fitted loss curve by > {HOLD_RESIDUAL_W:g} W (marked !!)")
+    factors = {"loss": s}
+    if fit_fan:
+        factors["HA2_FAN"] = rw.HA2_FAN / float(np.exp(x0[1]))
 
     names = list(STAGED_DYNAMIC)
     base = np.array([1.0 if n == "C_ALL" else float(getattr(rw, n)) for n in names])
@@ -216,6 +243,19 @@ def staged(a):
     for n, b, xi, e in zip(names, base, f2.x, se):
         print(f"  {n:11s} {b:11.4g} -> {b * np.exp(xi):11.4g}  x{np.exp(xi):.3f} +-{e:.3f}"
               + ("  at bound" if abs(abs(xi) - BOUND) < 1e-3 else ""))
+        factors[n] = float(np.exp(xi))
+    if rms(r2) > TRAJ_RMS_C:
+        warn.append(f"stage 2 misfit {rms(r2):.2f} C > {TRAJ_RMS_C:g} C: the model does not follow this hotend well "
+                    "(a transient during the print, or a hotend unlike cartridge + block + heatsink)")
+    for n, (lo, hi) in FACTOR_RANGE.items():
+        if n in factors and not lo <= factors[n] <= hi:
+            warn.append(f"{n} x{factors[n]:.2f} is outside x{lo:g}-x{hi:g} of the profile")
+    ls, lc = np.log(factors["loss"]), np.log(factors["C_ALL"])
+    if abs(ls) > POWER_HINT and abs(lc) > POWER_HINT and ls * lc > 0:
+        warn.append(f"loss x{factors['loss']:.2f} and heat capacity x{factors['C_ALL']:.2f} are off together: both scale "
+                    f"with the heater power, so heater_power_w ({rw.P_MAX:g} W) is probably wrong by about "
+                    f"x{np.exp((ls + lc) / 2):.2f} (cartridge rating, supply voltage)")
+    print(f"\nchecks: {len(warn)} warning(s)" + "".join(f"\n  !! {w_}" for w_ in warn))
     if a.write:
         a.params = "staged:" + ",".join(["loss_scale"] + (["HA2_FAN", "FAN_F0"] if fit_fan else []) + names)
         write_calibration(a.write, ["HA1", "CRAD"] + (["HA2_FAN", "FAN_F0"] if fit_fan else []) + names,

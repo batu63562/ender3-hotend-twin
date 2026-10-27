@@ -1626,3 +1626,18 @@ Başka bir yazıcıda kalibrasyonun sessizce yanlış sayı üretmesine karşı 
   245 °C fansız tutmalar 20.20 / 19.93 / 18.07 W (2.13 W fark), 6 tutma eğri dışı, aşama 2 rms 5.19 °C. Kartuş gücü
   yanlış girilmiş gibi (21.10 logu P_MAX ile): 48 W (+%20) → kayıp ×1.14, C ×1.12 → uyarı (tahmin ×1.13); 32 W (−%20) →
   ×0.74 / ×0.76 → uyarı. Eşik ilk denemede 0.15'ti, +%20'yi kaçırdı → 0.10 (çelik 0.92 / 0.87 eşiğin altında kalıyor).
+
+## K81 — Sahte Moonraker repoda; K79 ve plan-k canlı döngüde sınandı (2026-10-28, ARAÇ)
+`benchmark/fake_moonraker.py LOG [LOG …] --gcode FILE --sandbox DIR`: logu (birden çok ise aynı oturumun ardışık
+dosyalarını, tek Klipper saati) websocket'ten `notify_status_update` olarak `--speed` kat hızlı yayınlar; G-code ve
+printer.cfg indirmesine, pause isteğine cevap verir; `--sandbox` ikizi (deploy.ps1'in dosyaları) ayrı klasöre kopyalayıp
+config.toml (bu sunucu, telefon sayfası yok, gölge) ve isteğe bağlı twin_state.json yazar → gerçek dosyalara dokunmaz.
+Eski scratchpad aracının yerine (kaybolmuştu). Baskıyla başlayan logun önüne 5 s 'standby' eklenir.
+- **K79 canlı döngüde:** çelik deney16 + işaretli G-code, k 1.025 / k_ref 1.007 → `deney isi` satırı, iş sonunda
+  "Deney bitti: … k 1.018 geri alindi, k 1.025 ve k_ref 1.007", rapor `DENEY_GERI_YUKLENDI`, kaydedilen durum k 1.025.
+  İşaretsiz ısı kulesi G-code'unda satır yok (negatif kontrol).
+- **Plan-k (K78 eki) canlı döngüde:** 27.10 nozzle değişimi oturumu + ilk çelik Benchy art arda: K75 "1.109 → 1.007"
+  aynen yeniden üretildi, plan satırı **k 1.007** (27.10'da canlı plan 1.109 ile üretilmişti). İki "SINANMADI" notu kapandı.
+- **Bulunan kenar durum (kod değişmedi):** servis açıldıktan sonraki İLK mesaj baskı başlangıcıysa `Twin` önceki
+  durumu bilmediği için bunu iş başı saymaz (k_fil çapası, K75, K79 atlanır). Canlıda servis baskıdan çok önce açık;
+  yalnız yeniden bağlanma tam baskı başına denk gelirse olur. Bilinen sınır olarak bırakıldı.

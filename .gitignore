@@ -26,6 +26,7 @@ durum_yedek/
 
 # Logs and generated data (published separately as a sample dataset)
 /*.csv
+!/hardware_log.example.csv
 loglar/
 Hotend_logs/
 tahminler/

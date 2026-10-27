@@ -1656,3 +1656,20 @@ K74'ün ön kaydını koda döker; çelik baskıların SKORLARINA 4 saat dolana 
   yavaş arıza fan açılınca 3 W 9 → 8/23, 4 W 15 → 11/15, ortada 3 W 18 → 16/20 → GEÇMEZ. K66'nın 22.10 kuru koşusuyla
   (3.22 → 3.27, ısınma/245 kötü, soğuma iyi, yavaş arıza azalır, geçmez) aynı yön; zincir o günden beri uzadı.
   (b) Özdeşlik: B = calibration.json kopyası → bütün farklar 0.00, yavaş arıza aynı, karar "A kalır" (ölçüt 1 iyileşme ister).
+
+## K83 — Parça değişimi: donanım dönemleri dosyası; otomatik "fan ayrışması" uyarısı REDDEDİLDİ (2026-10-28)
+Kullanıcı sorusu (26.10): ikiz değişime uysun ama öncesini de hatırlasın; bakım ile parça değişimi nasıl ayrılır?
+Cevap: değişim anında ısıl veride ikisi de bir k sıçraması; ayıranlar sonrası — kalıcılık (KAYIP kabulü zaten bunu
+yapıyor; elle müdahaleyi K75, deneyi K79 ayıklıyor) ve ŞEKİL (çelikte fan tepkisi değişti, tek k karşılamadı).
+Asıl soru "bakım mı parça mı" değil, "tek k yetiyor mu, kalibrasyon mu gerekli".
+- **Dönemler (elle, `hardware_log.csv`, İngilizce: dışa açık; yerelde, repoda `hardware_log.example.csv` — `calibration.json` / `profile.toml` düzeni):** başlangıç, 13.10 bakım (fan kanalı), 23.10 bakım
+  (ölçülebilir değişim yok, K76), 27.10 çelik nozzle (kalibrasyon logu, aday B, canlı k_ref 0.903). Değişimi en güvenilir
+  bilen kullanıcı; ikize kod eklenmedi. Araçların tarih sabitleri (calibration_check `SINCE`, K74 kuralı) bugün elle;
+  dosyadan okumaları ancak bir sonraki değişimde gerekirse (şimdi kullanılmayan kod yazılmadı).
+- **Otomatik uyarı adayı (keşif, ön kayıtsız):** baskı başına S = eksik güç medyanı (fan > 0.25, baskı, T > hedef − 15)
+  − fansız medyanı, her biri ≥ 3 dk. 14.10–21.10 pirinçte 25 baskı: S −1.76 … +0.74 W (çoğu −1.5 … +0.5; fansız kısım
+  ilk katman, K37 tümseğiyle karışık). Çelik kule S +0.35 (k 0.90'a uymuştu); çelik Benchy'lerde fanlı/fansız ≥ 3 dk yok.
+  → Ayırmıyor, kurulmadı. Şekil değişimini güvenilir gösteren şey kalibrasyon baskısının kendisi (fan basamakları).
+- **Yerine (model dışı, mesaj):** KAYIP kabul satırı artık "parça değiştiyse tek k her fan seviyesini karşılamayabilir:
+  kalibrasyon baskısı önerilir, hardware_log.csv'ye yazın" diyor. 27.10'da bu satır kule sırasında çıkardı.
+- **K63 sayacı:** karar kullanıcıda (öneri: çelik döneminden, 27.10 17:17, sonuç görmeden K63 eki).

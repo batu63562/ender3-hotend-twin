@@ -1,0 +1,5 @@
+start,kind,change,calibration_log,calibration_file,k_ref,decision
+2026-09-21 00:00,start,"Ender 3, direct drive, all-metal hotend, brass 0.6 mm nozzle, part fan 5015 (September core set)",benchmark/*.csv (21-25.09),calibration.json (2026-09-25),1.00,
+2026-10-13 00:00,maintenance,"heatsink cleaned of dried PETG, heat break paste, part-fan duct remounted (fan behaviour changed)",,,1.045 -> 1.007 (22.10),K20 K44 K50
+2026-10-23 00:00,maintenance,"brass nozzle clogged: needle, cold pull, heatsink screws tightened (no measurable change, K76)",loglar/deneyler/kalibrasyon_245_ikinci.csv,,1.007,K76
+2026-10-27 14:00,part,"nozzle: brass 0.6 mm -> Bambu TZ3.0 bi-metal hardened steel 0.4 mm; printer.cfg nozzle_diameter 0.400 (part fan cools it ~30 % less)",loglar/deneyler/kalibrasyon_245_celik.csv,benchmark/k74/calibration_celik.json (candidate B),0.903,K74 K78

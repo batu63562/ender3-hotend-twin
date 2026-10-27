@@ -1853,7 +1853,9 @@ async def main():
                             if r["k_accepted"]:
                                 k_old, k_new = r["k_accepted"]
                                 msg = (f"KAYIP kabul edildi: k {k_old:.3f} -> {k_new:.3f} ({100 * (k_new / k_old - 1):+.0f}%), "
-                                       f"{K_ACCEPT_TIME / 60:.0f} dk sabit kaldi; yeni referans bu seviye")
+                                       f"{K_ACCEPT_TIME / 60:.0f} dk sabit kaldi; yeni referans bu seviye. Bir parca "
+                                       f"degistiyse (nozzle, corap, fan kanali) tek k her fan seviyesini karsilamayabilir: "
+                                       f"kalibrasyon baskisi onerilir, degisikligi hardware_log.csv'ye yazin [K83]")
                                 print(f"\n[{msg}]\n")
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:

@@ -1569,3 +1569,10 @@ henüz girmedi (K74 sınama verisi ayrı).
   dışa. Dara sızıntısı: geri çekme 1 → 2 mm (all-metal hotend'de uzun geri çekme 80 s beklemede ısı kırıcıda tıkanma
   riski, bu yüzden 2'de kaldı), daradan sonra havada 1 mm prime (F120, analizin akış eşiğinin altında: bölüm başı
   değişmez) + 10 mm hızlı silme. Sentetik analiz yine her bölümde 1.33; dara örneği ~140 → ~115. Basılmadı.
+- **Ek (27.10 gece): oturum başı 1.5 W için ayırma deneyi (deney17, basılmadan).** Arşivde tabla sıcaklığı adayı
+  zayıf: 27.10 çelik deney16 tabla 46 → 29 °C soğurken 18.8 → 19.0 W düz kaldı, 26.10 pirinç tabla 26 °C'de 20.2 W.
+  Yüksek seviyeler nozzle işi ya da baskı sonrası (cold pull, Benchy'ler), düşükler boşta bekleme ya da fan sonrası →
+  aday: uçta kalan plastik (kanat gibi ek yüzey; %100 fan pirinçte kopardı, çelikte yapışık kaldı). Deney17: A bulunduğu
+  gibi → PAUSE, uç temizlenir → B → havada 15 mm purge → C → fan %100 → D → PAUSE, temizlik → E. Kalıntı ise A > B,
+  C > B, E ≈ B; değilse A = B = C = E (aday çürür; sonra besleme gerilimi / oturma). Ölçüt: tutmaların son 180 s
+  ortalaması, fark > 0.5 W anlamlı (tutma içi gürültü ~0.2 W).

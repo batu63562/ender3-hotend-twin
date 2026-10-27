@@ -43,6 +43,7 @@ X230 Y230'da gövdeye çarpıp baskıyı kaydırıyordu) → ~30 s bekle → Res
 | 2 | ~~Kalibrasyon baskısı, PETG sıcaklığı~~ (21.10 BİTTİ, K45) | `yazici/calibration_245.gcode` | ~55 dk | v0.3'ün ilk gerçek kalibrasyon verisi; deney15'ten SONRA |
 | 3 | Kalibrasyon baskısı, PLA sıcaklığı | `yazici/calibration_210.gcode` (hazır; sanal yazıcıda 50 dk, aşma 1 °C) | ~55 dk | Model 235–245 dışında ilk kez (filament gerekmez) |
 | 4 | Kalibrasyon baskısı, ABS/ASA sıcaklığı | `yazici/calibration_255.gcode` (hazır; sanal yazıcıda en çok 256.1 °C < max_temp 260) | ~55 dk | Üst uç (`max_temp` 260) |
+| 5 | **Uç kalıntısı (K78 açık madde)** — normal bir PETG baskısından sonra, nozzle'ı TEMİZLEMEDEN, < 40 °C | `yazici/deney17_uc_kalintisi.gcode` | ~38 dk | Oturum başı 1.5 W: uçta plastik mi? İki PAUSE'da ucu sıcakken temizle, ne çıktığını not et, RESUME |
 
 Önerilen sıra: B1 → B2 aynı gün arka arkaya olabilir (arada geri yükleme gerekmez, ikisinden sonra bir kez). B3, B4
 acelesiz.

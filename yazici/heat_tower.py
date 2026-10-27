@@ -101,16 +101,19 @@ def generate(a):
     else:
         g += [f"M140 S{a.bed}", "M104 S150", "G28", "G90", f"M190 S{a.bed}"]
     g += ["G90", "M82", f"M109 S{a.temp}"]
-    # prime line beside the tower, then two base layers (fan off, slow) that are not analysed
-    g += ["G92 E0", f"G1 X{cx - a.size:.1f} Y{cy - a.size / 2 - 10:.1f} Z0.3 F6000",
-          f"G1 X{cx + a.size:.1f} E{2 * a.size * w * 0.3 / area:.4f} F1200", "G92 E0"]
+    # prime line beside the tower (not with --start: the start macro primes), then two base layers (fan off, slow)
+    # that are not analysed
+    g += ["G92 E0"]
+    if not a.start:
+        g += [f"G1 X{cx - a.size:.1f} Y{cy - a.size / 2 - 10:.1f} Z0.3 F6000",
+              f"G1 X{cx + a.size:.1f} E{2 * a.size * w * 0.3 / area:.4f} F1200", "G92 E0"]
     e = 0.0
     for i in range(2):
         z = round(z + 0.2, 3)
         h_now = 0.2
         g += [f";Z:{z:g}", ";TYPE:Outer wall", f"G1 Z{z:.3f} F600"]
-        if i == 0:      # brim on the first layer, outside in (the walls alone hold the bed poorly)
-            for k in range(a.brim, 0, -1):
+        if i == 0:      # brim on the first layer, inside out like Orca's (the walls alone hold the bed poorly)
+            for k in range(1, a.brim + 1):
                 square(a.size / 2 + k * w, 20.0)
         for k in range(a.walls):
             square(a.size / 2 - k * w, 20.0)

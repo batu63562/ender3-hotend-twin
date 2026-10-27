@@ -18,7 +18,7 @@ balance to settle, so the heat into the print can be related to the slicer setti
             --synthetic runs the twin's own plan simulation (gcode_plan.Sim, k_fil known) instead of a log: the
             analysis must return that k_fil. This checks the tool, not the printer.
 
-Usage (in dt/):   py yazici/heat_tower.py generate [--temp 245] [--bed 80] [--center 117,117] [--out FILE]
+Usage (in dt/):   py yazici/heat_tower.py generate [--temp 245] [--bed 85] [--center 100,100] [--out FILE]
                   py yazici/heat_tower.py analyze LOG --sections FILE_sections.csv
                   py yazici/heat_tower.py analyze --synthetic GCODE --sections FILE_sections.csv
 """
@@ -242,8 +242,8 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     gen = sub.add_parser("generate")
     gen.add_argument("--temp", type=int, default=245, help="print temperature (C)")
-    gen.add_argument("--bed", type=int, default=80, help="bed temperature (C)")
-    gen.add_argument("--center", default="117,117", help="tower centre X,Y (bed centre)")
+    gen.add_argument("--bed", type=int, default=85, help="bed temperature (C)")
+    gen.add_argument("--center", default="100,100", help="tower centre X,Y (bed centre of the Orca profile, 200 x 200)")
     gen.add_argument("--size", type=float, default=40.0, help="outer square side (mm)")
     gen.add_argument("--walls", type=int, default=4, help="concentric perimeters per layer")
     gen.add_argument("--cfg", default=os.path.join(HERE, "printer.cfg"),

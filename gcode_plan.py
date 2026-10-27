@@ -554,13 +554,15 @@ def toolpath_path(plan_csv):
 
 
 def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b=0.0,
-                  tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True, names=None):
+                  tgt_h=0.0, tgt_b=0.0, fan=0.0, abs_e=True, names=None, k=None):
     """Called in the background by the live twin (realtime_websocket.py) when a print starts.
     The simulation starts from the state MEASURED at print start (a cold start on a warm machine would
     overestimate the heat-up by minutes). t0: print start (PC unix time) -> CSV 'time'.
+    k: the live twin's loss factor at print start (None: the saved state).
     Returns: a one-line summary."""
     mc, m = Machine(cfg, **(names or {})), d.load_model()
-    k, _ = m.load_k()
+    if k is None:
+        k, _ = m.load_k()
     kfil = m.K_FIL_ANCHOR          # a new print starts from the anchor, as in the live twin [K27]
     sim = Sim(mc, m, k, T_h=T_h, T_b=T_b, pwm_h=pwm_h, pwm_b=pwm_b, tgt_h=tgt_h, tgt_b=tgt_b, fan=fan, kfil=kfil)
     ops = parse(gcode, mc, abs_e=abs_e)

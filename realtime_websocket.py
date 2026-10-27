@@ -1473,6 +1473,7 @@ async def main():
     web = await web_server(live) if WEB_PORT else None
     buffer = deque()      # (model time, csv row) - the last CLASSIFY_BUFFER seconds for classification
     scheduled = []        # [run time, confirmation time, codes, delay]
+    plan_pending = None   # (file name, start time, initial state): started after the twin has seen the print start
     loop = asyncio.get_running_loop()
     last_known = {"pwm": 0.0, "fan": 0.0, "ext": 0.0}   # inputs that arrive before the twin is set up
     bed = {}                                             # bed: last known temperature/power/target (logging)
@@ -1752,9 +1753,7 @@ async def main():
                                                 "tgt_b": bed.get("target", 0.0) or 0.0,
                                                 "fan": twin.fan if twin is not None else last_known["fan"],
                                                 "abs_e": bool(gmove.get("absolute_extrude", True))}
-                                        fut = loop.run_in_executor(None, plan_job, pstat.get("filename", ""),
-                                                                   wall_time, init)
-                                        fut.add_done_callback(on_plan)
+                                        plan_pending = (pstat.get("filename", ""), wall_time, init)
                             if shadow:
                                 shadow.tick(now, pstat.get("state") == "printing")
                                 live["golge"] = shadow.note()
@@ -1777,6 +1776,13 @@ async def main():
 
                             r = twin.on_message(now, T1_real, pwm, fan, ext, target, bed.get("power"), motion.get("e"),
                                                 pstat.get("state"))
+                            if plan_pending:
+                                # the plan uses the k this print starts with: after the K75 revert, not the saved state
+                                fname, t_start, init = plan_pending
+                                plan_pending = None
+                                init["k"] = twin.learner.k
+                                fut = loop.run_in_executor(None, plan_job, fname, t_start, init)
+                                fut.add_done_callback(on_plan)
                             if twin.learner.windows:     # maintenance log: window k values (model clock -> wall clock)
                                 maint_record([(tn + wall_time - now, kind, kv) for tn, kind, kv in twin.learner.windows])
                                 twin.learner.windows.clear()

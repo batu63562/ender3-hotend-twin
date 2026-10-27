@@ -1576,3 +1576,10 @@ henüz girmedi (K74 sınama verisi ayrı).
   gibi → PAUSE, uç temizlenir → B → havada 15 mm purge → C → fan %100 → D → PAUSE, temizlik → E. Kalıntı ise A > B,
   C > B, E ≈ B; değilse A = B = C = E (aday çürür; sonra besleme gerilimi / oturma). Ölçüt: tutmaların son 180 s
   ortalaması, fark > 0.5 W anlamlı (tutma içi gürültü ~0.2 W).
+- **Ek (27.10 gece, HATA DÜZELTMESİ, model dışı): canlı planın k'sı (K77 ekindeki bilinen hata).** Plan baskı başında
+  ikiz o mesajı işlemeden başlatılıyor ve k'yı `twin_state.json`'dan okuyordu → K75 geri alması plana yansımıyordu
+  (27.10 ilk kule denemesi: plan 1.078, baskı 1.007). Artık plan isteği bekletiliyor, `Twin.on_message`'dan sonra
+  ikizin o anki k'sıyla başlatılıyor (`plan_for_live(k=)`; verilmezse eski davranış). Tahmine/alarma dokunmaz:
+  `baseline_snapshot --check v0.3` öncesi/sonrası skorlar birebir aynı (63 fark yalnız karneden sonra eklenen loglar).
+  Canlı döngü sahte Moonraker'la SINANMADI; doğrulama ilk baskıda "G-code plani hazir … (k X)" satırının ikizin
+  k'sına eşit olması.

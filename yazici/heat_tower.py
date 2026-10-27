@@ -42,7 +42,9 @@ TAIL = 10.0                  # s at the end left out: the twin's net feed is a 1
 TARE = 80.0                  # s - tare before each analysed section; the last TARE - SETTLE s of it are averaged
 TARE_LIFT = 1.1              # mm above the tower top (not a multiple of any layer height: no print row at this Z)
 TARE_OFFSET = 3.0            # mm outside the first corner, so ooze falls beside the tower
-RETRACT = 1.0                # mm of filament pulled back during the tare
+RETRACT = 2.0                # mm of filament pulled back during the tare (1 mm let PETG ooze over 80 s)
+PRIME = 1.0                  # mm of filament pushed out in the air after the tare: the oozed blob drops beside the tower
+WIPE = 10.0                  # mm fast move away from the tower and back after the prime, to break the string
 WIDTH_PER_NOZZLE = 1.125     # line width / nozzle diameter (0.4 -> 0.45, 0.6 -> 0.68)
 
 
@@ -133,11 +135,14 @@ def generate(a):
             e -= RETRACT
             g += [f"G1 E{e:.5f} F1800", f"G1 Z{z + TARE_LIFT:.3f} F600",
                   f"G0 X{cx - half - TARE_OFFSET:.3f} Y{cy - half - TARE_OFFSET:.3f} F6000",
-                  f"G4 P{TARE * 1000:.0f}          ; tare", f"G0 X{cx - half:.3f} Y{cy - half:.3f} F6000",
-                  f"G1 Z{z + h_now:.3f} F600"]
-            e += RETRACT
-            g.append(f"G1 E{e:.5f} F1800")
-            t += TARE + 3
+                  f"G4 P{TARE * 1000:.0f}          ; tare"]
+            # prime in the air beside the tower and wipe, then back to the corner (slow feed: stays below the
+            # analysis' flow threshold, so the section still starts at its first printed line)
+            e += RETRACT + PRIME
+            g += [f"G1 E{e:.5f} F120          ; prime",
+                  f"G0 X{cx - half - TARE_OFFSET - WIPE:.3f} F9000", f"G0 X{cx - half - TARE_OFFSET:.3f} F9000",
+                  f"G0 X{cx - half:.3f} Y{cy - half:.3f} F6000", f"G1 Z{z + h_now:.3f} F600"]
+            t += TARE + 3 + (RETRACT + PRIME) / 2
         t_start = t
         for _ in range(n_layers):
             z = round(z + h_now, 3)

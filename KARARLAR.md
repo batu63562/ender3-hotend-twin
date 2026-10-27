@@ -1564,3 +1564,8 @@ henüz girmedi (K74 sınama verisi ayrı).
   düşük (eritme sınırı adayı), ama akış 2 de düşük (sapma erken bölümde, sönen durumla karışık).
   Canlıda KAYIP kabul edildi: k_ref 1.007 → 0.903 (fanlı baskı seviyesi). Fansız baskılar artık bu k ile başlar
   (fansız gerçek ~0.92–1.00) → K74 B kararı verilene kadar bakım göstergesinin "k düşük" önerisine dikkat.
+- **Ek (27.10 gece, ARAÇ): kule üreteci düzeltmeleri (kullanıcı gözlemleri).** Tabla 85 °C ve merkez 100,100 varsayılan;
+  `--start` verilince kendi prime çizgisi çizilmez (makro çiziyor, çift çizgi vardı); brim (`--brim`, 10 halka) içten
+  dışa. Dara sızıntısı: geri çekme 1 → 2 mm (all-metal hotend'de uzun geri çekme 80 s beklemede ısı kırıcıda tıkanma
+  riski, bu yüzden 2'de kaldı), daradan sonra havada 1 mm prime (F120, analizin akış eşiğinin altında: bölüm başı
+  değişmez) + 10 mm hızlı silme. Sentetik analiz yine her bölümde 1.33; dara örneği ~140 → ~115. Basılmadı.

@@ -109,6 +109,9 @@ def generate(a):
         z = round(z + 0.2, 3)
         h_now = 0.2
         g += [f";Z:{z:g}", ";TYPE:Outer wall", f"G1 Z{z:.3f} F600"]
+        if i == 0:      # brim on the first layer, outside in (the walls alone hold the bed poorly)
+            for k in range(a.brim, 0, -1):
+                square(a.size / 2 + k * w, 20.0)
         for k in range(a.walls):
             square(a.size / 2 - k * w, 20.0)
     z_rows = []
@@ -246,6 +249,7 @@ def main():
     gen.add_argument("--center", default="100,100", help="tower centre X,Y (bed centre of the Orca profile, 200 x 200)")
     gen.add_argument("--size", type=float, default=40.0, help="outer square side (mm)")
     gen.add_argument("--walls", type=int, default=4, help="concentric perimeters per layer")
+    gen.add_argument("--brim", type=int, default=10, help="brim loops on the first layer (0 = none)")
     gen.add_argument("--cfg", default=os.path.join(HERE, "printer.cfg"),
                      help="your printer.cfg: nozzle and filament diameter are read from its [extruder]")
     gen.add_argument("--nozzle", type=float, help="nozzle diameter (mm) instead of printer.cfg's")

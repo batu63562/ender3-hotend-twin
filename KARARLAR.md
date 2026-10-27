@@ -1673,3 +1673,7 @@ Asıl soru "bakım mı parça mı" değil, "tek k yetiyor mu, kalibrasyon mu ger
 - **Yerine (model dışı, mesaj):** KAYIP kabul satırı artık "parça değiştiyse tek k her fan seviyesini karşılamayabilir:
   kalibrasyon baskısı önerilir, hardware_log.csv'ye yazın" diyor. 27.10'da bu satır kule sırasında çıkardı.
 - **K63 sayacı:** karar kullanıcıda (öneri: çelik döneminden, 27.10 17:17, sonuç görmeden K63 eki).
+- **K63 sayacı, kullanıcı kararı (28.10):** sayaç 23.10'dan saymaya DEVAM eder; ön kayıt (kural, ölçütler, ≥ 20 PETG
+  saati) değişmez ("eski dönemi niye çöpe atalım"). Birkaç gün baskıdan sonra duruma göre değerlendirilir. Değerlendirmede
+  ölçüt değil, ek rapor: sonuçlar dönem dönem de verilir (23–27.10 pirinç, kısmen tıkalı; 27.10+ çelik, `hardware_log.csv`),
+  karışımın sonucu nasıl etkilediği görünür olsun.

@@ -1392,6 +1392,18 @@ uyum sağlayabilmeli"): eski sayılarla devam edip k'yı öğrenmeye bırakmak m
   K20 "referans yalnız donanım değişince elle değişir"). Bant K20'nin kendi bandı: soru "eski referans yanlış BAKIM
   ÖNERİSİ üretir mi" ve gösterge bunu tam ±0.06 ile karar verir. K63 sarı seviye sayacı bu kurala BAĞLANMADI (k seviyesi
   değil k_fil/ilk katman davranışı önemli; karar nozzle sonrası, parça değişimi konusuyla birlikte).
+- **Ek 3 (2026-10-27, nozzle gelmeden): fizik tahminleri (ölçüt değil; hangisi tutar, raporlanır).** Bi-metal =
+  genellikle iletken gövde + sertleştirilmiş çelik uç (iç yapı kesin bilinmiyor). Değişim 0.6 pirinç → 0.4 çelik uçlu.
+  1. **C:** nozzle kütlenin ~%10'u, cp benzer (0.46 / 0.38 J/gK) → C_ALL farkı ≤ %3 (A' fan sonrası ile).
+  2. **k (fan sonrası fansız tutmalar):** 21.10 / A' seviyesinden ±0.03 içinde (çelik uç biraz soğuk → kayıp hafif az).
+  3. **R31, R_HB:** termistör bloğu ölçer, uç–blok farkı görünmez → B'nin değerleri A' ile ±2 se içinde.
+  4. **k_fil (ısı kulesi tare, 4 mm³/s merkez):** pirinç provasındaki 1.19'dan %10–20 düşük (~0.95–1.07); taze plastik
+     ısıyı uçtan alır, çelik uç az iletir.
+  5. **Eritme sınırı:** kulede 6 mm³/s bölümünün k_fil'i merkezden belirgin düşük (sağlam pirinçte K62: ~6 temiz).
+  6. **Fan hafızası (deney16):** K76'nın kaynağı eski nozzle/dişlerse A ≈ B ≈ C; değilse A > B sürer (tahmin yok,
+     iki sonuç da bilgi).
+  Not: 0.4'e geçişin ısıl etkisi küçük, asıl etkisi slicer'da (daha ince çizgi, daha düşük akış → k_fil'in gördüğü
+  koşullar değişir); 1.33 çapası artık en iyi başlangıç olmayabilir.
 
 ## K75 — Baskı dışındaki k kayması baskıya taşınmaz (`IDLE_K_REVERT`) (2026-10-26, MODEL DEĞİŞİKLİĞİ — KAPI, kullanıcı onayı)
 Olay: 23–26.10 nozzle açma (iğne, cold pull, nozzle değişimi) sırasında ikiz açıktı (Pi servisi; kullanıcı kapalı

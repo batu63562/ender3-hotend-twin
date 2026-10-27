@@ -1519,3 +1519,34 @@ Kuru prova (kullanıcı: kendi kullanmadan paylaşmamak). Klipper sınırları, 
   Bilinen küçük hata (model dışı, ertelendi): canlı G-code planı k'yı `twin_state.json`'dan okuyor ve K75 geri
   almasından önce başlatılıyor → 1. denemenin planı 1.078 ile üretildi.
 
+
+## K78 — Çelik nozzle günü (K74 sonuçları, kısım 1): fan çeliği %30 az soğutuyor, Benchy'lerde yanlış duraklatma (2026-10-27, ANALİZ, MODEL DEĞİŞMEDİ)
+TZ3.0 bi-metal sertleştirilmiş çelik 0.4 takıldı (`nozzle_diameter: 0.400`). Sıra K74'ten saptı: kullanıcı önce
+z/tabla ayarı + Benchy denedi, deney16 ve kalibrasyon baskısı sonra. Loglar `loglar/baskilar/2710_1421…1529_*celik*`,
+`loglar/deneyler/deney16_fan_hafiza_celik.csv`, `kalibrasyon_245_celik.csv`; etiketler `-` (yanlış alarm), setlere
+henüz girmedi (K74 sınama verisi ayrı).
+- **K75 canlıda:** sıcakken sıkma (anahtar teması) k'yı boşta 1.109'a itti; ilk Benchy başında 1.007'ye geri alındı.
+- **Benchy'ler (k 1.007, pirinç sayıları):** baskıda eksik güç +2.5…+5 W, sıcaklık residual'ı +13…+21 °C; 5 denemede
+  10'dan fazla GUC_AZALDI, 15:09'da 190 s → ikiz DURAKLATTI. Kullanıcı: baskı normaldi → **ilk yanlış duraklatma**
+  (K50'den beri 0 idi). Duraklatmada 245 °C, fan %33, akışsız 10 dk tutma: k 0.89'a oturdu, eksik güç 0. Baskıda GUC
+  açık olduğu için k öğrenilemedi, her deneme eski k ile başladı: donanım değişince sıra (önce deney/kalibrasyon) şart.
+- **Kalibrasyon baskısı `--staged`, 21.10 pirinç (`_ilk`) ile aynı araç:** fansız tutmalar 245: 17.35/17.19/16.96 W
+  (pirinç 17.57/17.62/17.42), 215: 13.86 (14.19), 185: 11.05 (11.30), 150: 7.99 (8.09) → fansız kayıp ~%2 az
+  (blok kaybı ×0.916, pirinç ×0.941). **Fan:** HA2_FAN 0.0246 (0.0368, −%33), eşik 0.189 (0.160); 245 °C'de fan
+  %100'ün ek kaybı 5.2 W (7.6), %40'ın 2.6 W (4.1). Aşama 2: C_ALL 0.870 ±0.008 (0.944 ±0.007, −%8), R31 ×1.84 ±0.11
+  (×1.45 ±0.09, ~2.8 se), R_HB ×1.08 ±0.12 (×1.11, aynı), CAP_T_COEF ×0.93 (×1.08, ±se içinde); güç rms 1.67 → 0.14 W.
+  Fizik: çelik uç pirincin ~1/5'i kadar iletir → fanın estiği uç soğuk, konveksiyon az; fansız kaybı blok + çorap
+  belirlediği için orada fark küçük. Tek k ikisini karşılayamaz (fansız ~0.92–1.00, fan %33'te 0.89 → fanlı baskıda
+  k'yı ortalamak iki tarafta da hata bırakır).
+- **Deney16 (çelik, soğuk başlangıç 36 °C):** 245 °C fansız A 18.72 / B 18.82 / C 18.81 W → A ≈ B ≈ C, **fan hafızası
+  yok** (K76'nın kaynağı eski nozzle/dişler). Fan %100: 23.5 / 23.7 W (pirinç 24.1 / 25.7).
+- **AÇIK — oturumlar arası 1.5 W:** deney16'nın fansız tutmaları 18.8 W, 40 dk sonraki kalibrasyon baskısının (o da
+  soğuk başlangıç, aynı konum X117 Y117 Z50) 17.0–17.4 W; fan %100'de de +1.1 W. Tutmaların içinde sönüm yok. Fark yalnız
+  oturumlar arasında; K76'daki pirinç A/B farkıyla aynı büyüklük (20.0 / 18.0) → "fan hafızası" büyük olasılıkla bu
+  oturum durumunun pirinçteki görünümüydü. Tek fark: deney16'da tabla Benchy'den ılık (50 → 29 °C), kalibrasyonda 24
+  °C (ılık tabla kaybı AZALTMALI, ters yön). Kullanıcıya soruldu (arada nozzle ucu temizlendi mi, sarkan PETG, çorap).
+- **K74 tahminleri (Ek 3):** 1 C ≤ %3 → TUTMADI (−%8; nozzle kütlesi beklenenden farklı olabilir); 2 fansız k ±0.03
+  → kalibrasyonda tuttu (−%2), deney16 ile çelişik (+%7, yukarıdaki açık); 3 R31 → TUTMADI (~2.8 se), R_HB tuttu;
+  4–5 (k_fil, eritme sınırı) ısı kulesini bekliyor; 6 fan hafızası → "kaynak eski nozzle" (A ≈ B ≈ C).
+- **Bakım referansı (Ek 2):** kalibrasyonun fan sonrası fansız tutmalarında ikizin k'sı 0.90–0.92 → kurala göre
+  1.00 ± 0.06 DIŞINDA (referans yenilenir); ama aynı gün deney16 1.00. Açık madde çözülene kadar referans kararı ERTELENDİ.

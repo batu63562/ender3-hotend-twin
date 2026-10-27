@@ -1550,3 +1550,17 @@ henüz girmedi (K74 sınama verisi ayrı).
   4–5 (k_fil, eritme sınırı) ısı kulesini bekliyor; 6 fan hafızası → "kaynak eski nozzle" (A ≈ B ≈ C).
 - **Bakım referansı (Ek 2):** kalibrasyonun fan sonrası fansız tutmalarında ikizin k'sı 0.90–0.92 → kurala göre
   1.00 ± 0.06 DIŞINDA (referans yenilenir); ama aynı gün deney16 1.00. Açık madde çözülene kadar referans kararı ERTELENDİ.
+- **Ek (27.10 gece): ısı kulesi çelikte (`heat_tower_245.gcode` 0.4, brim 10 halka, tabla 85 °C, merkez 100,100,
+  START_GCODE; log `loglar/baskilar/2710_1922_petg_heat_tower_celik.csv`, tamamlandı, gölge mod).** İlk denemeler
+  tutunmadı: üreteç tablayı 80 °C ve merkezi 117,117 (Klipper hareket alanı) alıyordu; Orca profili 200 × 200 / 85 °C.
+  Dara (`analyze`) k_fil: merkez 4 mm³/s dört kez 1.30 / 1.54 / 1.43 / 1.58 (ort. 1.46); akış 2: 1.06, akış 6: 1.15;
+  fan 0 / 30 / 100: 1.42 / 1.25 / 1.56 (fana belirgin bağlılık yok); katman 0.15 / 0.3: 1.55 / 1.33. Model tabanlı
+  sütun 1.30–1.79 (k hatası, K77'nin gösterdiği gibi). Dara gücü baskı boyunca düştü (merkez 21.68 → 20.4 W) ve ilk
+  bölümler düşük k_fil verdi: oturum başında yüksek kayıp durumu baskı içinde sönüyor (yukarıdaki AÇIK maddeyle aynı
+  aile; dara bölüm başında alındığı için erken bölümlerde baskıya gideni küçük gösterir).
+  **Tahmin 4 TUTMADI** (0.95–1.07 beklenmişti, ters yönde: ~1.45; karşılaştırılan pirinç 1.19 kısmen tıkalı nozzle'dan,
+  zayıf referans). Fan kapalıyken bile 1.42 → baskıya filamanın ısınmasından fazlası gidiyor (uç–katman teması; modelin
+  fansız 1.0 sabiti çelikte eksik kalabilir, A0 ile karşılaştırılacak). **Tahmin 5 kısmen:** akış 6 merkezden ~%20
+  düşük (eritme sınırı adayı), ama akış 2 de düşük (sapma erken bölümde, sönen durumla karışık).
+  Canlıda KAYIP kabul edildi: k_ref 1.007 → 0.903 (fanlı baskı seviyesi). Fansız baskılar artık bu k ile başlar
+  (fansız gerçek ~0.92–1.00) → K74 B kararı verilene kadar bakım göstergesinin "k düşük" önerisine dikkat.

@@ -68,3 +68,7 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 ../../loglar/baskilar/2710_1444_petg_benchy_celik_3.csv,0,,"celik Benchy denemesi (kullanici durdurdu); baski normal; GUC_AZALDI <= 30 s yanlis (K78)",-,-
 ../../loglar/baskilar/2710_1457_petg_benchy_celik_4_duraklatti.csv,0,,"celik Benchy: baski normal (kullanici: duraklattigi yer okay); GUC_AZALDI 190 s -> ikiz DURAKLATTI = YANLIS duraklatma (model pirinc, fan katsayisi; K78); duraklatmada 245 C fan %33 tutmada k 0.89",-,-
 ../../loglar/baskilar/2710_1529_petg_benchy_celik_5_duraklatti.csv,0,,"celik Benchy: kullanici duraklatip iptal etti; GUC_AZALDI 28 s yanlis (K78)",-,-
+../../loglar/baskilar/2710_1803_petg_heat_tower_celik_deneme1.csv,0,,"isi kulesi (celik 0.4) denemeleri: tablaya oturmadi / ortali degil, kullanici durdurdu ve kucuk sorunlari duzeltti; isil ariza yok; GUC olaylari yanlis (K78 fan katsayisi)",-,-
+../../loglar/baskilar/2710_1852_petg_heat_tower_celik_deneme2.csv,0,,"isi kulesi (celik) denemesi: tutunma/merkez sorunu, kullanici durdurdu; GUC yanlis (K78)",-,-
+../../loglar/baskilar/2710_1905_petg_heat_tower_celik_deneme3.csv,0,,"isi kulesi (celik) denemesi, kullanici durdurdu; arada elle mudahale (GUC_ARTTI/KAYIP_ARTTI, k 1.15)",-,-
+../../loglar/baskilar/2710_1922_petg_heat_tower_celik.csv,0,,"isi kulesi (celik 0.4, brim, 85 C) TAMAMLANDI; baski saglam (kullanici: dara sonrasi hafif sizinti, bozuntu yok); GUC/KAYIP_AZALDI_FAN yanlis (K78); KAYIP kabul k_ref 1.007 -> 0.903",-,-

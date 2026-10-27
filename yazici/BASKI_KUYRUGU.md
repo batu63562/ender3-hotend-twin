@@ -1,6 +1,6 @@
 # Baskı kuyruğu
 
-Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-10-22 gece (yarın köprü testiyle başlanıyor).
+Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-10-28 (çelik nozzle dönemi; sıra: aşağıda "Şimdiki sıra").
 Bir madde bitince Claude'a söyle; işaretler, logu alır ve inceler.
 
 ## Kurallar (her seferinde)
@@ -65,18 +65,20 @@ A1–A7 bitince gölge mod 14 baskıya çıkar → aktif duraklatma kararı içi
 PLA / ABS ile gerçek baskı yok: baskı içi doğrulama (k_fil çapası, %100 fanla baskı, PLA'da tespit hassasiyeti)
 v0.4 test kullanıcılarına kalır (K42).
 
-## Yeni nozzle takılınca (TZ3.0 bi-metal sertleştirilmiş çelik; K74 sırası)
+## Şimdiki sıra (28.10, çelik 0.4 nozzle)
 
-0. Takmadan önce: uyumluluk (MK8/Ender hotend'i), heat break'e dayanmalı, sıcakken sık. Yeni nozzle 0.4 mm:
-   `printer.cfg` `nozzle_diameter: 0.400` + Klipper yeniden başlat, Orca'da 0.4 profili.
-1. **Yedek:** `twin_state.json` → `durum_yedek/`.
-2. **Takarken ikiz KAPALI:** `sudo systemctl stop ender3-twin`.
-3. **İkizi başlat, nozzle soğuyunca (< 40 °C) deney16** `yazici/deney16_fan_hafiza.gcode` (~24 dk, filamentsiz; K76).
-   Tutma A eski "245 °C fansız 5 dk" adımının yerine (k'nın başlangıç ve 5. dk değeri); A > B ≈ C mi, fan hafızası
-   çelikte de var mı? Bir iş olduğu için öğrendiği k baskı başında geri alınmaz (K75; boşta tutma alınırdı).
-4. **Kalibrasyon baskısı** `yazici/calibration_245.gcode` (~55 dk, filamentsiz). Durumu geri YÜKLEME (yeni nozzle'ın k'sı).
-5. **Isı kulesi** `yazici/heat_tower_245.gcode` (~56 dk, PETG ~11 g, tabla 80 °C; 0.4 nozzle, bölüm başı dara; K73, K77).
-6. **Normal PETG baskılar**, toplam ≥ 4 saat (K74 sınama verisi). Logları Claude'a ver.
+Duraklatma GÖLGE modda (K78): ikiz alarm verir ama baskıyı durdurmaz → baskıya sen göz kulak ol, kusuru saatiyle not et.
+
+1. **Normal PETG baskılar** — ne istersen. K74 için çelik kalibrasyonundan sonra toplam ≥ 4 baskı saati (28.10: 1.39 saat,
+   ~2.6 saat daha); aynı saatler K63 sayacına da gider. Uzun bir baskı (A5, > 2 sa) burada iki işi birden görür.
+2. **deney17** (`yazici/deney17_uc_kalintisi.gcode`, ~38 dk) — normal bir baskının HEMEN ardından: filament takılı, nozzle
+   TEMİZLENMEDEN, < 40 °C. İki PAUSE'da ucu sıcakken temizle, ne çıktığını not et, RESUME. Yedek gerekmez (K79).
+3. **4 saat dolunca** Claude `benchmark/k74_check.py`'yi çalıştırır → A mı B mi; B kazanırsa onayla Pi'ye, sonra gölgeden
+   aktife dönüş (`config.toml`'daki `pause_mode` satırı silinir, servis yeniden başlar).
+4. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan
+   mı"), bir TPU baskı (A7), K63 değerlendirmesi (23.10'dan ≥ 20 PETG saati, sonuçlar dönem dönem de).
+
+Bitti (27.10): nozzle değişimi, deney16 (fan hafızası çelikte yok), kalibrasyon baskısı, ısı kulesi (K78).
 
 ## Etiket bekleyenler (log gelince)
 

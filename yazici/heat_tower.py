@@ -171,16 +171,21 @@ def analyse(df, sec, m, k):
         if s.name == "lead-in":
             continue
         # rows of this section's layers while it is extruding at about its own rate (not the travel after the print)
-        # z_from is the previous section's top + 0.001: no tolerance below it, or that top layer counts here too
+        # z_from is the previous section's top + 0.001: no tolerance below it, or that top layer counts here too.
+        # ext_now > 0: the tare is lifted into this section's Z range and the 10 s net feed is still high there
         d = df[(df.z >= s.z_from - 5e-4) & (df.z <= s.z_to + 1e-3) & (df.flow >= 0.5 * s.flow / area)
-               & (df.target > 0)]
+               & (df.ext_now > 0) & (df.target > 0)]
         if d.empty:
             out.append(dict(name=s.name, n=0))
             continue
         t_first = d.t.iloc[0]
         # tare: the end of the wait before this section, after SETTLE s of it, while nothing is fed
-        tare = df[(df.t >= t_first - TARE + SETTLE) & (df.t <= t_first - 3) & (df.flow < 1e-3) & (df.target > 0)]
+        tare = df[(df.t >= t_first - TARE + SETTLE) & (df.t <= t_first - 3) & (df.flow < 1e-3) & (df.ext_now == 0)
+                  & (df.target > 0)]
         d = d[(d.t >= t_first + SETTLE) & (d.t <= d.t.iloc[-1] - TAIL)]
+        if d.empty:                                 # section cut short (print stopped)
+            out.append(dict(name=s.name, n=0))
+            continue
 
         def balance(r):
             """Mean heater power (W) and model loss scaled by k (W) of rows r."""
@@ -217,7 +222,8 @@ def frame_from_log(path, m):
     ext = pd.Series(num("extrude_velocity"), index=pd.to_datetime(t, unit="s"))
     flow = np.maximum(ext.rolling(f"{m.EXT_AVG_WINDOW:.0f}s").mean().values, 0.0)   # the twin's net feed
     return pd.DataFrame(dict(t=t, T1=num("T1_real", np.nan), target=num("target"), pwm=num("pwm"), bed_pwm=num("bed_pwm"),
-                             fan=num("fan_state"), flow=flow, z=num("pos_z", np.nan))).dropna()
+                             fan=num("fan_state"), flow=flow, ext_now=num("extrude_velocity"),
+                             z=num("pos_z", np.nan))).dropna()
 
 
 def frame_from_sim(gcode, cfg, kfil):
@@ -228,7 +234,7 @@ def frame_from_sim(gcode, cfg, kfil):
     gp.run(gp.parse(gcode, mc), sim)
     f = sim.frame()
     return pd.DataFrame(dict(t=f.t, T1=f.T1, target=f.target, pwm=f.pwm, bed_pwm=f.bed_pwm, fan=f.fan,
-                             flow=f.akis / mc.fil_area, z=f.katman_z)), m
+                             flow=f.akis / mc.fil_area, ext_now=f.akis_anlik / mc.fil_area, z=f.katman_z)), m
 
 
 def main():

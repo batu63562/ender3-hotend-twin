@@ -1492,4 +1492,18 @@ Kuru prova (kullanıcı: kendi kullanmadan paylaşmamak). Klipper sınırları, 
   `heat_tower_245.gcode` yeni nozzle için `--nozzle 0.4` ile üretildi (repo'daki printer.cfg kopyası hâlâ 0.6).
 - Nozzle günü sırasına (BASKI_KUYRUGU) eklendi: `nozzle_diameter: 0.400`, Orca 0.4 profili, eski "245 °C fansız
   5 dk" boşta tutmasının yerine deney16 (bir iş: K75 öğrenilen k'yı geri almaz).
+- **İlk gerçek prova (27.10, 0.6 pirinç, kısmen tıkalı; `heat_tower_245_n06.gcode`, `--nozzle 0.6`):** 1. deneme
+  filaman takıldı, 2. tablaya tutunmadı; 3. deneme (`loglar/baskilar/2710_1154_petg_heat_tower_n06_prova.csv`)
+  4 bölüm. Tare ile baskıya giden ısı: merkez (4 mm³/s) 2.31 W → k_fil 1.19, flow 2 1.22 W → 1.25, flow 6 0.27 W →
+  0.10 (beklenen 2.88 W: tıkalı nozzle akışı veremedi, havaya baskı; eksik güç bölüm boyunca +3…+4 W, GUC_AZALDI
+  174 s → ikiz duraklattı, doğru). Model tabanlı sütun merkezde 1.60 (k hatasının gerçek veride görünüşü), flow 2'de
+  1.24. Tare sonrası ilk 20 s eksik güç merkezde −0.4, flow 2'de +0.2 W → sızıntı ısıl olarak sorun değil; köşedeki
+  sızıntı görsel (aday: tare sonrası kısa prime çizgisi, sağlam nozzle'da bakılacak). K75 canlıda ilk kez tetiklendi
+  (1. deneme başı: boşta 1.078 → 1.007; konsol mesajı çalıştı).
+  Analiz düzeltmeleri: (1) yarıda kalan baskıda boş pencere çökmesi; (2) gerçek logda `pos_z` tare kalkışını bölümün
+  Z aralığına koyuyor ve 10 s net besleme tare başında hâlâ yüksek → bölüm başı tare başı sanılıyordu (sentetikte Z
+  `;Z:` yorumundan geldiği için görünmedi); satırlar artık anlık ekstrüzyonla (`extrude_velocity` / plan `akis_anlik`)
+  ayrılıyor. Sentetik iki nozzle'da da ±0.001.
+  Bilinen küçük hata (model dışı, ertelendi): canlı G-code planı k'yı `twin_state.json`'dan okuyor ve K75 geri
+  almasından önce başlatılıyor → 1. denemenin planı 1.078 ile üretildi.
 

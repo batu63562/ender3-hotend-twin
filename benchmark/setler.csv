@@ -121,3 +121,6 @@ loglar/baskilar/2610_1225_petg_benchy_kucuk_sorun_iptal.csv,ayar,"26.10 12:25 PE
 loglar/baskilar/2610_1234_petg_benchy_duraklatti.csv,sinav,"26.10 12:34 PETG benchy, eksik ekstruzyon, GUC_AZALDI 175 s -> duraklatma (B); DONUSUMLU: SINAV",936648fa5a7aeef6,2026-10-26
 loglar/deneyler/kalibrasyon_245_ikinci.csv,ayar,"26.10 13:37 kalibrasyon baskisi (pirinc, A' K76), fan hafizasi ilk 10 dk; DONUSUMLU: AYAR",defeb5e05303e815,2026-10-26
 loglar/deneyler/deney16_fan_hafiza.csv,sinav,26.10 14:52 deney16 fan hafizasi (K76): A 20.0 / B 18.2 / C 18.1 W; DONUSUMLU: SINAV,f69dff2824398c5e,2026-10-26
+loglar/baskilar/2710_1141_petg_heat_tower_n06_filaman_takildi.csv,ayar,27.10 11:41 isi kulesi provasi 1: filaman takildi (B); DONUSUMLU: AYAR,1b59b5cda56e226b,2026-10-27
+loglar/baskilar/2710_1149_petg_heat_tower_n06_tutunmadi.csv,sinav,27.10 11:49 isi kulesi provasi 2: tablaya tutunmadi (-); DONUSUMLU: SINAV,16c2960e5762d347,2026-10-27
+loglar/baskilar/2710_1154_petg_heat_tower_n06_prova.csv,ayar,"27.10 11:54 isi kulesi provasi 3 (tare K77): flow 6'da tikanma, duraklatma (B); DONUSUMLU: AYAR",9ebc574a2908f62a,2026-10-27

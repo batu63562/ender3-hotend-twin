@@ -1641,3 +1641,18 @@ Eski scratchpad aracının yerine (kaybolmuştu). Baskıyla başlayan logun ön�
 - **Bulunan kenar durum (kod değişmedi):** servis açıldıktan sonraki İLK mesaj baskı başlangıcıysa `Twin` önceki
   durumu bilmediği için bunu iş başı saymaz (k_fil çapası, K75, K79 atlanır). Canlıda servis baskıdan çok önce açık;
   yalnız yeniden bağlanma tam baskı başına denk gelirse olur. Bilinen sınır olarak bırakıldı.
+
+## K82 — K74 karşılaştırma aracı `benchmark/k74_check.py` (2026-10-28, ARAÇ, sonuç görülmeden)
+K74'ün ön kaydını koda döker; çelik baskıların SKORLARINA 4 saat dolana kadar bakılmadı (`--status` yalnız liste + saat).
+- **B:** `calibrate.py loglar/deneyler/kalibrasyon_245_celik.csv --staged --write benchmark/k74/calibration_celik.json`
+  (0 uyarı; kayıp ×0.916, HA2_FAN 0.0246, eşik 0.189, C_ALL 0.870, R31 ×1.84). A = `calibration.json` (kullanımda).
+- **Sınama verisi (kural):** `loglar/baskilar`'da ilk satırı çelik kalibrasyon baskısının bitişinden sonra olan her log,
+  adında deney/kalibrasyon/bakım geçenler hariç, zaman sırasıyla. 28.10 itibarıyla 4 log, **1.39 baskı saati** (ısı kulesi
+  + üç denemesi) → K74'ün ≥ 4 saati için ~2.6 saat daha. Pi'deki yeni loglar adlandırılıp buraya kopyalanmalı.
+- **Ölçütler:** K74 (= K66) dördü; (4) yavaş arızalar `slow_fault_test`'in enjeksiyonlarıyla, her model KENDİ zincir
+  durumundan (K66 aracı canlı başlangıç k'sını kullanıyordu, B için anlamsız).
+- **Araç sınaması (çelik verisi değil):** (a) K66 kuru koşusunun tekrarı: 21.10 pirinç `--staged` B, 14.10+ ayar zinciri
+  (bugün 39 log): TÜMÜ 3.43 → 3.42, ısınma +0.98, 245 tutma +0.93 kötü; soğuma −0.51, fanlı tutma −0.32 iyi; GUC dışı 5 = 5;
+  yavaş arıza fan açılınca 3 W 9 → 8/23, 4 W 15 → 11/15, ortada 3 W 18 → 16/20 → GEÇMEZ. K66'nın 22.10 kuru koşusuyla
+  (3.22 → 3.27, ısınma/245 kötü, soğuma iyi, yavaş arıza azalır, geçmez) aynı yön; zincir o günden beri uzadı.
+  (b) Özdeşlik: B = calibration.json kopyası → bütün farklar 0.00, yavaş arıza aynı, karar "A kalır" (ölçüt 1 iyileşme ister).

@@ -1,0 +1,48 @@
+{
+  "calibration_version": 1,
+  "date": "2026-10-28",
+  "source": "calibrate.py --params=staged:loss_scale,HA2_FAN,FAN_F0,C_ALL,R31,R_HB,CAP_T_COEF --rate=0.3 --prior=0.0",
+  "source_logs": [
+    "kalibrasyon_245_celik.csv"
+  ],
+  "code_version": "3dugum-gecikenkutle-v4+a776f1a2",
+  "params": {
+    "C1": 1.7394473053109054,
+    "C2": 3.508465214812096,
+    "C3": 0.7221315487998224,
+    "R31": 5.530632101821824,
+    "R_HB": 1.9550821206832258,
+    "HA1": 0.03318281281518038,
+    "CRAD": 1.397175885063017e-10,
+    "HA2": 0.004435,
+    "HA2_FAN": 0.0246367661993212,
+    "FAN_F0": 0.18938223297815354,
+    "FAN_EXP": 0.508,
+    "CAP_T_COEF": 0.001116435783222651,
+    "K_FIL": 0.0054
+  },
+  "fitted": [
+    "HA1",
+    "CRAD",
+    "HA2_FAN",
+    "FAN_F0",
+    "C_ALL",
+    "R31",
+    "R_HB",
+    "CAP_T_COEF"
+  ],
+  "uncertainty_log_factor": {
+    "HA1": null,
+    "CRAD": null,
+    "HA2_FAN": null,
+    "FAN_F0": null,
+    "C_ALL": 0.00829657967468499,
+    "R31": 0.10690127264163236,
+    "R_HB": 0.11672757105489795,
+    "CAP_T_COEF": 0.12313384496957427
+  },
+  "fit_rms_c": 1.5791,
+  "k_logs": {
+    "kalibrasyon_245_celik.csv": 1.0
+  }
+}

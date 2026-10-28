@@ -104,8 +104,8 @@ class Machine:
         try:
             return tuple(float(sec[k]) for k in ("pid_kp", "pid_ki", "pid_kd"))
         except (KeyError, ValueError):
-            self.notes.append(f"{name}: PID yok (control = {sec.get('control', '?')}) - referans kontrolcu, "
-                              f"isinma sureleri yaklasik")
+            self.notes.append(f"{name}: no PID (control = {sec.get('control', '?')}) - reference controller, "
+                              f"heat-up times approximate")
             return None
 
     def expand(self, name, params):
@@ -459,25 +459,25 @@ def report(sim_df, layers, mc, m):
     t_first = layers[0][1] if layers else 0.0
     t_end = df.t[pr].max() if pr.any() else df.t.iloc[-1]
     heat_b = df.t[(df.bed_target > 0)].min() if (df.bed_target > 0).any() else np.nan
-    print(f"\nTAHMIN (k = {sim_df.attrs.get('k', 1):.3f})")
-    print(f"  baslangic -> ilk katman: {t_first/60:.1f} dk (tabla + nozzle isinmasi, START_GCODE)")
-    print(f"  baski (ilk katman -> son): {(t_end - t_first)/60:.1f} dk   toplam {t_end/60:.1f} dk")
+    print(f"\nPLAN (k = {sim_df.attrs.get('k', 1):.3f})")
+    print(f"  start -> first layer: {t_first/60:.1f} min (bed + nozzle heat-up, START_GCODE)")
+    print(f"  printing (first layer -> end): {(t_end - t_first)/60:.1f} min   total {t_end/60:.1f} min")
     if pr.any():
         # the 120 s after a target change are excluded (so the 245 -> 240 step does not count as "overshoot")
         t_chg = df.t.where(df.target.diff().fillna(0) != 0).ffill().fillna(-1e9)
         dip = (df.target - df.T1)[pr & (df.t - t_chg > 120)]
-        print(f"  baskida isitici: ort {P[pr].mean():.1f} W, 10 s ort. en yuksek {Pa[pr].max():.1f} W "
-              f"(mevcut {P_avail[pr].mean():.1f} W) -> en dusuk pay %{100*(1 - (Pa[pr]/P_avail[pr]).max()):.0f}")
-        print(f"  akis: ort {df.akis[pr & (df.akis > 0.5)].mean():.1f}, en yuksek (10 s) {df.akis[pr].max():.1f} mm3/s")
-        print(f"  nozzle sicakligi: hedefin en fazla {dip.max():.1f} C altina dusuyor, en fazla {-dip.min():.1f} C ustune cikiyor")
+        print(f"  heater while printing: mean {P[pr].mean():.1f} W, highest 10 s mean {Pa[pr].max():.1f} W "
+              f"(available {P_avail[pr].mean():.1f} W) -> smallest margin {100*(1 - (Pa[pr]/P_avail[pr]).max()):.0f}%")
+        print(f"  flow: mean {df.akis[pr & (df.akis > 0.5)].mean():.1f}, highest (10 s) {df.akis[pr].max():.1f} mm3/s")
+        print(f"  nozzle temperature: at most {dip.max():.1f} C below the target, at most {-dip.min():.1f} C above")
         top = df[pr].assign(Pa=Pa[pr]).sort_values("Pa", ascending=False)
-        print("  en zorlu anlar (10 s ortalama guc):")
+        print("  hardest moments (10 s mean power):")
         shown = []
         for r in top.itertuples():
             if any(abs(r.t - s) < 120 for s in shown):
                 continue
             shown.append(r.t)
-            print(f"    {r.t/60:6.1f}. dk  Z {r.katman_z:5.2f}  {r.tip:22s} akis {r.akis:4.1f} mm3/s  guc {r.Pa:4.1f} W  fan %{r.fan*100:.0f}")
+            print(f"    {r.t/60:6.1f} min  Z {r.katman_z:5.2f}  {r.tip:22s} flow {r.akis:4.1f} mm3/s  power {r.Pa:4.1f} W  fan {r.fan*100:.0f}%")
             if len(shown) == 3:
                 break
 
@@ -500,7 +500,7 @@ def save_csv(df, path, t0=None):
     tmp = path + ".tmp"   # Unity scans the folder in live mode: it must never see a half-written file
     out.to_csv(tmp, index=False, float_format="%.4f")
     os.replace(tmp, path)
-    print(f"\ntahmin zaman serisi: {os.path.relpath(path, HERE)}  ({len(out)} satir, {out.t.iloc[-1]/60:.1f} dk)")
+    print(f"\nplan time series: {os.path.relpath(path, HERE)}  ({len(out)} rows, {out.t.iloc[-1]/60:.1f} min)")
 
 
 TOOLPATH_TOL = 0.05   # mm: allowed deviation when merging consecutive segments (visual; geometry is not read better than this)
@@ -572,8 +572,8 @@ def plan_for_live(gcode, cfg, t0, out_path, T_h=25.0, T_b=25.0, pwm_h=0.0, pwm_b
     save_toolpath(ops, toolpath_path(out_path))
     end = df.t[df.akis_anlik > 0].max() if (df.akis_anlik > 0).any() else df.t.iloc[-1]
     first = layers[0][1] if layers else 0.0
-    return (f"{os.path.basename(out_path)} · ilk katmana {first / 60:.1f} dk, baski bitisi {end / 60:.1f} dk "
-            f"(k {k:.3f}, baslangic nozzle {T_h:.0f} C / tabla {T_b:.0f} C)"
+    return (f"{os.path.basename(out_path)} · first layer at {first / 60:.1f} min, print ends at {end / 60:.1f} min "
+            f"(k {k:.3f}, start nozzle {T_h:.0f} C / bed {T_b:.0f} C)"
             + "".join(f"; !! {n}" for n in mc.notes))
 
 
@@ -625,14 +625,14 @@ def validate(gcode, log_path, mc, m, k=None):
         hit = [tl for zl, tl in lt.items() if abs(zl - z_off - z) < 0.01]
         if hit:
             pairs.append((z, t_sim + r0.t, min(hit)))
-    print(f"\nDOGRULAMA: {os.path.basename(log_path)}  (senkron: 2. katman M104 S240, k = {k:.3f})")
+    print(f"\nVALIDATION: {os.path.basename(log_path)}  (sync: layer 2 M104 S240, k = {k:.3f})")
     if pairs:
         e = np.array([ts - tl for _, ts, tl in pairs])
         dur_s = np.diff([p[1] for p in pairs]); dur_l = np.diff([p[2] for p in pairs])
-        print(f"  katman zamani: {len(pairs)} katman, son katmanda sapma {e[-1]:+.0f} s "
-              f"(gercek sure {(pairs[-1][2]-pairs[0][2])/60:.1f} dk, tahmin {(pairs[-1][1]-pairs[0][1])/60:.1f} dk, "
-              f"%{100*e[-1]/(pairs[-1][2]-pairs[0][2]):+.1f}); katman suresi hatasi ort %{100*np.mean(dur_s/dur_l-1):+.1f}, "
-              f"ort mutlak %{100*np.mean(np.abs(dur_s/dur_l-1)):.1f}")
+        print(f"  layer times: {len(pairs)} layers, deviation at the last layer {e[-1]:+.0f} s "
+              f"(real {(pairs[-1][2]-pairs[0][2])/60:.1f} min, plan {(pairs[-1][1]-pairs[0][1])/60:.1f} min, "
+              f"{100*e[-1]/(pairs[-1][2]-pairs[0][2]):+.1f}%); layer duration error mean {100*np.mean(dur_s/dur_l-1):+.1f}%, "
+              f"mean absolute {100*np.mean(np.abs(dur_s/dur_l-1)):.1f}%")
         # time warp: map simulation time onto log time by the layer starts
         warp = lambda ts: np.interp(ts, [p[1] for p in pairs], [p[2] for p in pairs])
         s["t_warp"] = warp(s.t_log)
@@ -648,15 +648,15 @@ def validate(gcode, log_path, mc, m, k=None):
     lg["Q"] = ser(lg.extrude_velocity * mc.fil_area).rolling("10s").mean().values
     hold = (lg.target >= 230) & ((lg.T1_real - lg.target).abs() < 3)
     lg = lg[hold & (lg.t < s.t_warp.max())]
-    for name, col in (("akis (mm3/s)", "Q"), ("isitici gucu (W)", "P")):
+    for name, col in (("flow (mm3/s)", "Q"), ("heater power (W)", "P")):
         sim_v = np.interp(lg.t, s.t_warp, s[col].bfill())
         err = sim_v - lg[col].values
         ok = ~np.isnan(err)
         cor = np.corrcoef(sim_v[ok], lg[col].values[ok])[0, 1]
-        print(f"  {name:18s} gercek ort {np.nanmean(lg[col]):6.2f}  tahmin ort {np.nanmean(sim_v):6.2f}  "
-              f"fark {np.nanmean(err):+5.2f}  rms {np.sqrt(np.nanmean(err**2)):5.2f}  korelasyon {cor:.2f}")
+        print(f"  {name:18s} real mean {np.nanmean(lg[col]):6.2f}  plan mean {np.nanmean(sim_v):6.2f}  "
+              f"diff {np.nanmean(err):+5.2f}  rms {np.sqrt(np.nanmean(err**2)):5.2f}  correlation {cor:.2f}")
     T_sim = np.interp(lg.t, s.t_warp, s.T1)
-    print(f"  nozzle sicakligi: rms {np.sqrt(np.mean((T_sim - lg.T1_real.values)**2)):.2f} C")
+    print(f"  nozzle temperature: rms {np.sqrt(np.mean((T_sim - lg.T1_real.values)**2)):.2f} C")
     # log.t is Klipper's clock (eventtime); Unity uses the PC clock ('time', unix): the offset at the sync point
     s.attrs["unix_offset"] = float(r0.time - r0.t)
     return s, lg
@@ -675,7 +675,7 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if a.toolpath:
         n = save_toolpath(parse(a.gcode, Machine(a.cfg), abs_e=not a.relative_e), a.toolpath)
-        print(f"takim yolu: {a.toolpath} ({n} segment)")
+        print(f"toolpath: {a.toolpath} ({n} segments)")
         raise SystemExit
     mc, m = Machine(a.cfg), d.load_model()
     for n in mc.notes:

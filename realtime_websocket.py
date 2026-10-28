@@ -223,12 +223,12 @@ EXPERIMENT_MARK = "; twin: experiment"
 FAULT_CONFIRM = 3.0
 FAULT_CLEAR = 10.0
 FAULT_TEXT = {
-    "KAYIP_ARTTI": "isi kaybi son saatlere gore artti: silikon corap dusmus, cereyan/hava akimi ya da "
-                   "fan kanali bloga yonelmis olabilir",
-    "KAYIP_AZALDI_FAN": "fan acik ama beklenen sogutma yok (son saatlere gore): parca sogutma fani "
-                        "donmuyor ya da kanali tikali olabilir",
-    "KAYIP_AZALDI": "isi kaybi son saatlere gore azaldi: nozzle'da plastik/topak, ortam isinmis (kapali kutu?) "
-                    "ya da hotend yalitimi degismis olabilir",
+    "KAYIP_ARTTI": "heat loss higher than in recent hours: silicone sock fallen off, a draft, or the fan duct "
+                   "blowing onto the block",
+    "KAYIP_AZALDI_FAN": "fan on but the expected cooling is missing (vs. recent hours): part-cooling fan not "
+                        "spinning or its duct blocked",
+    "KAYIP_AZALDI": "heat loss lower than in recent hours: plastic/blob on the nozzle, warmer surroundings "
+                    "(enclosure?) or the hotend insulation changed",
 }
 
 # Missing power (OFFICIAL fast-fault alarm, GUC_*): difference (W) between the loss the model expects over the last
@@ -242,10 +242,10 @@ ENERGY_TMIN = 230.0       # C - only in the printing temperature range (where th
 ENERGY_T_RANGE = 3.0      # C - a "hold" if the T range in the window is below this
 ENERGY_SETTLE = 30.0      # s - wait after a heat-up (heater 3 s avg. >= 95 %) ends
 ENERGY_TEXT = {
-    "GUC_AZALDI": "beklenenden AZ isi gidiyor: filaman akmiyor/tikanma, fan havasi nozzle'a ulasmiyor "
-                  "ya da nozzle etrafinda topak olabilir",
-    "GUC_ARTTI": "beklenenden FAZLA isi gidiyor: silikon corap dusmus, cereyan ya da fan kanali bloga "
-                 "yonelmis olabilir",
+    "GUC_AZALDI": "LESS heat leaving than expected: filament not flowing / clog, fan air not reaching the nozzle "
+                  "or a blob around the nozzle",
+    "GUC_ARTTI": "MORE heat leaving than expected: silicone sock fallen off, a draft, or the fan duct blowing "
+                 "onto the block",
 }
 FAULT_TEXT.update(ENERGY_TEXT)
 
@@ -258,7 +258,7 @@ PAUSE_MODES = ("golge", "aktif", "kapali")   # shadow: log only | active: pause 
 # (pi/install.sh writes "golge" for a new install); without the key: active, as on the author's printer.
 PAUSE_MODE = str(CONFIG.get("pause_mode", "aktif")).strip().lower()
 if PAUSE_MODE not in PAUSE_MODES:
-    print(f"[!! config.toml pause_mode = {PAUSE_MODE!r} bilinmiyor ({' | '.join(PAUSE_MODES)}): 'golge' kullaniliyor]")
+    print(f"[!! config.toml pause_mode = {PAUSE_MODE!r} unknown ({' | '.join(PAUSE_MODES)}): using 'golge' (shadow)]")
     PAUSE_MODE = "golge"
 # Shadow mode on a new printer: once it has seen SHADOW_REVIEW_HOURS of printing over SHADOW_REVIEW_PRINTS prints,
 # a note asks the user to review the "would pause" reports and switch to active (never automatic). The author's own
@@ -299,7 +299,7 @@ def maint_record(rows):
             for tw, kind, kv in rows:
                 w.writerow([round(tw, 1), time.strftime("%Y-%m-%d %H:%M", time.localtime(tw)), kind, round(kv, 4)])
     except OSError as e:
-        print(f"[bakim izleme kaydi yazilamadi: {e}]")
+        print(f"[could not write the maintenance log: {e}]")
 
 
 def maint_check():
@@ -331,15 +331,15 @@ def maint_check():
         why = None
         if all(dv < -MAINT_BAND for dv in devs):
             status["direction"] = "low"
-            why = ("hotend beklenenden AZ isi kaybediyor -> heatsink tarafini kontrol et: heat break termal macunu, "
-                   "heatsink/fan cevresinde kurumus plastik ve toz (isi surunmesi = tikanma riski)")
+            why = ("the hotend loses LESS heat than expected -> check the heatsink side: heat-break thermal paste, "
+                   "dried plastic and dust around the heatsink/fan (heat creep = clog risk)")
         elif all(dv > MAINT_BAND for dv in devs):
             status["direction"] = "high"
-            why = "hotend beklenenden FAZLA isi kaybediyor -> silikon corap, fan kanali yonu, cereyan"
+            why = "the hotend loses MORE heat than expected -> silicone sock, fan duct direction, drafts"
         if why:
-            text = (f"BAKIM ONERISI: son {MAINT_DAYS} gun fansiz baski k = "
+            text = (f"MAINTENANCE ADVICE: fan-off print k over the last {MAINT_DAYS} days = "
                     + ", ".join(f"{dd[5:]} {kv:.3f}" for dd, kv in last)
-                    + f" (temiz referans {MAINT_REF:.2f}, esik +-{MAINT_BAND:.2f}); {why}")
+                    + f" (clean reference {MAINT_REF:.2f}, band +-{MAINT_BAND:.2f}); {why}")
     status["advice"], status["text"] = text is not None, text or ""
     try:
         tmp = MAINT_STATUS_FILE + ".tmp"
@@ -347,7 +347,7 @@ def maint_check():
             json.dump(status, f, ensure_ascii=False, indent=1)
         os.replace(tmp, MAINT_STATUS_FILE)
     except OSError as e:
-        print(f"[bakim durumu yazilamadi: {e}]")
+        print(f"[could not write the maintenance status: {e}]")
     return text
 
 # Fault classification (fault_classifier.py): when a fault is confirmed, the event's physical category
@@ -420,18 +420,18 @@ def load_state(current_T1, pwm=0.0, fan=0.0):
         saved = None
     except ValueError:
         saved = None
-        print(f"[UYARI: {STATE_FILE} bozuk - sifirdan baslaniyor; ogrenilmis k icin son saglam yedek {STATE_BACKUP_DIR}]")
+        print(f"[WARNING: {STATE_FILE} is corrupt - starting fresh; the last good copy of the learned k is in {STATE_BACKUP_DIR}]")
     if saved is not None:
         age = time.time() - saved["time"]
         if saved.get("model") != MODEL_VERSION:
-            print("[Kayitli durum baska model surumunden - sifirdan baslaniyor]")
+            print("[Saved state is from another model version - starting fresh]")
         elif age >= STATE_MAX_AGE:
-            print(f"[Kayitli durum {age:.0f}s eski - sifirdan baslaniyor]")
+            print(f"[Saved state is {age:.0f}s old - starting fresh]")
         elif abs(saved["T1"] - current_T1) > STATE_MAX_T1_DIFF:
             # if the nozzle cooled/heated in between, the saved T3 (heater core) is no longer valid
-            print(f"[Kayitli T1={saved['T1']:.1f}C, simdiki {current_T1:.1f}C - sifirdan baslaniyor]")
+            print(f"[Saved T1={saved['T1']:.1f}C, now {current_T1:.1f}C - starting fresh]")
         else:
-            print(f"[Onceki T2/T3 durumu bulundu, {age:.0f}s once - devraliniyor]")
+            print(f"[Previous T2/T3 state found, {age:.0f}s ago - continuing from it]")
             return current_T1, saved["T2"], saved["T3"]
     return initial_state(current_T1, pwm, fan)
 
@@ -450,10 +450,10 @@ def load_k():
         return 1.0, 1.0
     k = min(K_LOSS_MAX, max(K_LOSS_MIN, float(k)))
     kfil = min(K_FIL_MAX, max(K_FIL_MIN, float(saved.get("k_fil", 1.0))))
-    print(f"[Ogrenilmis carpanlar devraliniyor: k={k:.3f}, k_fil={kfil:.3f} ({age/3600:.1f} saat once)]")
+    print(f"[Continuing with learned factors: k={k:.3f}, k_fil={kfil:.3f} (from {age/3600:.1f} h ago)]")
     if abs(k - 1.0) > K_ALARM_BAND:
-        print(f"[BILGI: hotend kalibrasyona gore %{100 * abs(k - 1.0):.0f} "
-              f"{'AZ' if k < 1.0 else 'FAZLA'} isi kaybediyor (kalici durum, alarm degil).]")
+        print(f"[INFO: the hotend loses {100 * abs(k - 1.0):.0f}% "
+              f"{'LESS' if k < 1.0 else 'MORE'} heat than at calibration (a lasting state, not an alarm).]")
     return k, kfil
 
 
@@ -469,8 +469,8 @@ def load_k_ref(k):
     if ref is None or saved.get("model") != MODEL_VERSION or age >= K_STATE_MAX_AGE:
         return k
     ref = min(K_LOSS_MAX, max(K_LOSS_MIN, float(ref)))
-    print(f"[Kayip alarmi referansi: k_ref={ref:.3f} (alarm: k, {ref - K_ALARM_BAND:.3f}-{ref + K_ALARM_BAND:.3f} "
-          f"disina cikarsa)]")
+    print(f"[Loss alarm reference: k_ref={ref:.3f} (alarm if k leaves {ref - K_ALARM_BAND:.3f}-{ref + K_ALARM_BAND:.3f}"
+          f")]")
     return ref
 
 
@@ -498,7 +498,7 @@ def backup_state():
         for f in old[:-STATE_BACKUPS]:
             os.remove(os.path.join(STATE_BACKUP_DIR, f))
     except OSError as e:
-        print(f"[durum yedegi alinamadi: {e}]")
+        print(f"[could not back up the state: {e}]")
 
 
 def save_state(T1, T2, T3, k=None, kfil=None, k_ref=None, material=None):
@@ -1151,10 +1151,10 @@ def archive_log():
         old = old[:-4] + time.strftime("%S", mt) + ".csv"
     try:
         os.replace(LOG_FILE, old)
-        print(f"[onceki log korundu: {os.path.basename(old)}]")
+        print(f"[previous log kept: {os.path.basename(old)}]")
         return old
     except OSError as e:
-        print(f"[onceki log tasinamadi ({e}); ustune yazilacak]")
+        print(f"[could not move the previous log ({e}); it will be overwritten]")
         return None
 
 
@@ -1222,11 +1222,11 @@ def summarize_session(path):
         session_history.append(row)
         vals = [f"{k}={row[k]}" for k in ("P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct", "baski_kaybi_pct")
                 if k in row]
-        return (f"Oturum ozeti ({os.path.basename(path)}) -> {os.path.basename(session_history.HISTORY_FILE)}: "
-                f"{', '.join(vals) if vals else '245C tutma verisi yetersiz, olcut yok'}"
+        return (f"Session summary ({os.path.basename(path)}) -> {os.path.basename(session_history.HISTORY_FILE)}: "
+                f"{', '.join(vals) if vals else 'not enough 245C hold data, no measures'}"
                 f"  (trend: python session_history.py)")
     except Exception as e:  # noqa: BLE001 - the summary is a side feature
-        return f"[oturum ozeti yazilamadi: {type(e).__name__}: {e}]"
+        return f"[could not write the session summary: {type(e).__name__}: {e}]"
 
 
 class ShadowCounter:
@@ -1252,7 +1252,7 @@ class ShadowCounter:
             os.replace(tmp, SHADOW_FILE)
             self.unsaved = 0.0
         except OSError as e:
-            print(f"[golge sayaci yazilamadi: {e}]")
+            print(f"[could not write the shadow counter: {e}]")
 
     def tick(self, now, printing):
         """Called on every message with the twin's clock (Klipper eventtime); time counts only while printing, gaps
@@ -1278,11 +1278,13 @@ class ShadowCounter:
 
     def note(self):
         d = self.data
-        head = f"golge mod: {d['saat']:.1f} baski saati, {d['baski']} baski, {d['olay']} 'duraklatirdim' kaydi"
+        head = (f"shadow mode: {d['saat']:.1f} print hours, {d['baski']} prints, {d['olay']} 'would have paused' "
+                f"entries")
         if not self.ready():
-            return f"{head} (aktif mod onerisi {SHADOW_REVIEW_HOURS:.0f} saat ve {SHADOW_REVIEW_PRINTS} baskidan sonra)"
-        return (f"{head}: kayitlari gozden gecir ({os.path.basename(REPORT_FILE)}); uygunsa config.toml'da "
-                f'pause_mode = "aktif" yap')
+            return (f"{head} (switching to active is suggested after {SHADOW_REVIEW_HOURS:.0f} h and "
+                    f"{SHADOW_REVIEW_PRINTS} prints)")
+        return (f"{head}: review the entries ({os.path.basename(REPORT_FILE)}); if they were real faults, set "
+                f'pause_mode = "aktif" in config.toml')
 
 
 def daily_jobs(live):
@@ -1298,7 +1300,8 @@ def daily_jobs(live):
         except OSError:
             pass
     else:
-        print(f"[bakim gostergesi: oneri yok (fansiz baski k, temiz referans {MAINT_REF:.2f} +-{MAINT_BAND:.2f})]")
+        print(f"[maintenance indicator: no advice (fan-off print k, clean reference {MAINT_REF:.2f} "
+              f"+-{MAINT_BAND:.2f})]")
 
 
 def classify_job(rows, t_confirm, codes, delay):
@@ -1309,11 +1312,12 @@ def classify_job(rows, t_confirm, codes, delay):
         import fault_classifier   # late import: pandas/scipy are loaded only when a fault happens
         summary, report = fault_classifier.classify_live(rows, sys.modules[__name__], t_confirm)
     except Exception as e:  # noqa: BLE001 - classification is a side feature, it must not stop monitoring
-        return f"[ariza siniflandirma +{delay:.0f} s ({codes}) basarisiz: {type(e).__name__}: {e}]"
+        return f"[fault classification +{delay:.0f} s ({codes}) failed: {type(e).__name__}: {e}]"
     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
-        rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  {codes}  (onaydan +{delay:.0f} s)")
+        rf.write(f"\n##### {time.strftime('%Y-%m-%d %H:%M:%S')}  {codes}  (+{delay:.0f} s after confirmation)")
         rf.write(report + "\n")
-    return f"\n>>>>> ARIZA KATEGORISI ({codes}, onaydan +{delay:.0f} s): {summary}\n      (ayrinti: {REPORT_FILE})\n"
+    return (f"\n>>>>> FAULT CATEGORY ({codes}, +{delay:.0f} s after confirmation): {summary}\n"
+            f"      (details: {REPORT_FILE})\n")
 
 
 def _download(url, path):
@@ -1343,9 +1347,9 @@ def request_pause():
     try:
         req = urllib.request.Request(f"{HTTP_URL}/printer/print/pause", data=b"", method="POST")
         with urllib.request.urlopen(req, timeout=DOWNLOAD_TIMEOUT) as r:
-            return f"[duraklatma istegi gonderildi: HTTP {r.status}]"
+            return f"[pause request sent: HTTP {r.status}]"
     except Exception as e:  # noqa: BLE001
-        return f"[duraklatma istegi BASARISIZ: {type(e).__name__}: {e}]"
+        return f"[pause request FAILED: {type(e).__name__}: {e}]"
 
 
 def gcode_material(path):
@@ -1379,25 +1383,25 @@ def plan_job(filename, t0, init):
         try:
             _download(f"{HTTP_URL}/server/files/config/printer.cfg", cfg)
         except OSError:
-            cfg, cfg_src = CFG_FALLBACK, "yerel kopya"
+            cfg, cfg_src = CFG_FALLBACK, "local copy"
         stamp = time.strftime("%Y%m%d_%H%M", time.localtime(t0))
         out = os.path.join(PLAN_DIR, f"tahmin_canli_{stamp}_{os.path.splitext(base)[0]}.csv")
         summary = gcode_plan.plan_for_live(gpath, cfg, t0, out, **init,
                                            names={"hotend": OBJ_HOTEND, "bed": OBJ_BED, "part_fan": OBJ_FAN})
     except Exception as e:  # noqa: BLE001 - the plan is a side feature, it must not stop monitoring
-        return f"[G-code plani uretilemedi: {type(e).__name__}: {e} - izleme devam ediyor]", material, experiment
-    return f"[G-code plani hazir: {summary}; printer.cfg: {cfg_src}]", material, experiment
+        return f"[G-code plan failed: {type(e).__name__}: {e} - monitoring continues]", material, experiment
+    return f"[G-code plan ready: {summary}; printer.cfg: {cfg_src}]", material, experiment
 
 
 def show_category(text, live):
     """Classification result: print to the console, put the short form on the phone page."""
     print(text)
-    first = next((ln for ln in text.splitlines() if "KATEGORISI" in ln or "basarisiz" in ln), "").strip()
+    first = next((ln for ln in text.splitlines() if "CATEGORY" in ln or "failed" in ln), "").strip()
     live["category"] = first.split("): ", 1)[-1] if "): " in first else first
 
 
-WEB_PAGE = """<!doctype html><html lang="tr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>Hotend ikizi</title>
+WEB_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Hotend twin</title>
 <style>
 :root{--bg:#fafaf8;--card:#fff;--tx:#1b1b1a;--mu:#6d6c67;--gr:#e3e2dc;--ok:#1f8a4c;--wa:#b86e00;--er:#c23b3b;--ln1:#2a78d6;--ln2:#eb6834}
 @media(prefers-color-scheme:dark){:root{--bg:#161615;--card:#201f1e;--tx:#efeee9;--mu:#9b9a93;--gr:#34332f;--ln1:#5aa0f0;--ln2:#f08050}}
@@ -1406,15 +1410,15 @@ body{margin:0;padding:12px 14px;background:var(--bg);color:var(--tx);font:15px/1
 .l{font-size:12px;color:var(--mu)}.v{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
 #st{margin:10px 0;padding:10px 12px;border-radius:10px;font-weight:600}canvas{width:100%;height:190px;display:block}
 .s{font-size:12px;color:var(--mu);margin-top:8px}</style></head><body>
-<div id="st">baglaniyor...</div>
-<div class="g"><div class="c"><div class="l">gercek T1</div><div class="v" id="T">-</div></div>
+<div id="st">connecting...</div>
+<div class="g"><div class="c"><div class="l">real T1</div><div class="v" id="T">-</div></div>
 <div class="c"><div class="l">model T1</div><div class="v" id="M">-</div></div>
 <div class="c"><div class="l">residual</div><div class="v" id="R">-</div></div>
-<div class="c"><div class="l">eksik guc</div><div class="v" id="G">-</div></div>
-<div class="c"><div class="l">isitici / fan</div><div class="v" id="P" style="font-size:18px">-</div></div>
-<div class="c"><div class="l">k / akis</div><div class="v" id="K" style="font-size:18px">-</div></div>
-<div class="c" style="grid-column:1/-1"><div class="l">tabla (sicaklik / hedef, guc)</div><div class="v" id="B" style="font-size:18px">-</div></div></div>
-<div class="c" style="margin-top:8px"><div class="l">residual (C, mavi) ve eksik guc x4 (W, turuncu) - son 15 dk</div><canvas id="ch"></canvas></div>
+<div class="c"><div class="l">missing power</div><div class="v" id="G">-</div></div>
+<div class="c"><div class="l">heater / fan</div><div class="v" id="P" style="font-size:18px">-</div></div>
+<div class="c"><div class="l">k / flow</div><div class="v" id="K" style="font-size:18px">-</div></div>
+<div class="c" style="grid-column:1/-1"><div class="l">bed (temperature / target, power)</div><div class="v" id="B" style="font-size:18px">-</div></div></div>
+<div class="c" style="margin-top:8px"><div class="l">residual (C, blue) and missing power x4 (W, orange) - last 15 min</div><canvas id="ch"></canvas></div>
 <div class="s" id="kat"></div><div class="s" id="up"></div>
 <script>
 const $=i=>document.getElementById(i),css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -1429,13 +1433,13 @@ $('T').textContent=f(d.T,1,' C');$('M').textContent=f(d.M,1,' C');$('R').textCon
 $('G').textContent=d.G==null?'-':(d.G>0?'+':'')+d.G.toFixed(2)+' W';$('P').textContent=Math.round(d.pwm*100)+'% / '+Math.round(d.fan*100)+'%';
 $('K').textContent=d.k.toFixed(3)+' / '+d.ext.toFixed(1);
 $('B').textContent=d.bT==null?'-':d.bT.toFixed(1)+' / '+Math.round(d.bTg||0)+' C,  %'+Math.round(100*(d.bP||0))
- +(d.bM==null?'':'  | model '+d.bM.toFixed(1)+' ('+(d.bT-d.bM>0?'+':'')+(d.bT-d.bM).toFixed(1)+'), cam ~'+d.bC.toFixed(0)+' C');
+ +(d.bM==null?'':'  | model '+d.bM.toFixed(1)+' ('+(d.bT-d.bM>0?'+':'')+(d.bT-d.bM).toFixed(1)+'), glass ~'+d.bC.toFixed(0)+' C');
 const st=$('st');let msg='normal',col='--ok';
-if(d.ariza.length){msg='ARIZA: '+d.ariza.join(', ');col='--er'}
-if(d.yas>15){msg='veri gelmiyor ('+Math.round(d.yas)+' s)';col='--wa'}
+if(d.ariza.length){msg='FAULT: '+d.ariza.join(', ');col='--er'}
+if(d.yas>15){msg='no data ('+Math.round(d.yas)+' s)';col='--wa'}
 st.textContent=msg;st.style.background=css(col);st.style.color='#fff';
-$('kat').textContent=(d.golge?d.golge+'  ':'')+(d.bakim?d.bakim+'  ':'')+(d.kategori?('son kategori: '+d.kategori):'');$('up').textContent='son veri '+Math.round(d.yas)+' s once';draw(d.h)}
-catch(e){$('st').textContent='script calismiyor / baglanti yok';$('st').style.background=css('--er')}}
+$('kat').textContent=(d.golge?d.golge+'  ':'')+(d.bakim?d.bakim+'  ':'')+(d.kategori?('last category: '+d.kategori):'');$('up').textContent='last data '+Math.round(d.yas)+' s ago';draw(d.h)}
+catch(e){$('st').textContent='twin not running / no connection';$('st').style.background=css('--er')}}
 tick();setInterval(tick,2000);
 </script></body></html>"""
 
@@ -1466,7 +1470,7 @@ async def web_server(live):
     try:
         server = await asyncio.start_server(handle, "0.0.0.0", WEB_PORT)
     except OSError as e:
-        print(f"[telefon sayfasi acilamadi ({e}) - izleme sayfasiz devam ediyor]")
+        print(f"[could not open the phone page ({e}) - monitoring continues without it]")
         return None
     try:
         import socket
@@ -1480,8 +1484,8 @@ async def web_server(live):
             if not ip.startswith("127."):
                 break
     except OSError:
-        ip = "<bilgisayar-IP>"
-    print(f"[telefondan izleme: http://{ip}:{WEB_PORT}  (ayni Wi-Fi/ag)]")
+        ip = "<computer-IP>"
+    print(f"[phone monitoring: http://{ip}:{WEB_PORT}  (same Wi-Fi/network)]")
     return server
 
 
@@ -1493,8 +1497,8 @@ async def main():
         return
     lock = single_instance_lock()
     if lock is None:
-        print("\n!! Baska bir ikiz zaten calisiyor (ayni CSV'ye iki kopya yazardi).\n"
-              "   Once onu kapat (o pencerede Ctrl+C), sonra tekrar baslat.\n")
+        print("\n!! Another twin is already running (two copies would write the same CSV).\n"
+              "   Stop it first (Ctrl+C in its window), then start again.\n")
         return
     twin = None   # set up once the first real temperature is known
     live = {"T": None, "M": None, "R": None, "G": None, "pwm": 0.0, "fan": 0.0, "k": 1.0, "ext": 0.0,
@@ -1516,11 +1520,11 @@ async def main():
     mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
     daily_jobs(live)                                     # state backup + maintenance indicator (again every day)
     shadow = ShadowCounter() if PAUSE_MODE == "golge" else None
-    print(f"[duraklatma modu: {PAUSE_MODE}" + (f" - {shadow.note()}]" if shadow else "]"))
+    print(f"[pause mode: {PAUSE_MODE}" + (f" - {shadow.note()}]" if shadow else "]"))
     if shadow:
         live["golge"] = shadow.note()
-    print(f"[kod surumu: {CODE_VERSION}]")
-    print(f"[yazici sayilari: {', '.join(PRINTER_SOURCES) if PRINTER_SOURCES else 'kod varsayilanlari'}]")
+    print(f"[code version: {CODE_VERSION}]")
+    print(f"[printer numbers: {', '.join(PRINTER_SOURCES) if PRINTER_SOURCES else 'code defaults'}]")
     for note in PRINTER_NOTES:
         print(f"[!! {note}]")
 
@@ -1532,7 +1536,7 @@ async def main():
         print(msg)
         if experiment and twin is not None and twin.job_start is not None:
             twin.experiment = True
-            print("[deney isi: bittiginde ogrenilen k ve k_ref is basindaki degerlerine donecek (K79)]")
+            print("[experiment job: when it ends, the learned k and k_ref return to their values at the job start (K79)]")
         if not mat:
             return
         if twin is None:
@@ -1540,7 +1544,7 @@ async def main():
             return
         if mat != twin.material:
             twin.set_material(mat)
-            print(f"[malzeme: {mat} - k_fil capadan ({K_FIL_ANCHOR:.2f}) ogreniliyor]")
+            print(f"[material: {mat} - k_fil learned from the anchor ({K_FIL_ANCHOR:.2f})]")
 
     # if the previous session's log was left without renaming, do not overwrite it: move it to a dated name
     archive_log()
@@ -1567,10 +1571,10 @@ async def main():
                 # script does not exit, it reconnects after RECONNECT_DELAY and continues the same CSV.
                 # If the gap is longer than GAP_THRESHOLD, the twin re-seats on the real temperature.
                 try:
-                    print("Websocket baglaniliyor...")
+                    print("Connecting to the websocket...")
                     async with websockets.connect(WS_URL, ping_interval=PING_INTERVAL,
                                                   ping_timeout=PING_TIMEOUT) as ws:
-                        print("Baglandi, abone olunuyor...")
+                        print("Connected, subscribing...")
 
                         subscribe_msg = {
                             "jsonrpc": "2.0",
@@ -1612,8 +1616,8 @@ async def main():
                             for what, name, need in (("hotend", OBJ_HOTEND, True), ("part_fan", OBJ_FAN, False),
                                                      ("bed", OBJ_BED, False)):
                                 if name and name not in snap0:
-                                    print(f"[!! Klipper'da '{name}' yok (config.toml [klipper] {what}) - "
-                                          + ("ikiz sicaklik alamaz]" if need else "bu girdi 0 kabul ediliyor]"))
+                                    print(f"[!! Klipper has no '{name}' (config.toml [klipper] {what}) - "
+                                          + ("the twin gets no temperature]" if need else "this input is taken as 0]"))
                         for key, val in snap0.get(OBJ_BED, {}).items() if OBJ_BED else ():
                             if val is not None:
                                 bed[key] = val
@@ -1626,10 +1630,10 @@ async def main():
                         except (TypeError, ValueError):
                             fd = None
                         if fd is None or not 1.0 < fd < 4.0:
-                            print(f"[!! filament_diameter okunamadi - {FILAMENT_DIAMETER:.2f} mm varsayiliyor]")
+                            print(f"[!! could not read filament_diameter - assuming {FILAMENT_DIAMETER:.2f} mm]")
                         elif fd != FILAMENT_DIAMETER:
-                            print(f"[filaman capi: {fd:.2f} mm (Klipper; {FILAMENT_DIAMETER:.2f} mm yerine), "
-                                  f"filaman isi terimi x{(fd / K_FIL_DIAMETER) ** 2:.2f}]")
+                            print(f"[filament diameter: {fd:.2f} mm (Klipper; instead of {FILAMENT_DIAMETER:.2f} mm), "
+                                  f"filament heat term x{(fd / K_FIL_DIAMETER) ** 2:.2f}]")
                             set_filament_diameter(fd)
                         # the position too: while the printer is idle live_position does not change and never comes.
                         # Without the initial value from here pos_* stay empty until the first move (2026-10-11: pos_e
@@ -1652,9 +1656,9 @@ async def main():
                         st1 = first_response.get("result", {}).get("status", {})
                         update_zoff(zoff, st1)
                         if pstat.get("state") in ("printing", "paused") and was not in ("printing", "paused"):
-                            print(f"[baski zaten suruyor: {pstat.get('filename', '?')} - baslangicini "
-                                  f"gormedigimiz icin bu baski icin G-code plani uretilmeyecek]")
-                        print("Ilk cevap alindi, izleme basliyor. Durdurmak icin Ctrl+C.\n")
+                            print(f"[a print is already running: {pstat.get('filename', '?')} - its start was not seen, "
+                                  f"so no G-code plan is made for it]")
+                        print("First answer received, monitoring starts. Ctrl+C to stop.\n")
 
                         if twin is None:     # the twin is kept across reconnects
                             try:
@@ -1670,7 +1674,7 @@ async def main():
                                 # not in notifications unless it changes: initial value from here
                                 twin.target = ex0.get("target")
                             except (KeyError, TypeError):
-                                print("Uyari: ilk durum ayristirilamadi, ilk gercek veri mesajinda baslatilacak.")
+                                print("Warning: could not parse the initial state; the twin starts on the first real data message.")
                         else:
                             # reconnect: refresh inputs that may have changed during the outage from the snapshot
                             # (Moonraker sends only CHANGED fields in notifications; if the fan changed during the
@@ -1687,8 +1691,8 @@ async def main():
                         # no status will come until notify_klippy_ready -> the silence watchdog stays off meanwhile
                         klippy_down = "error" in first_response
                         if klippy_down:
-                            print(f"[Klipper hazir degil: {first_response['error'].get('message', '?')} - "
-                                  f"hazir olunca yeniden abone olunacak]")
+                            print(f"[Klipper not ready: {first_response['error'].get('message', '?')} - "
+                                  f"will resubscribe when it is]")
                         while True:
                             try:
                                 message = await asyncio.wait_for(ws.recv(),
@@ -1696,19 +1700,19 @@ async def main():
                             except websockets.exceptions.ConnectionClosedOK:
                                 break
                             except asyncio.TimeoutError:
-                                print(f"\n[{STATUS_TIMEOUT:.0f} s durum mesaji yok - yeniden abone olunuyor]")
+                                print(f"\n[no status message for {STATUS_TIMEOUT:.0f} s - resubscribing]")
                                 break
                             data = json.loads(message)
 
                             method = data.get("method")
                             if method in ("notify_klippy_disconnected", "notify_klippy_shutdown"):
                                 klippy_down = True
-                                print(f"\n[Klipper baglantisi kesildi ({method}) - hazir olunca yeniden abone olunacak]")
+                                print(f"\n[Klipper disconnected ({method}) - will resubscribe when it is ready]")
                                 continue
                             if method == "notify_klippy_ready":
                                 # Moonraker drops object subscriptions when Klippy restarts: resubscribe through
                                 # the reconnect path (fresh snapshot of print state, position, targets) [K33]
-                                print("\n[Klipper hazir - yeniden abone olunuyor]")
+                                print("\n[Klipper ready - resubscribing]")
                                 break
                             if method != "notify_status_update":
                                 continue
@@ -1719,8 +1723,8 @@ async def main():
                             event_time = params[1] if len(params) > 1 and isinstance(params[1], (int, float)) else None
                             if use_klipper_clock is None:
                                 use_klipper_clock = event_time is not None
-                                print("[Zaman kaynagi: " + ("Klipper eventtime]" if use_klipper_clock else
-                                      f"PC saati - bildirimde eventtime yok, params={str(params)[:120]}]"))
+                                print("[Time source: " + ("Klipper eventtime]" if use_klipper_clock else
+                                      f"PC clock - no eventtime in the notification, params={str(params)[:120]}]"))
                             if use_klipper_clock and event_time is None:
                                 continue  # no time stamp - skip so the two clocks are never mixed
                             now = event_time if use_klipper_clock else wall_time
@@ -1764,17 +1768,17 @@ async def main():
                                     if val is not None:
                                         pstat[key] = val
                                 if pstat.get("state") != was:
-                                    print(f"[baski durumu: {was} -> {pstat.get('state')}]")
+                                    print(f"[print state: {was} -> {pstat.get('state')}]")
                                     # resuming from pause is not a new print
                                     if pstat.get("state") == "printing" and was != "paused":
-                                        print(f"[baski basladi: {pstat.get('filename', '?')} - G-code plani hazirlaniyor]")
+                                        print(f"[print started: {pstat.get('filename', '?')} - preparing the G-code plan]")
                                         if shadow:
                                             shadow.new_print()
                                         # one log per print: the part before (idle, the previous print's cool-down)
                                         # is archived and summarized; this message is the new file's first row
                                         old = log.rotate()
                                         if old:
-                                            print(f"[log bolundu: {os.path.basename(old)}]")
+                                            print(f"[log split: {os.path.basename(old)}]")
                                             loop.run_in_executor(None, summarize_session, old).add_done_callback(on_summary)
                                         # initial condition: the state measured now (last known if the twin is not set up yet)
                                         th = twin.T1_real if twin is not None else T1_real
@@ -1832,7 +1836,7 @@ async def main():
                                                                 fan, hv, None if hv is not None else ext)
                                 except Exception as e:  # noqa: BLE001
                                     bed_twin, bed_error = None, f"{type(e).__name__}: {e}"
-                                    print(f"[tabla ikizi hata verdi ve kapandi: {bed_error} - izleme devam ediyor]")
+                                    print(f"[bed twin failed and was switched off: {bed_error} - monitoring continues]")
                             if wall_time - last_save >= STATE_SAVE_INTERVAL:
                                 save_state(twin.T1_model, twin.T2_model, twin.T3_model, twin.learner.k,
                                            twin.learner.kfil, twin.k_ref, twin.material)
@@ -1840,22 +1844,22 @@ async def main():
 
                             for code in r["faults_started"]:
                                 g = r["eksik_guc"]
-                                print(f"\n!!!!! ARIZA: {code} - {FAULT_TEXT[code]}"
+                                print(f"\n!!!!! FAULT: {code} - {FAULT_TEXT[code]}"
                                       f"  (residual={r['residual']:+.1f}C, k={twin.learner.k:.3f}"
-                                      + (f", eksik guc={g:+.1f} W" if g is not None else "") + ")\n")
+                                      + (f", missing power={g:+.1f} W" if g is not None else "") + ")\n")
                             if r["faults_started"] and not any(abs(s[1] - now) < 60.0 for s in scheduled):
                                 # not scheduled again if an event that started recently is already to be classified
                                 codes = ",".join(sorted(twin.faults.active))
                                 scheduled += [[now + dl, now, codes, dl] for dl in CLASSIFY_DELAYS]
-                                print(f"[ariza kategorisi {CLASSIFY_DELAYS[0]:.0f} s sonra hesaplanacak]")
+                                print(f"[fault category will be computed in {CLASSIFY_DELAYS[0]:.0f} s]")
                             for code, t0, t1 in r["faults_ended"]:
-                                print(f"[ariza bitti: {code}, {t1 - t0:.0f} s surdu]")
+                                print(f"[fault ended: {code}, lasted {t1 - t0:.0f} s]")
                             if r["k_accepted"]:
                                 k_old, k_new = r["k_accepted"]
-                                msg = (f"KAYIP kabul edildi: k {k_old:.3f} -> {k_new:.3f} ({100 * (k_new / k_old - 1):+.0f}%), "
-                                       f"{K_ACCEPT_TIME / 60:.0f} dk sabit kaldi; yeni referans bu seviye. Bir parca "
-                                       f"degistiyse (nozzle, corap, fan kanali) tek k her fan seviyesini karsilamayabilir: "
-                                       f"kalibrasyon baskisi onerilir, degisikligi hardware_log.csv'ye yazin [K83]")
+                                msg = (f"KAYIP accepted: k {k_old:.3f} -> {k_new:.3f} ({100 * (k_new / k_old - 1):+.0f}%), "
+                                       f"steady for {K_ACCEPT_TIME / 60:.0f} min; this level is the new reference. If a part "
+                                       f"was changed (nozzle, sock, fan duct), one k may not fit every fan level: "
+                                       f"a calibration print is advised; note the change in hardware_log.csv [K83]")
                                 print(f"\n[{msg}]\n")
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
@@ -1864,8 +1868,8 @@ async def main():
                                     pass
                             if r["k_reverted"]:
                                 k_old, k_new = r["k_reverted"]
-                                msg = (f"KAYIP geri alindi: baski disinda k {k_old:.3f}'e kaymisti (bakim/elle mudahale?), "
-                                       f"baski k {k_new:.3f} (son kabul edilen seviye) ile basliyor")
+                                msg = (f"KAYIP reverted: k had drifted to {k_old:.3f} outside a print (maintenance / hands-on "
+                                       f"work?), the print starts with k {k_new:.3f} (the last accepted level)")
                                 print(f"\n[{msg}]\n")
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
@@ -1874,8 +1878,8 @@ async def main():
                                     pass
                             if r["k_restored"]:
                                 k_old, k_new = r["k_restored"]
-                                msg = (f"Deney bitti: deneyin ogrettigi k {k_old:.3f} geri alindi, k {k_new:.3f} ve "
-                                       f"k_ref {twin.k_ref:.3f} is basindaki degerlerinde (K79)")
+                                msg = (f"Experiment ended: the k it taught ({k_old:.3f}) was undone, k {k_new:.3f} and "
+                                       f"k_ref {twin.k_ref:.3f} are back at their job-start values (K79)")
                                 print(f"\n[{msg}]\n")
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
@@ -1883,11 +1887,11 @@ async def main():
                                 except OSError:
                                     pass
                             if r["duraklat"] and PAUSE_MODE != "kapali" and pstat.get("state") == "printing":
-                                msg = (f"DURAKLATMA: GUC_AZALDI {PAUSE_AFTER:.0f} s'dir kesintisiz "
-                                       f"(eksik guc {r['eksik_guc'] if r['eksik_guc'] is not None else float('nan'):+.1f} W, "
+                                msg = (f"PAUSE: GUC_AZALDI for {PAUSE_AFTER:.0f} s without interruption "
+                                       f"(missing power {r['eksik_guc'] if r['eksik_guc'] is not None else float('nan'):+.1f} W, "
                                        f"{pstat.get('filename', '?')}) - "
-                                       + ("GOLGE MOD: baski duraklatilmadi, yalniz kayit" if PAUSE_MODE == "golge"
-                                          else "baski duraklatiliyor"))
+                                       + ("SHADOW MODE: print not paused, logged only" if PAUSE_MODE == "golge"
+                                          else "pausing the print"))
                                 print(f"\n!!!!! {msg}\n")
                                 try:
                                     with open(REPORT_FILE, "a", encoding="utf-8") as rf:
@@ -1900,25 +1904,26 @@ async def main():
                                     pf = loop.run_in_executor(None, request_pause)
                                     pf.add_done_callback(lambda f: print(f.result()))
                             if twin.energy_error and not energy_error_shown:
-                                print(f"[enerji uyarisi hata verdi ve kapandi: {twin.energy_error} - izleme devam ediyor]")
+                                print(f"[missing-power alarm failed and was switched off: {twin.energy_error} - "
+                                      f"monitoring continues]")
                                 energy_error_shown = True
                             if r["resynced"]:
-                                print(f"[senkronize edildi - {r['dt']:.1f}s'lik veri boslugu]")
+                                print(f"[re-synced - {r['dt']:.1f}s data gap]")
                                 if r["dt"] < 0:
                                     # the clock went back: the buffered rows are no longer on the same time axis
                                     buffer.clear()
                                     scheduled.clear()
                             if r["new_temperature"]:
-                                alarm_note = "  !! ARIZA: " + ",".join(sorted(twin.faults.active)) if r["anomali"] else ""
+                                alarm_note = "  !! FAULT: " + ",".join(sorted(twin.faults.active)) if r["anomali"] else ""
                                 if r["k_anomali"]:
-                                    alarm_note += f"  !! KAYIP DEGISTI (k={twin.learner.k:.3f}, referans {twin.k_ref:.3f})"
+                                    alarm_note += f"  !! LOSS CHANGED (k={twin.learner.k:.3f}, reference {twin.k_ref:.3f})"
                                 print(f"T1_real={twin.T1_real:6.1f}C  "
                                       f"T1_model={twin.T1_model:6.1f}C  "
                                       f"residual={r['residual']:+6.1f}C  "
                                       f"dt={r['dt']:.3f}s  "
                                       f"pwm={twin.pwm:.2f}  fan={twin.fan:.2f}  "
                                       f"ext={twin.ext:5.2f}  k={twin.learner.k:.3f} kfil={twin.learner.kfil:.2f}"
-                                      + (f"  tabla={bed['temperature']:5.1f}/{bed.get('target', 0):.0f}C "
+                                      + (f"  bed={bed['temperature']:5.1f}/{bed.get('target', 0):.0f}C "
                                          f"%{100 * bed.get('power', 0):.0f}"
                                          + (f" (model {bed_twin.T_model:5.1f}, res {bed.get('temperature', 0) - bed_twin.T_model:+4.1f})"
                                             if bed_twin is not None else "")
@@ -1984,11 +1989,11 @@ async def main():
                             if time.strftime("%Y-%m-%d", time.localtime(wall_time)) != today:   # 24/7: once a day
                                 today = time.strftime("%Y-%m-%d", time.localtime(wall_time))
                                 daily_jobs(live)
-                    print("\n[baglanti kapandi]")
+                    print("\n[connection closed]")
                 except (websockets.exceptions.WebSocketException, OSError, asyncio.TimeoutError) as e:
-                    print(f"\n[baglanti koptu: {type(e).__name__}: {e}]")
+                    print(f"\n[connection lost: {type(e).__name__}: {e}]")
                 log.flush()
-                print(f"[{RECONNECT_DELAY:.0f} s sonra yeniden baglaniliyor - durdurmak icin Ctrl+C]\n")
+                print(f"[reconnecting in {RECONNECT_DELAY:.0f} s - Ctrl+C to stop]\n")
                 await asyncio.sleep(RECONNECT_DELAY)
         finally:
             if web is not None:
@@ -1998,12 +2003,12 @@ async def main():
                 save_state(twin.T1_model, twin.T2_model, twin.T3_model, twin.learner.k, twin.learner.kfil,
                            twin.k_ref, twin.material)
                 events =twin.faults.events + [(c, t0, None) for c, t0 in twin.faults.active.items()]
-                print(f"\nAriza ozeti: {f'{len(events)} ariza' if events else 'ariza yok'}")
+                print(f"\nFault summary: {f'{len(events)} faults' if events else 'no faults'}")
                 for code, t0, t1 in events:
-                    duration_txt = f"{t1 - t0:.0f} s" if t1 is not None else "hala aktif"
+                    duration_txt = f"{t1 - t0:.0f} s" if t1 is not None else "still active"
                     print(f"  {code}: {duration_txt} - {FAULT_TEXT[code]}")
                 if events:
-                    print(f"  kategoriler (hesaplandiysa): {REPORT_FILE}")
+                    print(f"  categories (if computed): {REPORT_FILE}")
                 # session-to-session trend: the last log part is archived first, so its summary in twin_gecmis.csv
                 # names the file that stays (the next start used to rename it afterwards) [K35]
                 msg = summarize_session(log.close_archive() or LOG_FILE)
@@ -2022,4 +2027,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nIzleme durduruldu.")
+        print("\nMonitoring stopped.")

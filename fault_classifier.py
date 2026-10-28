@@ -166,14 +166,14 @@ def fit_hypotheses(dg, terms):
     out = {}
     for h, x in terms.items():
         if np.mean(np.abs(x)) < MIN_TERM:
-            out[h] = dict(ratio=np.nan, rms=np.nan, fits=False, reason=f"terim ~0 ({np.mean(x):.2f} W): test edilemez")
+            out[h] = dict(ratio=np.nan, rms=np.nan, fits=False, reason=f"term ~0 ({np.mean(x):.2f} W): cannot be tested")
             continue
         a = float(np.dot(x, dg) / np.dot(x, x))
         rms = float(np.sqrt(np.mean((dg - a * x) ** 2)))
         lo, hi = BOUNDS[h]
         ok = lo <= a <= hi
         out[h] = dict(ratio=a, rms=rms, fits=ok,
-                      reason="" if ok else f"oran {a:+.2f} fiziksel sinir [{lo}, {hi}] disinda")
+                      reason="" if ok else f"ratio {a:+.2f} outside the physical limit [{lo}, {hi}]")
     return out
 
 
@@ -290,19 +290,19 @@ def replay_baseline(ctx, t_start):
     sm = ctx["sm"]
     ref = (sm.t >= t[i0]) & (sm.t < t_start)
     if i1 - i0 < 20 or sm.valid[ref].sum() * GRID_DT < REF_MIN or sm.valid[ref].mean() < 0.7:
-        return 1.0, 1.0, K_FIL_PRIOR, "referans yok/yetersiz: gunluk carpan 1, filaman katsayisi model (K_FIL)"
+        return 1.0, 1.0, K_FIL_PRIOR, "no/insufficient reference: daily factor 1, filament coefficient from the model (K_FIL)"
     dts = np.diff(t[i0:i1 + 1]); ex = R["ext_sm"][i0 + 1:i1 + 1] > 0.1
     t_ext, t_no = dts[ex].sum(), dts[~ex].sum()
     if t_ext >= REF_EXT_MIN and t_no >= REF_EXT_MIN:
         (kb, kfil), rms, cv = _fit(ctx, i0, i1, lambda p: (p[0], p[0], p[1]), [1.0, 1.0], cov=True)
         sig = float(np.sqrt(cv[1, 1]) / max(abs(kfil), 0.05))
-        return kb, kfil, sig, (f"referans {t_start - t[i0]:.0f} s (ekstruzyonlu {t_ext:.0f} s + ekstruzyonsuz {t_no:.0f} s): "
-                               f"gunluk kayip carpani {kb:.3f}, filaman yuku yerinde olculdu = K_FIL x {kfil:.2f} "
-                               f"(+-{sig*100:.0f}%), uyum {rms:.2f} C")
+        return kb, kfil, sig, (f"reference {t_start - t[i0]:.0f} s ({t_ext:.0f} s extruding + {t_no:.0f} s not extruding): "
+                               f"daily loss factor {kb:.3f}, filament load measured in place = K_FIL x {kfil:.2f} "
+                               f"(+-{sig*100:.0f}%), fit {rms:.2f} C")
     (kb,), rms = _fit(ctx, i0, i1, lambda p: (p[0], p[0], 1.0), [1.0])
-    why = "hep ekstruzyon var" if t_ext >= REF_EXT_MIN else "ekstruzyon yok"
-    return kb, 1.0, K_FIL_PRIOR, (f"referans {t_start - t[i0]:.0f} s: gunluk kayip carpani {kb:.3f}, uyum {rms:.2f} C; "
-                                  f"filaman katsayisi ayrica olculemedi ({why}) -> model K_FIL (+-{K_FIL_PRIOR*100:.0f}%)")
+    why = "always extruding" if t_ext >= REF_EXT_MIN else "no extrusion"
+    return kb, 1.0, K_FIL_PRIOR, (f"reference {t_start - t[i0]:.0f} s: daily loss factor {kb:.3f}, fit {rms:.2f} C; "
+                                  f"filament coefficient not measurable separately ({why}) -> model K_FIL (+-{K_FIL_PRIOR*100:.0f}%)")
 
 
 def replay_hypotheses(ctx, t_start, t_end, seg):
@@ -319,23 +319,23 @@ def replay_hypotheses(ctx, t_start, t_end, seg):
     out = {}
     for h in ("A", "B", "C"):
         if np.mean(np.abs(terms[h])) < MIN_TERM:
-            out[h] = dict(ratio=np.nan, rms=np.nan, fits=False, reason=f"terim ~0 ({np.mean(terms[h]):.2f} W): test edilemez")
+            out[h] = dict(ratio=np.nan, rms=np.nan, fits=False, reason=f"term ~0 ({np.mean(terms[h]):.2f} W): cannot be tested")
             continue
         (p,), rms = _fit(ctx, i0, i1, maps[h], [0.0], base=(kb, kb, kf0))
         if h == "B":
             # filament coefficient is uncertain: if the real load is 2 sigma larger, the required ratio shrinks by that much
             p_min = p / (1 + 2 * sig) if p > 0 else p * (1 + 2 * sig)
             ok = BOUNDS["B"][0] <= p_min <= B_MAX
-            why = (f"filaman yukunun {p:.2f} kati kaybolmali; K_FIL belirsizligi (+-{sig*100:.0f}%, 2 sigma) "
-                   f"ile bile {p_min:.2f} > {B_MAX}") if not ok else (
-                   f"(K_FIL +-{sig*100:.0f}% ile en az {p_min:.2f})" if p > B_MAX else "")
+            why = (f"{p:.2f} times the filament load would have to vanish; even with the K_FIL uncertainty "
+                   f"(+-{sig*100:.0f}%, 2 sigma) {p_min:.2f} > {B_MAX}") if not ok else (
+                   f"(at least {p_min:.2f} with K_FIL +-{sig*100:.0f}%)" if p > B_MAX else "")
             out[h] = dict(ratio=float(p), rms=rms, fits=ok, reason=why)
             continue
         lo, hi = BOUNDS[h]
         ok = lo <= p <= hi
         out[h] = dict(ratio=float(p), rms=rms, fits=ok,
-                      reason="" if ok else f"oran {p:+.2f} fiziksel sinir [{lo}, {hi}] disinda")
-    return out, note + f"; arizasiz varsayimla ikiz-gercek farki {base_rms:.1f} C", kf0
+                      reason="" if ok else f"ratio {p:+.2f} outside the physical limit [{lo}, {hi}]")
+    return out, note + f"; twin-real difference assuming no fault {base_rms:.1f} C", kf0
 
 
 def rule_checks(sm, w, ctx):
@@ -354,8 +354,8 @@ def rule_checks(sm, w, ctx):
         rate = np.where(ok, (rr[j] - rr) / np.where(ok, span, 1), 0)
         rmax = float(np.max(np.abs(rate))) if ok.any() else 0.0
         if rmax > RES_RATE_MAX:
-            notes.append(("D", f"okuma modelden {rmax:.1f} C/s hizla ayrisiyor (normalde < 3 C/s): "
-                               "termistor/konnektor sicramasi"))
+            notes.append(("D", f"the reading separates from the model at {rmax:.1f} C/s (normally < 3 C/s): "
+                               "thermistor/connector jump"))
     # E: heater saturated and temperature falling (>= 10 s)
     seg = sm[w]
     # PID gives an uninterrupted 100 % for 3 s while the temperature falls: does not happen in normal operation
@@ -363,12 +363,12 @@ def rule_checks(sm, w, ctx):
     # are caught too.
     sat_fall = (seg.pwm_min3 >= SAT_PWM) & (seg.dTdt_fast < -0.5) & (seg["T"] > 100)
     if sat_fall.sum() * GRID_DT >= 5:
-        notes.append(("E", f"isitici %{SAT_PWM*100:.0f}+ iken sicaklik toplam {sat_fall.sum()*GRID_DT:.0f} s "
-                           "dusuyor: kartusa guc gelmiyor (kopuk/gevsek kablo ya da krimp, bozuk kartus)"))
+        notes.append(("E", f"temperature falling for {sat_fall.sum()*GRID_DT:.0f} s in total with the heater at {SAT_PWM*100:.0f}%+: "
+                           "no power reaches the cartridge (broken/loose wire or crimp, failed cartridge)"))
     # temperature rising while the heater is off
     heat_off_rise = (seg.pwm_max15 <= 0.02) & (seg.dTdt_fast > 0.3) & (seg["T"] > 40)
     if heat_off_rise.sum() * GRID_DT >= 10:
-        notes.append(("E", "isitici kapaliyken sicaklik yukseliyor: MOSFET kontrolsuz ya da termistor hatali"))
+        notes.append(("E", "temperature rising with the heater off: MOSFET out of control or a faulty thermistor"))
     return notes
 
 
@@ -390,11 +390,11 @@ def classify_window(ctx, t_start, t_end):
     ref = sm.valid & (sm.t >= t_start - REF_LEN) & (sm.t < t_start - SMOOTH / 2)
     if ref.sum() * GRID_DT >= REF_MIN:
         g0 = float(sm.gap[ref].mean()); noise = float(sm.gap[ref].std())
-        rep["notes"].append(f"referans: olaydan onceki {ref.sum()*GRID_DT:.0f} s, eksik guc {g0:+.2f} W (gunluk oynama), "
-                             f"gurultu {noise:.2f} W")
+        rep["notes"].append(f"reference: {ref.sum()*GRID_DT:.0f} s before the event, missing power {g0:+.2f} W (daily wander), "
+                             f"noise {noise:.2f} W")
     else:
         g0, noise = 0.0, np.nan
-        rep["notes"].append("referans penceresi yok (olay log basinda): model esas alindi, g0 = 0")
+        rep["notes"].append("no reference window (event at the start of the log): the model is taken as is, g0 = 0")
 
     w_all = (sm.t >= t_start) & (sm.t <= t_end)
     w = w_all & sm.valid
@@ -405,7 +405,7 @@ def classify_window(ctx, t_start, t_end):
         rep["birincil"] = rep["kurallar"][0][0]     # a direct rule (D/E) takes precedence over the energy analysis
 
     if w.sum() * GRID_DT < 15:
-        rep["notes"].append(f"pencerede sicaklik tutulan gecerli veri {w.sum()*GRID_DT:.0f} s: enerji analizi yapilamadi")
+        rep["notes"].append(f"only {w.sum()*GRID_DT:.0f} s of valid held-temperature data in the window: no energy analysis")
         if not rep["category"]:
             rep["category"] = ["?"]
         return rep
@@ -414,9 +414,9 @@ def classify_window(ctx, t_start, t_end):
     dg = seg.gap.values - g0
     rep["sapma"] = float(dg.mean())
     rep["terimler"] = {k: float(seg[k].mean()) for k in ("L_blok", "L_fan", "L_fil")}
-    rep["notes"].append(f"pencerede {w.sum()*GRID_DT:.0f} s gecerli veri: ortalama sapma {dg.mean():+.2f} W  "
-                         f"(model: blok {seg.L_blok.mean():.1f} W, fan {seg.L_fan.mean():.2f} W, "
-                         f"filaman {seg.L_fil.mean():.2f} W)")
+    rep["notes"].append(f"{w.sum()*GRID_DT:.0f} s of valid data in the window: mean deviation {dg.mean():+.2f} W  "
+                         f"(model: block {seg.L_blok.mean():.1f} W, fan {seg.L_fan.mean():.2f} W, "
+                         f"filament {seg.L_fil.mean():.2f} W)")
     terms = {"A": seg.L_fan.values, "B": seg.L_fil.values, "C": (seg.L_blok + seg.L_fan).values}
     hyp = fit_hypotheses(dg, terms)
     rep["hipotezler"] = hyp
@@ -425,7 +425,7 @@ def classify_window(ctx, t_start, t_end):
     # window but moves together with the filament term, so it is caught here)
     explained = max([abs(r["ratio"]) * np.sqrt(np.mean(terms[h] ** 2)) for h, r in feas.items()], default=0.0)
     if abs(dg.mean()) < MIN_SHIFT and explained < MIN_SHIFT:
-        rep["notes"].append(f"anlamli guc farki yok (sapma ve aciklanan kisim < {MIN_SHIFT} W): isi dengesi normal")
+        rep["notes"].append(f"no significant power difference (deviation and explained part < {MIN_SHIFT} W): heat balance normal")
         rep["hipotezler"] = {}
         if not rep["category"]:
             rep["category"] = ["-"]
@@ -434,22 +434,22 @@ def classify_window(ctx, t_start, t_end):
         # the fan changed in the window: block and fan terms solved separately, A/C decided from the data
         x, y, rms = fit_two_term(dg, seg)
         rep["ayristirma"] = dict(x=x, y=y, rms=rms)
-        rep["notes"].append(f"fan degisti ({seg.fan.min()*100:.0f}-{seg.fan.max()*100:.0f}%): blok ve fan ayri cozuldu -> "
-                             f"blok kaybi {x*100:+.0f}% (normal +-{X_BAND*100:.0f}%), fan sogutmasi {y*100:+.0f}% "
-                             f"(normal {Y_BAND[0]*100:+.0f}..{Y_BAND[1]*100:+.0f}%), uyum rms {rms:.2f} W")
+        rep["notes"].append(f"fan changed ({seg.fan.min()*100:.0f}-{seg.fan.max()*100:.0f}%): block and fan solved separately -> "
+                             f"block loss {x*100:+.0f}% (normal +-{X_BAND*100:.0f}%), fan cooling {y*100:+.0f}% "
+                             f"(normal {Y_BAND[0]*100:+.0f}..{Y_BAND[1]*100:+.0f}%), fit rms {rms:.2f} W")
         if abs(x) > X_BAND:
             cat = "C"
-            rep["notes"].append(f"blok kaybi normal bandin disinda: {'corap/cereyan (daha fazla kayip)' if x > 0 else 'yalitim/ortam isindi (daha az kayip)'}"
-                                 + ("; fan sogutmasi da degisti (corapsiz blok fan havasini dogrudan alir)"
+            rep["notes"].append(f"block loss outside the normal band: {'sock/draft (more loss)' if x > 0 else 'insulated/surroundings warmer (less loss)'}"
+                                 + ("; fan cooling changed too (a block without its sock takes the fan air directly)"
                                     if not Y_BAND[0] <= y <= Y_BAND[1] else ""))
         elif not Y_BAND[0] <= y <= Y_BAND[1]:
             cat = "A"
-            rep["notes"].append("blok kaybi normal, sadece fan sogutmasi degisti: "
-                                 + ("hava nozzle'a az ulasiyor (kanal tikali/fan yavas)" if y < 0
-                                    else "fazladan sogutma (kanal bloga donmus?)"))
+            rep["notes"].append("block loss normal, only the fan cooling changed: "
+                                 + ("less air reaches the nozzle (duct blocked/fan slow)" if y < 0
+                                    else "extra cooling (duct turned towards the block?)"))
         else:
             cat = "-"
-            rep["notes"].append("iki oran da normal bantta")
+            rep["notes"].append("both ratios in the normal band")
         rep["category"].append(cat)
         if not rep.get("birincil"):
             rep["birincil"] = cat
@@ -476,11 +476,11 @@ def classify_window(ctx, t_start, t_end):
                 rep["birincil"] = ranked[0]
             if "A" in chosen and "C" in chosen:
                 f = seg.fan.values
-                rep["notes"].append(f"A ile C ayrilamiyor: pencerede fan {f.min()*100:.0f}-{f.max()*100:.0f}% "
-                                     "(fan degismeden 'fan sogutmasi kayboldu' ile 'blok yalitildi' ayni gorunur)")
+                rep["notes"].append(f"A and C cannot be separated: fan {f.min()*100:.0f}-{f.max()*100:.0f}% in the window "
+                                     "(without a fan change, 'fan cooling lost' and 'block insulated' look the same)")
         else:
             rep["category"].append("?")
-            rep["notes"].append("hicbir tek terim sapmayi fiziksel sinirlar icinde aciklamiyor (birlesik ariza?)")
+            rep["notes"].append("no single term explains the deviation within physical limits (combined fault?)")
 
     # onset speed: time for the deviation to rise from 10 % to 90 %
     s = pd.Series(sm.gap.values - g0, index=sm.t).loc[t_start - 60: t_end]
@@ -494,20 +494,20 @@ def classify_window(ctx, t_start, t_end):
             if len(before):
                 rise = tt[i90] - tt[before[-1]]
                 rep["baslangic_s"] = float(rise)
-                rep["notes"].append(f"sapma {rise:.0f} s icinde olustu ({'ani' if rise < 60 else 'yavas'}; "
-                                     f"{SMOOTH:.0f} s yumusatma yuzunden ani bir adim da ~{0.8*SMOOTH:.0f} s gorunur)")
+                rep["notes"].append(f"the deviation built up within {rise:.0f} s ({'sudden' if rise < 60 else 'slow'}; "
+                                     f"with {SMOOTH:.0f} s smoothing even a sudden step shows as ~{0.8*SMOOTH:.0f} s)")
     return rep
 
 
 CAT_TEXT = {
-    "A": "fan yolu (kanal tikali/dondu, fan yavasladi, topak havayi kesiyor)",
-    "B": "filaman akmiyor (tikanma, filaman bitti, disli kaziyor)",
-    "C": "yalitim/cevre (corap, cereyan, topak blogu sardi, ortam; termistorun yuvasindan kaymasi da "
-         "ayni imzayi verir)",
-    "D": "termistor",
-    "E": "isitici",
-    "-": "anlamli sapma yok",
-    "?": "belirsiz",
+    "A": "fan path (duct blocked/turned, fan slowed, a blob blocking the air)",
+    "B": "filament not flowing (clog, run-out, extruder gear grinding)",
+    "C": "insulation/environment (sock, draft, a blob wrapped the block, surroundings; a thermistor slipping "
+         "out of its bore gives the same signature)",
+    "D": "thermistor",
+    "E": "heater",
+    "-": "no significant deviation",
+    "?": "unclear",
 }
 
 
@@ -515,8 +515,8 @@ def category_line(rep):
     cats = sorted(set(rep["category"]))
     first = rep.get("birincil")
     if first and len(cats) > 1:
-        return f"en olasi {first}; {', '.join(c for c in cats if c != first)} de disarida birakilamiyor"
-    return " veya ".join(cats)
+        return f"most likely {first}; {', '.join(c for c in cats if c != first)} cannot be ruled out"
+    return " or ".join(cats)
 
 
 def format_report(rep, title):
@@ -524,15 +524,15 @@ def format_report(rep, title):
     lines = [f"\n=== {title}  [{a:.0f} - {b:.0f} s]"]
     lines += [f"  {n}" for n in rep["notes"]]
     if "ayristirma" in rep and rep.get("hipotezler"):
-        lines.append("  (tek terimli uyumlar, sadece bilgi icin - karar yukaridaki ayristirmadan)")
+        lines.append("  (single-term fits, for information only - the decision is from the split above)")
     for h, r in rep.get("hipotezler", {}).items():
         if np.isnan(r["ratio"]):
             lines.append(f"    {h}: {r['reason']}")
         else:
-            flag = "uyumlu" if r["fits"] else "ELENDI"
+            flag = "consistent" if r["fits"] else "REJECTED"
             unit = rep.get("hipotez_birim", "W")
-            lines.append(f"    {h}: oran {r['ratio']:+.2f}  uyum rms {r['rms']:.2f} {unit}  -> {flag} {r['reason']}")
-    lines.append(f"  KATEGORI: {category_line(rep)}")
+            lines.append(f"    {h}: ratio {r['ratio']:+.2f}  fit rms {r['rms']:.2f} {unit}  -> {flag} {r['reason']}")
+    lines.append(f"  CATEGORY: {category_line(rep)}")
     lines += [f"    {c} = {CAT_TEXT.get(c, c)}" for c in sorted(set(rep["category"]))]
     return "\n".join(lines)
 
@@ -578,18 +578,18 @@ def classify_log(path, m=None, window=None):
     reps = []
     if window:
         rep = classify_window(ctx, window[0], window[1])
-        print_report(rep, f"{os.path.basename(path)}  (elle verilen pencere)")
+        print_report(rep, f"{os.path.basename(path)}  (window given by hand)")
         return [rep]
     evs = fault_events(ctx)
     if not evs:
-        print(f"{os.path.basename(path)}: ikiz onaylanmis ariza bulmadi")
+        print(f"{os.path.basename(path)}: the twin found no confirmed fault")
     for a, b, codes in evs:
         onset = find_onset(ctx["sm"], a, a - 60)
         end = min(b, onset + ANALYSIS_LEN)
         rep = classify_window(ctx, onset, end)
         rep["codes"] = codes
-        print_report(rep, f"{os.path.basename(path)}  ikiz: {', '.join(sorted(codes))} (onay {a:.0f} s, "
-                          f"sapma baslangici ~{onset:.0f} s)")
+        print_report(rep, f"{os.path.basename(path)}  twin: {', '.join(sorted(codes))} (confirmed {a:.0f} s, "
+                          f"deviation onset ~{onset:.0f} s)")
         reps.append(rep)
     return reps
 
@@ -604,8 +604,8 @@ def classify_live(rows, m, t_confirm):
     onset = find_onset(ctx["sm"], a, a - 60)
     end = min(ctx["t"][-1], onset + ANALYSIS_LEN)
     rep = classify_window(ctx, onset, end)
-    title = (f"canli: onaydan {ctx['t'][-1] - a:.0f} s sonra, sapma baslangici onaydan "
-             f"{a - onset:.0f} s once (pencere saniyeleri arabellek basina gore)")
+    title = (f"live: {ctx['t'][-1] - a:.0f} s after confirmation, deviation onset "
+             f"{a - onset:.0f} s before it (window seconds from the buffer start)")
     expl = "; ".join(f"{c} = {CAT_TEXT.get(c, c)}" for c in sorted(set(rep["category"])))
     return f"{category_line(rep)}\n      {expl}", format_report(rep, title)
 

@@ -154,12 +154,12 @@ def backfill(m):
             rows.append(row)
     out = pd.DataFrame(rows).reindex(columns=COLUMNS).sort_values("oturum")
     out.to_csv(HISTORY_FILE, index=False)
-    print(f"{len(out)} oturum yazildi: {HISTORY_FILE}")
+    print(f"{len(out)} sessions written: {HISTORY_FILE}")
 
 
 def report():
     if not os.path.exists(HISTORY_FILE):
-        print("gecmis yok - once 'python session_history.py --backfill' ya da canli scripti calistir")
+        print("no history yet - run 'python session_history.py --backfill' or the live twin first")
         return
     g = pd.read_csv(HISTORY_FILE)
     show = ["oturum", "sure_dk", "tutma245_s", "P_fan0_W", "blok_kaybi_pct", "fan_sogutma_pct",
@@ -167,25 +167,25 @@ def report():
     g = g.reindex(columns=list(dict.fromkeys(COLUMNS + list(g.columns))))
     with pd.option_context("display.width", 220, "display.max_colwidth", 42):
         print(g[show].fillna("").to_string(index=False))
-    print(f"\n(0 = kalibrasyon gunu; blok kaybinda gunluk dogal oynama ~+-5%, fan sogutmasi normalde ~-8%)")
+    print(f"\n(0 = calibration day; natural daily wander of the block loss ~+-5%, fan cooling normally ~-8%)")
 
     # deliberate fault experiments (foil, no sock ...) stay out of the statistics; real faults are included
     experiment = g["not"].fillna("").str.contains("deney")
     if experiment.any():
-        print(f"(trend istatistigi {experiment.sum()} kasitli deney oturumunu disarida birakir)")
-    for col, name in (("blok_kaybi_pct", "blok kaybi"), ("fan_sogutma_pct", "fan sogutmasi"),
-                      ("baski_kaybi_pct", "baskida hava kaybi"), ("kayip150_pct", "150C on isitma kaybi")):
+        print(f"(the trend statistics leave out {experiment.sum()} deliberate experiment sessions)")
+    for col, name in (("blok_kaybi_pct", "block loss"), ("fan_sogutma_pct", "fan cooling"),
+                      ("baski_kaybi_pct", "air loss while printing"), ("kayip150_pct", "150C preheat loss")):
         s = g.loc[~experiment, ["oturum", col]].dropna()
         if len(s) < 2:
             continue
         last, prev = s[col].iloc[-1], s[col].iloc[:-1].median()
-        msg = f"{name}: son oturum {last:+.1f}%, onceki {len(s) - 1} oturumun medyani {prev:+.1f}%"
+        msg = f"{name}: last session {last:+.1f}%, median of the previous {len(s) - 1} sessions {prev:+.1f}%"
         if abs(last - prev) > DRIFT_WARN:
-            msg += f"  !! {DRIFT_WARN:.0f}%'ten fazla fark"
+            msg += f"  !! more than {DRIFT_WARN:.0f}% apart"
         days = (pd.to_datetime(s.oturum) - pd.to_datetime(s.oturum.iloc[0])).dt.total_seconds() / 86400
         if len(s) >= 5 and days.iloc[-1] >= 3:
             slope = np.polyfit(days, s[col], 1)[0] * 7
-            msg += f"; egim {slope:+.1f}%/hafta" + ("  !! yavas kayma" if abs(slope) > SLOPE_WARN else "")
+            msg += f"; slope {slope:+.1f}%/week" + ("  !! slow drift" if abs(slope) > SLOPE_WARN else "")
         print(msg)
 
 
@@ -202,7 +202,7 @@ if __name__ == "__main__":
         else:
             r = summarize(args.add, mod)
             if r:
-                append(r); print("eklendi")
+                append(r); print("added")
             else:
-                print("log bos/cok kisa - eklenmedi")
+                print("log empty/too short - not added")
     report()

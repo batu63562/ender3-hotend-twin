@@ -19,7 +19,8 @@ tool, not the printer.
 calibrated constant, the fitted ones replaced, the others as currently in effect (code <- profile.toml <-
 calibration.json), so `--params ""` reproduces today's values exactly. It never replaces an existing file unless
 --force is given, and it never writes the live calibration.json by itself: a fitted file is a model change and
-goes through the acceptance gate before it is copied there.
+goes through the acceptance gate before it is copied there. (A new printer has nothing to compare against: TESTING.md
+step 5 writes its first calibration straight to calibration.json.)
 Otherwise analysis only: touches neither the live twin nor its parameters.
 Needs scipy (not needed by the live twin).
 
@@ -125,7 +126,10 @@ def write_calibration(path, names, se, info, data, k_logs, fit_rms, args):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=2)
         f.write("\n")
-    print(f"\nwritten: {path}  (not live: score it through the acceptance gate, then copy to calibration.json)")
+    if os.path.abspath(path) == os.path.abspath(rw.CALIBRATION_FILE):   # a tester's own printer (TESTING.md step 5)
+        print(f"\nwritten: {path}  (the file the twin reads: restart the twin to use it)")
+    else:
+        print(f"\nwritten: {path}  (not live: score it through the acceptance gate, then copy to calibration.json)")
 
 
 STAGED_DYNAMIC = ["C_ALL", "R31", "R_HB", "CAP_T_COEF"]   # stage 2: storage and internal resistances

@@ -1744,3 +1744,27 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   bant, kalibrasyon/öğrenme yerine oturmamışsa açıkça görünür.
 - **İki kez:** kalibrasyondan sonraki ilk baskı ve testin sonu (kayma). STL dağıtılmıyor (lisans: resmi siteden indirilir).
 - Gerekirse sonra küçük bir özet aracı; şimdilik veri gelince elle.
+
+## K88 — Testçi yolu provası: temiz klon, Python 3.11, sahte Moonraker (2026-10-28, v0.4 maddesi, model değişmedi)
+- **Yöntem:** GitHub'dan temiz klon (git dışı dosya yok) + yerel `a9db4e6`; uv ile Python 3.11.16 venv (TESTING'in en
+  düşük sürümü; Pi'de Debian 13 / 3.13), `requirements.txt` (numpy 2.4.6, pandas 3.1.0, websockets 17.3). Tüm `.py`
+  3.11'de ayrıştı, ikiz import edildi. TESTING adım adım: `profile.toml`, `calibration_print.py` (58 dk G-code),
+  kalibrasyon logu sahte Moonraker'dan canlı ikize oynatıldı (`kalibrasyon_245_celik`, ×60), `calibrate.py --staged
+  --write calibration.json`, durum sıfırlandı, sonra 28.10 Benchy (K87) aynı klonda oynatıldı.
+- **Sonuç (testçinin ilk Benchy'si gibi: kalibrasyondan k = 1):** eksik güç medyanı +0.02 W, bant −0.55…+0.48 W, %97
+  değerlendirildi, k_fil 1.33 → 1.51, 0 alarm; referans (canlı, k 0.91): +0.05, −0.51…+0.59, 1.49, 0. Kalibrasyon yolu
+  referansı tutturuyor. Kalibrasyon: güç rms 1.67 → 0.14 W, T1 rms 3.45 → 1.58 °C, 0 uyarı (TESTING'in "iyi" ölçütü).
+- **Bulunanlar, düzeltildi:**
+  1. TESTING 5. adım YANLIŞ dosyayı seçiyordu: log bir sonraki baskı başında (ya da kapanışta) arşivlenir, kalibrasyon
+     bitince hâlâ `realtime_log_ws.csv`; `ls -t realtime_log_ws_onceki_*.csv | head -1` kalibrasyon ÖNCESİ boşta logu
+     verirdi. Artık `calibrate.py realtime_log_ws.csv` (başka baskıdan önce), arşivlenmişse not. Aynı sebeple 8. adımın
+     zip'i son baskıyı atlıyordu → `realtime_log_ws*.csv`.
+  2. Kalibrasyon baskısı sırasında kalibresiz ikiz (Ender sayıları, burada çelik nozzle) `GUC_AZALDI` 23 s ve
+     `KAYIP_AZALDI(_FAN)` verdi: TESTING 4. adıma "beklenen, anlamsız, gölgede duraklatmaz" notu (kod yok).
+  3. `calibrate.py --write calibration.json` "not live … then copy to calibration.json" diyordu, testçi için yanlış:
+     yazılan yol ikizin okuduğu dosyaysa "restart the twin to use it" (yalnız mesaj).
+  4. `fake_moonraker.py`: ilk satırda taze sıcaklık olmayan logda anlık görüntü 25 °C veriyordu → ikiz modeli sıcak
+     nozzle'ın 150 °C altında başlatıyordu (yalnız araç; canlı Moonraker cevabında sıcaklık hep var). İlk ölçülen değer.
+- **Bakılmadı:** `pi/install.sh` Pi'de çalıştırılmadı (gerçek servisin üstüne yazar), satır satır okundu: sorun yok.
+  32-bit Raspberry Pi OS'ta pandas 3 tekerleği olmayabilir (kaynaktan derleme); betik bu durumda ikizi numpy/pandas'sız
+  çalıştırır, yalnız plan/kategori düşer. Kapanış özeti (SIGTERM) Windows'ta sınanmadı (Pi'de her gün çalışıyor).

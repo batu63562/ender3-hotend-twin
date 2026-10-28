@@ -71,17 +71,23 @@ Upload `calibration_245.gcode` in Mainsail/Fluidd and print it like any file, wi
 printer away from drafts (open windows, fans, air conditioning) during the hour. If it is interrupted, simply run it
 again.
 
+Until it is calibrated the twin uses the author's Ender 3 numbers, so **FAULT lines in the console during this print
+are expected** (on a rehearsal with another hotend: `GUC_AZALDI` for 23 s and `KAYIP_AZALDI_FAN`). They mean
+nothing yet, and in shadow mode they never pause the print.
+
 ## 5. Fit the calibration
 
-When the job has finished, the twin has archived its log as `realtime_log_ws_onceki_<date>_<time>.csv` (the newest
-one). On the Pi:
+The twin starts a new log file at every print start, so when the job has finished, the calibration print is in the
+current log, `realtime_log_ws.csv`. Fit it **before you start another print**. On the Pi:
 
 ```bash
 cd ~/ender3-twin
 venv/bin/pip install "scipy>=1.11"
-ls -t realtime_log_ws_onceki_*.csv | head -1      # the calibration print's log
-venv/bin/python calibrate.py <that file> --staged --write calibration.json
+venv/bin/python calibrate.py realtime_log_ws.csv --staged --write calibration.json
 ```
+
+(If you did start another print, or the twin restarted, the calibration log has been archived as
+`realtime_log_ws_onceki_<date>_<time>.csv`, named by the time it was archived: use that file instead.)
 
 It prints two stages: the losses and part-fan curve from the steady holds, then the heat capacities and internal
 resistances from the whole run. A good calibration ends with a heater power error well below 0.5 W in stage 1 and
@@ -144,7 +150,7 @@ Everything is in the twin's folder on the Pi. Please zip these:
 
 ```bash
 cd ~/ender3-twin
-zip -r twin_test_$(date +%Y%m%d).zip realtime_log_ws_onceki_*.csv tahminler/ profile.toml calibration.json \
+zip -r twin_test_$(date +%Y%m%d).zip realtime_log_ws*.csv tahminler/ profile.toml calibration.json \
     twin_gecmis.csv ariza_raporlari.txt bakim_izleme.csv
 ```
 

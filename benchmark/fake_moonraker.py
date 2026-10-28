@@ -110,7 +110,10 @@ def main():
     fname = os.path.basename(a.gcode) if a.gcode else "replay.gcode"
     first_state = next((s["print_stats"]["state"] for _, s in data if "print_stats" in s), "standby")
     snap = {k: dict(v) for k, v in data[0][1].items()}
-    snap["extruder"].setdefault("temperature", 25.0)
+    # a log whose first row has no fresh temperature: the first measured one (live, Moonraker's answer always has it;
+    # 25 C here started the model 150 C below a hot nozzle)
+    snap["extruder"].setdefault("temperature", next((s["extruder"]["temperature"] for _, s in data
+                                                     if "temperature" in s["extruder"]), 25.0))
     snap["print_stats"] = {"state": "standby" if first_state == "printing" else first_state, "filename": fname}
     snap["gcode_move"] = {"absolute_extrude": True, "homing_origin": [0.0, 0.0, 0.0, 0.0]}
     snap["configfile"] = {"settings": {"extruder": {"filament_diameter": 1.75}}}

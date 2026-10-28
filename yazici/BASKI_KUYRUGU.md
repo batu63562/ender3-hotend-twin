@@ -72,7 +72,7 @@ duraklatır. Duraklatırsa iptal etme; nedenine bak, saati not et.
 
 1. ~~Normal PETG baskılar, K74 için ≥ 4 saat~~ (28.10 BİTTİ: 6.03 saat, B geçmedi, A kalır, K84). Normal baskılar
    K63 sayacına gitmeye devam eder.
-2. **deney17** (`yazici/deney17_uc_kalintisi.gcode`, ~38 dk) — normal bir baskının HEMEN ardından: filament takılı, nozzle
+2. ~~deney17~~ (28.10 BİTTİ, K85: uç kalıntısı etkisi yok, tutmalar 17.1–17.4 W) (`yazici/deney17_uc_kalintisi.gcode`, ~38 dk) — normal bir baskının HEMEN ardından: filament takılı, nozzle
    TEMİZLENMEDEN, < 40 °C. İki PAUSE'da ucu sıcakken temizle, ne çıktığını not et, RESUME. Yedek gerekmez (K79).
 3. ~~4 saat dolunca K74~~ (28.10 BİTTİ: A kalır; `pause_mode` satırı silindi, K84).
 4. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan

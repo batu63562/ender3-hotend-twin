@@ -81,3 +81,6 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 ../../loglar/baskilar/2810_1214_petg_yafic_v2_celik_iptal3.csv,0,,"yafic_v2 3. deneme, kullanici iptal etti (neden sorulacak); alarm yok",-,-
 ../../loglar/baskilar/2810_1224_petg_yafic_v2_celik.csv,0,,"yafic_v2 TAMAMLANDI (2.5 sa); alarm yok; plan 150.7 dk, gercek 150.0 dk",-,-
 ../../loglar/baskilar/2810_1502_petg_postcard_celik_iptal.csv,0,,"postcard+stamp 1. deneme, kullanici iptal etti (neden sorulacak); alarm yok",-,-
+../../loglar/baskilar/2810_1508_petg_postcard_celik.csv,0,,"postcard+stamp TAMAMLANDI (20 dk); alarm yok",-,-
+../../loglar/baskilar/2810_1534_petg_paper_punch_celik_iptal.csv,0,,"paper punch 1. deneme, kullanici iptal etti (tablaya tutunmustu; neden sorulacak); alarm yok",-,-
+../../loglar/baskilar/2810_1546_petg_paper_punch_celik_koptu.csv,0,,"paper punch 2. deneme: ~33. dk baski koptu (kullanici: muhtemelen kopru sirasinda), iptal; alarm yok - kopma/kalkma isil imza vermez (ayni akis)",-,-

@@ -1695,3 +1695,16 @@ A 2/4, **B 0/4**; fanlı 4 W / 30 dk 3/3 → 2/3; ortada aynı (2/3, 2/2).
   Benchy'sinde yanlış GUC_AZALDI 139 s (150 s eşiğine yakın; zincir k = 1'den, canlıdakinden farklı başlangıç).
 - **Fan kapağı olayı (28.10 10:20, etiket C):** Benchy ~12.5. dk, kapak düştü, fan havası doğrudan bloğa; +6…8 W,
   16 s'de oluştu, sınıflandırıcı C (yalıtım/çevre, "cereyan") doğru; kullanıcı alarmdan 68 s sonra durdurdu.
+
+## K85 — deney17 (uç kalıntısı, K78 açık maddesi): etki YOK, oturum başı 1.5 W bugün görülmedi (2026-10-28, DENEY, MODEL DEĞİŞMEDİ)
+`loglar/deneyler/deney17_uc_kalintisi.csv` (çelik 0.4, 16:21–17:01), paper punch baskısından hemen sonra, temizlenmeden.
+**Sapma:** nozzle 142 °C'den başladı (protokol < 40 °C; G-code beklemiyor). 245 °C fansız tutmalar, ısıtıcı gücü
+(40 W × pwm, son 180 s): A bulunduğu gibi 17.06 · ilk PAUSE (park, 8 dk) 17.27 · B temiz 17.41 · C 15 mm akıtma sonrası
+17.28 · D fan %100'den sonra 17.35 · E yeniden temiz 17.32 W; eksik güç hepsinde −0.05…+0.12 W. Fan %100: 22.55 W.
+- **Uç kalıntısı hipotezi ÇÜRÜDÜ:** A ilk PAUSE'da görünürde temizdi (kullanıcı); A, B, C, E ±0.2 W içinde (aranan 1.5 W).
+  A > B'nin tersine A en düşük; sıcak başlangıçla uyumlu (heatsink ılık) ama fark gürültü düzeyinde.
+- **Oturum başı yüksek tutma (19–20 W) bugün yok:** baskıdan hemen sonra bile 17.1 W, yani K78'deki "baskı/nozzle işinden
+  sonra yüksek" gözlemi bu koşulda tekrarlanmadı. Açık madde: 26–27.10 yüksek tutmaları başka nedenli (aynı gün nozzle
+  sökme/sıkma, cold pull — oturmamış temas? zamanla düşen bir şey?); şimdilik izlenir, yeni deney yok.
+- Fan sonrası (D) hafıza yok: deney16'nın çelikteki sonucuyla aynı.
+- Log setler.csv'ye eklenmedi (çelik dönemi logları ayar/sınav dağıtımında değil, K74/K84).

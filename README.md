@@ -461,6 +461,8 @@ since v0.2; set `pause_mode = "shadow"` in `config.toml` to only log it).
 | arıza | fault |
 | bakım (önerisi) | maintenance (advice) |
 | duraklatma, gölge mod | pause, shadow mode |
+| `duraklat` column: `aktif` / `golge` | the pause decision was acted on / only logged (shadow) |
+| report tags in `ariza_raporlari.txt`: `DURAKLATMA`, `BAKIM`, `KAYIP_KABUL`, `KAYIP_GERI_ALINDI`, `DENEY_GERI_YUKLENDI` | pause, maintenance advice, new loss level accepted, loss reverted at print start, experiment state restored |
 | plan, tahmin | plan (G-code based prediction) |
 | karne | scorecard |
 | KARARLAR | decisions |

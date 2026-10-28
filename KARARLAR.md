@@ -1708,3 +1708,23 @@ A 2/4, **B 0/4**; fanlı 4 W / 30 dk 3/3 → 2/3; ortada aynı (2/3, 2/2).
   sökme/sıkma, cold pull — oturmamış temas? zamanla düşen bir şey?); şimdilik izlenir, yeni deney yok.
 - Fan sonrası (D) hafıza yok: deney16'nın çelikteki sonucuyla aynı.
 - Log setler.csv'ye eklenmedi (çelik dönemi logları ayar/sınav dağıtımında değil, K74/K84).
+
+## K86 — Kullanıcıya görünen mesajlar İngilizce; `pause_mode` İngilizce değer alır (2026-10-28, v0.5 maddesi v0.4 için öne çekildi, MODEL DEĞİŞMEDİ)
+Gerekçe: v0.4 testçisi `TESTING.md` gereği konsolu (`journalctl`) ve `ariza_raporlari.txt`'yi okuyacak; Türkçe konsol
+ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kuralına (18.10: sınırda İngilizce) uygun.
+- **Çevrilen (yalnız string sabitleri):** `realtime_websocket.py` (konsol, telefon sayfası `lang="en"`, alarm açıklamaları,
+  bakım önerisi metni, gölge sayacı notu, duraklatma ve KAYIP mesajları), `fault_classifier.py` (rapor ve kategori
+  metinleri; `--labels` puanlama çıktısı geliştirici aracı, Türkçe kaldı), `session_history.py` CLI, `gcode_plan.py`
+  (plan özeti, CLI). `bed_model.py`, `evaluate.py`, `benchmark/` geliştirici araçları: dokunulmadı. `calibrate.py`,
+  `calibration_print.py`, `pi/install.sh` zaten İngilizceydi.
+- **Değişmeyen (veri sözleşmesi):** CSV sütunları ve değerleri (`duraklat` = `aktif`/`golge`, `bakim_izleme.csv` `tur`,
+  `twin_gecmis.csv` `not`), alarm kodları, rapor başlık etiketleri (`DURAKLATMA`, `BAKIM`, `KAYIP_KABUL`,
+  `KAYIP_GERI_ALINDI`, `DENEY_GERI_YUKLENDI`; README sözlüğünde), dosya adları, telefon JSON anahtarları.
+  `bakim_durumu.json` `text` değeri İngilizce oldu; Unity bu alanı okumuyor (yapısal alanlar aynı).
+- **Kanıt:** string sabitleri maskelenmiş AST `pre-english-messages` etiketine göre birebir aynı (f-string yer
+  tutucuları küme olarak: İngilizce söz dizimi iki yerde sırayı değiştirdi). Canlı döngü sahte Moonraker'la (K81) 28.10
+  fan kapağı logunda: aynı GUC_AZALDI, aynı kategori C, rapor İngilizce.
+- **`pause_mode`:** config `shadow`/`active`/`off` alır, Türkçe değerler geçerli kalır (eski kurulumlar, Pi'de satır
+  yok = aktif). İç değer ve CSV `golge`/`aktif` kalır. `install.sh` ve sahte Moonraker artık `"shadow"` yazar;
+  `config.example.toml`, `TESTING.md`, README güncellendi. Bilinmeyen değer → gölge (önceki gibi). Ayrı commit.
+- Pi'ye deploy edilmedi (baskı yokken `deploy.ps1`).

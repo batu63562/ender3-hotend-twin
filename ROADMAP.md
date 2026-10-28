@@ -9,7 +9,7 @@ not serve the claim of its version waits.
 |---|---|---|
 | [v0.1](#v01--it-works-on-one-printer) | It works on one printer | done (2026-10-19) |
 | [v0.2](#v02--it-is-reliable) | It is reliable | done (2026-10-22) |
-| [v0.3](#v03--the-physics-is-not-ender-3-specific) | The physics is not Ender 3 specific | in progress |
+| [v0.3](#v03--the-physics-is-not-ender-3-specific) | The physics is not Ender 3 specific | released (2026-10-22); yellow advisory still being judged |
 | [v0.4](#v04--it-works-on-another-printer) | It works on another printer | planned |
 | [v0.5](#v05--other-people-can-install-it) | Other people can install it | planned |
 | [v0.6+](#v06--motion-twin-accelerometer) | Motion is twinned too | direction |

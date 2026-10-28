@@ -240,8 +240,9 @@ unaffected.
   Replayed on past data it would have advised maintenance two days before the real one, with no false advice.
   This mirrors aircraft-engine trend monitoring: a moving reference for events, a fixed one for wear.
 - **Pause.** If `GUC_AZALDI` lasts 150 s continuously during printing, the twin sends
-  `POST /printer/print/pause` to Moonraker (`PAUSE_MODE = "aktif"`, the default since v0.2; `"golge"` only logs
-  "would pause", `"kapali"` turns it off). In 70.1 print hours of replayed logs all 5 pauses were real faults
+  `POST /printer/print/pause` to Moonraker (`pause_mode = "active"` in `config.toml`, the default since v0.2;
+  `"shadow"` only logs "would pause", `"off"` turns it off; the CSV column `duraklat` keeps the Turkish values
+  `aktif` / `golge`). In 70.1 print hours of replayed logs all 5 pauses were real faults
   (the first live one on 2026-10-22: TPU printed with a PETG profile built a blob on the nozzle; paused 154 s after
   the fault started); the longest labelled benign event lasted 83 s. `KAYIP` never pauses.
   **One false pause so far, after a part change:** on 2026-10-27 the brass nozzle was replaced by a hardened-steel
@@ -368,7 +369,7 @@ To copy the finished logs from the Pi to the PC (one way, never deletes; the liv
 `loglar/pi/` and can be added to the v0.2 report with `python benchmark/report_v02.py --extra loglar/pi`.
 
 The twin never sends G-code to the printer. The only command it sends is the pause request (on by default
-since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it).
+since v0.2; set `pause_mode = "shadow"` in `config.toml` to only log it).
 
 ---
 

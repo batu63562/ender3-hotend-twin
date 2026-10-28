@@ -254,12 +254,17 @@ FAULT_TEXT.update(ENERGY_TEXT)
 # pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19]. KAYIP_* never pauses.
 PAUSE_AFTER = 150.0       # s
 PAUSE_MODES = ("golge", "aktif", "kapali")   # shadow: log only | active: pause via Moonraker | off [K50]
+# config.toml takes the English names; the Turkish ones stay valid (older installs) and stay the internal value,
+# which the CSV column `duraklat` records (data contract) [K86]
+PAUSE_MODE_NAMES = {"shadow": "golge", "active": "aktif", "off": "kapali"}
 # From config.toml (`pause_mode`), so a new printer can start in shadow mode without editing this file
-# (pi/install.sh writes "golge" for a new install); without the key: active, as on the author's printer.
-PAUSE_MODE = str(CONFIG.get("pause_mode", "aktif")).strip().lower()
+# (pi/install.sh writes "shadow" for a new install); without the key: active, as on the author's printer.
+PAUSE_MODE = str(CONFIG.get("pause_mode", "active")).strip().lower()
+PAUSE_MODE = PAUSE_MODE_NAMES.get(PAUSE_MODE, PAUSE_MODE)
 if PAUSE_MODE not in PAUSE_MODES:
-    print(f"[!! config.toml pause_mode = {PAUSE_MODE!r} unknown ({' | '.join(PAUSE_MODES)}): using 'golge' (shadow)]")
+    print(f"[!! config.toml pause_mode = {PAUSE_MODE!r} unknown ({' | '.join(PAUSE_MODE_NAMES)}): using 'shadow']")
     PAUSE_MODE = "golge"
+PAUSE_MODE_SHOWN = {v: k for k, v in PAUSE_MODE_NAMES.items()}[PAUSE_MODE]
 # Shadow mode on a new printer: once it has seen SHADOW_REVIEW_HOURS of printing over SHADOW_REVIEW_PRINTS prints,
 # a note asks the user to review the "would pause" reports and switch to active (never automatic). The author's own
 # shadow phase before going active was 11 prints, ~22 print hours [K49].
@@ -1284,7 +1289,7 @@ class ShadowCounter:
             return (f"{head} (switching to active is suggested after {SHADOW_REVIEW_HOURS:.0f} h and "
                     f"{SHADOW_REVIEW_PRINTS} prints)")
         return (f"{head}: review the entries ({os.path.basename(REPORT_FILE)}); if they were real faults, set "
-                f'pause_mode = "aktif" in config.toml')
+                f'pause_mode = "active" in config.toml')
 
 
 def daily_jobs(live):
@@ -1520,7 +1525,7 @@ async def main():
     mat_last = load_last_material()                      # material of the last print (CSV until the next G-code)
     daily_jobs(live)                                     # state backup + maintenance indicator (again every day)
     shadow = ShadowCounter() if PAUSE_MODE == "golge" else None
-    print(f"[pause mode: {PAUSE_MODE}" + (f" - {shadow.note()}]" if shadow else "]"))
+    print(f"[pause mode: {PAUSE_MODE_SHOWN}" + (f" - {shadow.note()}]" if shadow else "]"))
     if shadow:
         live["golge"] = shadow.note()
     print(f"[code version: {CODE_VERSION}]")

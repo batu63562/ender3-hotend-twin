@@ -45,7 +45,7 @@ def sandbox(d, port, k, k_ref, kfil):
             os.makedirs(os.path.dirname(os.path.join(d, f)), exist_ok=True)
             shutil.copy(os.path.join(ROOT, f), os.path.join(d, f))
     with open(os.path.join(d, "config.toml"), "w") as fh:
-        fh.write(f'printer_host = "127.0.0.1:{port}"\nweb_port = 0\npause_mode = "golge"\n')
+        fh.write(f'printer_host = "127.0.0.1:{port}"\nweb_port = 0\npause_mode = "shadow"\n')
     if k is not None:
         sys.path.insert(0, d)
         import realtime_websocket as rw

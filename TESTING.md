@@ -37,11 +37,10 @@ journalctl -u ender3-twin -f
 You should see one line per message with `T1_real`, `T1_model` and `residual`. The phone page is at
 `http://<pi address>:8090`.
 
-**It starts in shadow mode.** The install script writes `pause_mode = "golge"` into `config.toml` ("golge" is Turkish
-for shadow): when the twin is sure a fault is happening it only logs "would pause" to `ariza_raporlari.txt` instead of
+**It starts in shadow mode.** The install script writes `pause_mode = "shadow"` into `config.toml`: when the twin is sure a fault is happening it only logs "would pause" to `ariza_raporlari.txt` instead of
 pausing the print. It counts print hours and prints in this mode; after **24 print hours over at least 12 prints** it
 says so at start-up and on the phone page. Then post the "would pause" entries in the issue (were they real faults?),
-and if they were, switch it on: set `pause_mode = "aktif"` in `config.toml` and run
+and if they were, switch it on: set `pause_mode = "active"` in `config.toml` and run
 `sudo systemctl restart ender3-twin`. Nothing in the code needs editing.
 
 ## 3. Describe your printer: `profile.toml`

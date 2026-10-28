@@ -34,7 +34,7 @@ fi
 # Moonraker runs on this Pi: talk to it directly on its own port (no web server in between).
 if [ ! -f "$APP_DIR/config.toml" ]; then
     # a new printer starts in shadow mode: "would pause" is only logged until the user switches to active
-    printf 'printer_host = "127.0.0.1:7125"\nweb_port = %s\npause_mode = "golge"\n' "$WEB_PORT" > "$APP_DIR/config.toml"
+    printf 'printer_host = "127.0.0.1:7125"\nweb_port = %s\npause_mode = "shadow"\n' "$WEB_PORT" > "$APP_DIR/config.toml"
     echo "== wrote config.toml (Moonraker at 127.0.0.1:7125, phone page on port $WEB_PORT, shadow mode)"
 fi
 

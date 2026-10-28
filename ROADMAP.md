@@ -159,8 +159,8 @@ Progress (2026-10-22, all on the Pi):
       comments were already translated before v0.1). Behaviour-neutral: replaying the logs gives exactly the
       same scores before and after. CSV columns and alarm codes stay as they are (data contract) ([K53]).
 - [x] Learning and alarms were tied to 230 °C (PETG); they now follow the print target (target − 15 °C, not
-      below 180 °C), so that PLA (200–215 °C) is covered ([K54]). Passed the gate on replays; **open:** a real
-      TPU print below 230 °C on this printer.
+      below 180 °C), so that PLA (200–215 °C) is covered ([K54]). Passed the gate on replays and on a real TPU
+      temperature tower 240 → 210 °C (2 h 38 min, missing power evaluated at every level, 0 alarms) ([K64]).
 - [x] Synthetic slow-fault test kept as a tool (`benchmark/slow_fault_test.py`); the early-print detection
       limit is documented, not tuned away ([K55]).
 - [x] `calibrate.py --write` produces the calibration file (`--params ""` gives today's values exactly) ([K56]).

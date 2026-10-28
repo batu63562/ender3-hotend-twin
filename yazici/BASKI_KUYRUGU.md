@@ -29,7 +29,7 @@ hem ikize en çok şeyi öğretenler.
 | 4 | ~~Aynı parça iki kez: fan %40 ve %60~~ (21.10 BİTTİ: benchy, K48) | PETG | 2 × kısa | Fan eğrisinin baskıdaki karşılığı (K39) |
 | 5 | **Uzun baskı (> 2 sa)**, gece de olur | PETG | > 2 sa | k ve k_fil'in uzun süre kararlılığı; aktif duraklatmanın gözetimsiz saati. 21.10 sol-üst (2 sa 3 dk) kusurlu bitti → temiz biri hâlâ gerekli |
 | 6 | ~~Çıkıntı / köprü testi~~ (22.10 BİTTİ: köprü testi ×3, K62) | PETG | kısa | Sarı aday (eşik altı 1–2.5 W); kusur olursa Z'yi ya da saati not et (sarkan köprü, kopan çıkıntı) |
-| 7 | **Bir TPU baskı daha** (normal sıcaklıkta) | TPU | ne olursa | k_fil çapası 1.33 TPU'da tutuyor mu |
+| 7 | Bir TPU baskı daha (normal sıcaklıkta; İSTEĞE BAĞLI: K64 kulesinde k_fil 1.33'ten 1.46'ya, normal aralıkta; TPU nemli, önce kurut) | TPU | ne olursa | k_fil çapası 1.33 TPU'da tutuyor mu |
 | 8+ | Ne istersen | PETG/TPU | — | Gözetimsiz çalışma verisi, yeni etiketler |
 
 **Pause/Resume denemesi (1. baskıda, ilk katmandan sonra):** Mainsail → Pause → kafa X0 Y220'ye gitmeli (eskiden
@@ -76,7 +76,7 @@ duraklatır. Duraklatırsa iptal etme; nedenine bak, saati not et.
    TEMİZLENMEDEN, < 40 °C. İki PAUSE'da ucu sıcakken temizle, ne çıktığını not et, RESUME. Yedek gerekmez (K79).
 3. ~~4 saat dolunca K74~~ (28.10 BİTTİ: A kalır; `pause_mode` satırı silindi, K84).
 4. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan
-   mı"), bir TPU baskı (A7), K63 değerlendirmesi (23.10'dan ≥ 20 PETG saati, sonuçlar dönem dönem de).
+   mı"), bir TPU baskı (A7, isteğe bağlı), K63 değerlendirmesi (23.10'dan ≥ 20 PETG saati, sonuçlar dönem dönem de).
 
 Bitti (27.10): nozzle değişimi, deney16 (fan hafızası çelikte yok), kalibrasyon baskısı, ısı kulesi (K78).
 

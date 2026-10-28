@@ -385,6 +385,7 @@ since v0.2; set `pause_mode = "shadow"` in `config.toml` to only log it).
 | `benchmark/` | Calibration runs, set split, fault library. |
 | `loglar/` | Archived logs (`baskilar/` prints, `deneyler/` experiments, `pi/` raw copies from the Pi by `sync_pi_logs.py`). |
 | `KARARLAR.md` | Decision log (Turkish). |
+| `CASE_STUDY_NOZZLE_SWAP.md` | Case study: after a nozzle swap, online learning vs. recalibration (pre-registered test). |
 | `UNITY_ARAYUZ.md` | Python ↔ Unity data contract. |
 
 ---
@@ -434,7 +435,8 @@ since v0.2; set `pause_mode = "shadow"` in `config.toml` to only log it).
   cool-down and gave fewer false `GUC` events, but worse in heat-up and arrival, and it missed every slow 3 W fault
   injected with the fan on (0 of 4, A 2 of 4): the re-fitted fan term absorbed it. B failed 3 of the 4 criteria, so
   A stays. One nozzle swap on one printer; the fan-cooling change (30 %) is the part a single `k` cannot follow,
-  which is why the first prints after a swap belong in shadow mode.
+  which is why the first prints after a swap belong in shadow mode. The whole story, with the predictions that
+  turned out wrong: [CASE_STUDY_NOZZLE_SWAP.md](CASE_STUDY_NOZZLE_SWAP.md).
 
 ---
 

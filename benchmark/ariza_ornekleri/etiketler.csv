@@ -72,3 +72,12 @@ dosya,baslangic_s,bitis_s,gozlenen,beklenen,set
 ../../loglar/baskilar/2710_1852_petg_heat_tower_celik_deneme2.csv,0,,"isi kulesi (celik) denemesi: tutunma/merkez sorunu, kullanici durdurdu; GUC yanlis (K78)",-,-
 ../../loglar/baskilar/2710_1905_petg_heat_tower_celik_deneme3.csv,0,,"isi kulesi (celik) denemesi, kullanici durdurdu; arada elle mudahale (GUC_ARTTI/KAYIP_ARTTI, k 1.15)",-,-
 ../../loglar/baskilar/2710_1922_petg_heat_tower_celik.csv,0,,"isi kulesi (celik 0.4, brim, 85 C) TAMAMLANDI; baski saglam (kullanici: dara sonrasi hafif sizinti, bozuntu yok); GUC/KAYIP_AZALDI_FAN yanlis (K78); KAYIP kabul k_ref 1.007 -> 0.903",-,-
+../../loglar/baskilar/2810_1007_petg_benchy_celik_fan_kapagi_dustu.csv,740,,"celik Benchy ~12.5. dk: fan kapagi (hotend kapagi) dustu, fan havasi bloga dogrudan (cereyan); GUC_AZALDI +6..8 W, 16 s icinde, kategori C dogru; kullanici alarmdan 68 s sonra duraklatip iptal etti (golge mod, 150 s altinda)",C,-
+../../loglar/baskilar/2810_1029_petg_benchy_celik_pi_kesildi_1.csv,0,,"celik Benchy (fan kapagi geri takildi): Pi'nin elektrigi yanlislikla kesildi, Klipper ile baski oldu; alarm yok",-,-
+../../loglar/baskilar/2810_1046_petg_benchy_celik_pi_kesildi_2.csv,0,,"celik Benchy: Pi ikinci kez kesildi (2 dk); alarm yok",-,-
+../../loglar/baskilar/2810_1049_petg_benchy_celik.csv,0,,"celik Benchy TAMAMLANDI (kullanici: yalniz kapida cok hafif ipliklenme); alarm yok; plan 73.7 dk, gercek 73.6 dk",-,-
+../../loglar/baskilar/2810_1205_petg_yafic_v2_celik_iptal1.csv,0,,"yafic_v2 1. deneme, kullanici iptal etti (neden sorulacak); alarm yok",-,-
+../../loglar/baskilar/2810_1211_petg_yafic_v2_celik_iptal2.csv,0,,"yafic_v2 2. deneme, kullanici iptal etti (neden sorulacak); alarm yok",-,-
+../../loglar/baskilar/2810_1214_petg_yafic_v2_celik_iptal3.csv,0,,"yafic_v2 3. deneme, kullanici iptal etti (neden sorulacak); alarm yok",-,-
+../../loglar/baskilar/2810_1224_petg_yafic_v2_celik.csv,0,,"yafic_v2 TAMAMLANDI (2.5 sa); alarm yok; plan 150.7 dk, gercek 150.0 dk",-,-
+../../loglar/baskilar/2810_1502_petg_postcard_celik_iptal.csv,0,,"postcard+stamp 1. deneme, kullanici iptal etti (neden sorulacak); alarm yok",-,-

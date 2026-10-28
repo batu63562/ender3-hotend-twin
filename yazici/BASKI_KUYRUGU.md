@@ -67,14 +67,14 @@ v0.4 test kullanıcılarına kalır (K42).
 
 ## Şimdiki sıra (28.10, çelik 0.4 nozzle)
 
-Duraklatma GÖLGE modda (K78): ikiz alarm verir ama baskıyı durdurmaz → baskıya sen göz kulak ol, kusuru saatiyle not et.
+Duraklatma 28.10'dan yeniden AKTİF (K84; servis bir sonraki boşta yeniden başlatılınca): GUC_AZALDI 150 s sürerse ikiz
+duraklatır. Duraklatırsa iptal etme; nedenine bak, saati not et.
 
-1. **Normal PETG baskılar** — ne istersen. K74 için çelik kalibrasyonundan sonra toplam ≥ 4 baskı saati (28.10: 1.39 saat,
-   ~2.6 saat daha); aynı saatler K63 sayacına da gider. Uzun bir baskı (A5, > 2 sa) burada iki işi birden görür.
+1. ~~Normal PETG baskılar, K74 için ≥ 4 saat~~ (28.10 BİTTİ: 6.03 saat, B geçmedi, A kalır, K84). Normal baskılar
+   K63 sayacına gitmeye devam eder.
 2. **deney17** (`yazici/deney17_uc_kalintisi.gcode`, ~38 dk) — normal bir baskının HEMEN ardından: filament takılı, nozzle
    TEMİZLENMEDEN, < 40 °C. İki PAUSE'da ucu sıcakken temizle, ne çıktığını not et, RESUME. Yedek gerekmez (K79).
-3. **4 saat dolunca** Claude `benchmark/k74_check.py`'yi çalıştırır → A mı B mi; B kazanırsa onayla Pi'ye, sonra gölgeden
-   aktife dönüş (`config.toml`'daki `pause_mode` satırı silinir, servis yeniden başlar).
+3. ~~4 saat dolunca K74~~ (28.10 BİTTİ: A kalır; `pause_mode` satırı silindi, K84).
 4. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan
    mı"), bir TPU baskı (A7), K63 değerlendirmesi (23.10'dan ≥ 20 PETG saati, sonuçlar dönem dönem de).
 

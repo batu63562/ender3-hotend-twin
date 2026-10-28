@@ -1677,3 +1677,21 @@ Asıl soru "bakım mı parça mı" değil, "tek k yetiyor mu, kalibrasyon mu ger
   saati) değişmez ("eski dönemi niye çöpe atalım"). Birkaç gün baskıdan sonra duruma göre değerlendirilir. Değerlendirmede
   ölçüt değil, ek rapor: sonuçlar dönem dönem de verilir (23–27.10 pirinç, kısmen tıkalı; 27.10+ çelik, `hardware_log.csv`),
   karışımın sonucu nasıl etkilediği görünür olsun.
+
+## K84 — K74 sonucu: A kalır (çelik kalibrasyonu B kabul edilmedi); duraklatma yeniden AKTİF (2026-10-28, SINAMA, MODEL DEĞİŞMEDİ)
+`py benchmark/k74_check.py` (K82 aracı, kural değişmeden), 13 log, **6.03 baskı saati** (27.10 ısı kulesi + 3 denemesi,
+28.10 Benchy'ler, yafic_v2 2.5 sa, iptal denemeleri; K74 ≥ 4 saat). Zincir k = 1'den, RMSE °C A → B:
+ısınma 18.35 → 20.83, varış 19.66 → 23.61, 245 tutma 5.98 → 4.14, fanlı tutma 7.39 → 7.81, diğer tutma 3.81 → 2.92,
+soğuma 7.82 → 4.33, geçiş 5.72 → 3.23, **TÜMÜ 7.94 → 8.31**. Etiket dışı GUC 7 → 3. Yavaş arıza: fanlı 3 W / 10 dk
+A 2/4, **B 0/4**; fanlı 4 W / 30 dk 3/3 → 2/3; ortada aynı (2/3, 2/2).
+- **Ölçütler:** 1 ✗, 2 ✗, 3 ✓, 4 ✗ → **A kalır**, Pi'ye bir şey gitmez. K66'nın pirinç kuru koşusuyla (K82 a) aynı
+  yön: kalibrasyon tutma/soğuma/yanlış GUC'u iyileştiriyor, ısınma/varışı bozuyor ve fan açıkken yavaş arızayı yutuyor.
+- Mutlak sayılar büyük (ısınma 18 °C) çünkü zincirde iki Pi kesintisi (28.10 10:43, 10:47; ikiz sıcak hotend'e
+  "sıfırdan" başladı) ve kısa iptal denemeleri var; ikisi de iki model için aynı.
+- **Duraklatma (kullanıcı kararı, 28.10):** K78'in gölge modu "K74 karar verene kadar"dı → Pi `config.toml`'dan
+  `pause_mode` satırı silindi (varsayılan aktif; yedek `durum_yedek/config_golge_20261028.toml`), servis bir sonraki
+  boşta yeniden başlatılır. Gerekçe: canlıda k 1.007 → 0.903 öğrendi (KAYIP kabulü 27.10); 28.10'da ~6 baskı saatinde
+  canlı yanlış GUC yok, tek GUC gerçek arıza (fan kapağı düştü, C, etiketli). **Risk:** yeniden oynatmada A'nın 28.10
+  Benchy'sinde yanlış GUC_AZALDI 139 s (150 s eşiğine yakın; zincir k = 1'den, canlıdakinden farklı başlangıç).
+- **Fan kapağı olayı (28.10 10:20, etiket C):** Benchy ~12.5. dk, kapak düştü, fan havası doğrudan bloğa; +6…8 W,
+  16 s'de oluştu, sınıflandırıcı C (yalıtım/çevre, "cereyan") doğru; kullanıcı alarmdan 68 s sonra durdurdu.

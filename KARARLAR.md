@@ -1727,4 +1727,20 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
 - **`pause_mode`:** config `shadow`/`active`/`off` alır, Türkçe değerler geçerli kalır (eski kurulumlar, Pi'de satır
   yok = aktif). İç değer ve CSV `golge`/`aktif` kalır. `install.sh` ve sahte Moonraker artık `"shadow"` yazar;
   `config.example.toml`, `TESTING.md`, README güncellendi. Bilinmeyen değer → gölge (önceki gibi). Ayrı commit.
-- Pi'ye deploy edilmedi (baskı yokken `deploy.ps1`).
+- Pi'ye deploy edilmedi (baskı yokken `deploy.ps1`). → 28.10 18:17 deploy edildi (kullanıcı), açılış "pause mode: active",
+  k 0.924 / k_ref 0.903 devralındı.
+
+## K87 — Testçiler için standart karşılaştırma baskısı: 3DBenchy, sabit ayarlar (2026-10-28, v0.4 maddesi, KOD YOK)
+- **Neden Benchy, ısı kulesi (K73) değil:** kule bir ölçüm aracı (k_fil'i dilimleyici ayarlarına bağlamak), henüz gerçek
+  baskıda sınanmadı ve testçiden ayrı bir iş ister; karşılaştırma baskısı herkesin zaten bastığı, kusuru gözle görülen
+  bir nesne olmalı. İkisi aynı bilgiyi ölçmüyor (kule: bölüm başına k_fil; Benchy: modelin bir yazıcıdaki genel uyumu).
+- **Ayarlar = bu yazıcının 28.10 Benchy'sinin Orca ayarları** (0.2 mm, %110 çizgi, 3 duvar, %15 gyroid, hızlar 50/75/60,
+  maks. 9 mm³/s, fan ilk 3 kat kapalı sonra 25–50 % katman süresine göre, çıkıntı/köprü 70 %, PETG 245/85). Böylece
+  Ender için ayrı referans baskısı gerekmez: `2810_1049_petg_benchy_celik` referans. PLA varyantı (210/60, fan 100 %)
+  yazıldı ama bu yazıcıda PLA referansı yok: PLA'da karşılaştırma modelin uyumu üzerinden, mutlak watt değil.
+- **Karşılaştırılan (testçinin logundan, mevcut sütunlarla, yeni araç yok):** baskı sırasında eksik güç medyanı ve
+  %5–95 bandı (Ender: +0.05 W, −0.51…+0.59, %97 değerlendirildi), k_fil'in oturduğu yer (1.33 → 1.49), alarm sayısı (0),
+  plan ↔ gerçek süre (73.7 / 73.6 dk). Karşıt örnek: 27.10 çelik ilk Benchy (k pirinçten kalma) bant +0.37…+5.11 W →
+  bant, kalibrasyon/öğrenme yerine oturmamışsa açıkça görünür.
+- **İki kez:** kalibrasyondan sonraki ilk baskı ve testin sonu (kayma). STL dağıtılmıyor (lisans: resmi siteden indirilir).
+- Gerekirse sonra küçük bir özet aracı; şimdilik veri gelince elle.

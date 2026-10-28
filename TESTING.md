@@ -97,7 +97,38 @@ sudo systemctl start ender3-twin
 
 The start-up lines in `journalctl -u ender3-twin -f` should show `calibration.json` among the printer numbers.
 
-## 6. Print normally
+## 6. The comparison print (twice)
+
+To compare printers on the same object, please print a **3DBenchy** (download the STL from the official site,
+[3dbenchy.com](https://www.3dbenchy.com/)) as your **first print after the calibration**, and once more near the end
+of the test. The second one shows whether anything drifted over the weeks. Use these settings (names as in
+OrcaSlicer; PrusaSlicer and Cura have the same settings under similar names):
+
+| Setting | Value |
+|---|---|
+| Nozzle / layer height / first layer | 0.4 mm / 0.20 mm / 0.24 mm |
+| Line width | 110 % of the nozzle (0.44 mm), outer wall too |
+| Walls / top / bottom layers | 3 / 4 / 3 |
+| Infill | 15 % gyroid |
+| Speeds (mm/s) | outer wall 50, inner wall 75, sparse infill 75, solid infill 60, top surface 50, bridges 30, travel 300 |
+| Max volumetric speed | 9 mm³/s (lower it if your hotend cannot melt that much) |
+| Brim / supports | outer brim / none |
+| Part fan | off for the first 3 layers, then 25–50 % by layer time, 70 % on overhangs and bridges |
+| Minimum layer time | 6 s |
+| Temperatures | **PETG** (preferred): nozzle 245 °C, bed 85 °C. **PLA**: nozzle 210 °C, bed 60 °C, fan 100 % after layer 3 |
+
+If your slicer or printer needs something else (a different nozzle, no brim on a textured sheet), change only that and
+say so in the issue. A Benchy that fails is also data: note the time and what happened, as in step 7.
+
+What is compared (the author computes it from your log; you do not need to):
+- **Missing power while printing:** the median and the 5–95 % band, once `k` has settled. On the author's Ender 3
+  (2026-10-28, PETG, hardened-steel 0.4 nozzle): median +0.05 W, band −0.51 … +0.59 W, evaluated 97 % of the time.
+  The alarm threshold is 2.5 W, so the band shows how much margin the model leaves on your hotend.
+- **Heat into the print, `k_fil`:** where it settles (Ender 3: from the anchor 1.33 to 1.49).
+- **Alarms:** none expected on a good print.
+- **Plan vs. real duration** from the G-code plan (Ender 3: 73.7 vs 73.6 min).
+
+## 7. Print normally
 
 Print whatever you normally print, at least 24 print hours over 12 prints (the twin counts them). **Start the twin before the print starts** (it is a service,
 so it always is), so that it can plan the print from the G-code.
@@ -107,7 +138,7 @@ off, a print came loose), please note **the time** and what you saw, ideally wit
 turns a log into a labelled test case. False alarms are just as valuable: if the twin reported a fault and the print
 was fine, say so.
 
-## 7. Send the data back
+## 8. Send the data back
 
 Everything is in the twin's folder on the Pi. Please zip these:
 

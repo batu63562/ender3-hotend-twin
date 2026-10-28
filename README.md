@@ -244,6 +244,10 @@ unaffected.
   "would pause", `"kapali"` turns it off). In 70.1 print hours of replayed logs all 5 pauses were real faults
   (the first live one on 2026-10-22: TPU printed with a PETG profile built a blob on the nozzle; paused 154 s after
   the fault started); the longest labelled benign event lasted 83 s. `KAYIP` never pauses.
+  **One false pause so far, after a part change:** on 2026-10-27 the brass nozzle was replaced by a hardened-steel
+  one. The part fan cools steel ~30 % less, so with the old fan coefficient the twin paused a good Benchy (190 s of
+  "missing" power) before `k` had settled. Pausing was switched to shadow until the nozzle-change test below was
+  decided, and switched back on 2026-10-28 ([K78], [K84]). After a hardware change, run in shadow for a few prints.
 - **Yellow, sub-threshold advisory (experimental, not in the live twin).** Some real defects stay below 2.5 W
   (a blob on the nozzle, a first layer not sticking, printing above the melt capacity). A pre-registered rule
   (PETG: the 60 s mean of the missing power at or above 1.0 W for 70 s and reaching 1.5 W, not in the first 90 s of
@@ -317,7 +321,8 @@ relative printing-temperature limit ([K54]) and the `k_fil` anchor restarting th
 
 Alarm performance (`python benchmark/report_v02.py`, v0.3 code; every log replayed with the live twin's code,
 alarms matched against the labelled fault windows): 153 logs, 70.1 print hours; 24 of 31 labelled faults caught,
-median delay 26 s; 5 pauses, all on real faults, no false pause; false alarms 0.137 per print hour on the test
+median delay 26 s; 5 pauses, all on real faults, no false pause in this archive (one live false pause came later,
+after the nozzle change; see *Alarms and actions*); false alarms 0.137 per print hour on the test
 set (0.114 over the whole archive). Most of the 7 misses stay below the 2.5 W threshold (a blob on the nozzle,
 an uneven first layer, a duct partly covered at low fan speed); the rest are from the TPU day ([K64]).
 
@@ -422,6 +427,13 @@ since v0.2; set `PAUSE_MODE = "golge"` in `realtime_websocket.py` to only log it
 - **Single maintenance event** behind the maintenance advice thresholds.
 - **Portability:** the structure is generic for FFF hotends; the parameters are specific to this hotend and
   must be re-fitted (a ~1 h calibration print: holds at several temperatures, fan steps, free cooling).
+- **Part changes on the same printer: learning beat recalibration in one test.** After the brass → steel nozzle
+  swap, a pre-registered test ([K74], decided in [K84]) compared the numbers in use, adapted online through `k`
+  (A), with a fresh calibration of the new nozzle (B) on 6 print hours of steel prints. B was better in holds and
+  cool-down and gave fewer false `GUC` events, but worse in heat-up and arrival, and it missed every slow 3 W fault
+  injected with the fan on (0 of 4, A 2 of 4): the re-fitted fan term absorbed it. B failed 3 of the 4 criteria, so
+  A stays. One nozzle swap on one printer; the fan-cooling change (30 %) is the part a single `k` cannot follow,
+  which is why the first prints after a swap belong in shadow mode.
 
 ---
 

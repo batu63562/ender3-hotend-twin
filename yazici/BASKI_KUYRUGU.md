@@ -80,7 +80,7 @@ duraklatır. Duraklatırsa iptal etme; nedenine bak, saati not et.
    bloğa döner) yoksa kısa katman süresinden mi? Blok 40×40 → zemin → 4 kolon → 2 → 1 kolon; fan kapalı/%50 sırayla.
    Başlat, başka bir şey yapma; LCD segmenti gösterir. Son segment (tek kolon, fansız, 5 s katman) yumuşayabilir:
    kolon eğilir ya da nozzle topak sürüklerse iptal et, saati not et. İkiz duraklatırsa Resume, saati not et.
-   Yedek gerekmez (K79). Nozzle temiz, tabla temiz, ilk katman ayarı Outer'daki gibi DEĞİL (z_offset kontrol).
+   Yedek gerekmez (K79). Nozzle ve tabla temiz; ilk katman Outer'daki gibi fazla yakın olmasın (önce z_offset'i kontrol et).
 5. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan
    mı"), bir TPU baskı (A7, isteğe bağlı), K63 değerlendirmesi (23.10'dan ≥ 20 PETG saati, sonuçlar dönem dönem de).
 

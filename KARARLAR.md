@@ -1768,3 +1768,32 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
 - **Bakılmadı:** `pi/install.sh` Pi'de çalıştırılmadı (gerçek servisin üstüne yazar), satır satır okundu: sorun yok.
   32-bit Raspberry Pi OS'ta pandas 3 tekerleği olmayabilir (kaynaktan derleme); betik bu durumda ikizi numpy/pandas'sız
   çalıştırır, yalnız plan/kategori düşer. Kapanış özeti (SIGTERM) Windows'ta sınanmadı (Pi'de her gün çalışıyor).
+
+## K89 — Outer baskısı: iki havaya baskı kaçtı; fan iptalde açık kalıyordu → `M107` (2026-11-08, YAZICI AYARI + ETİKET, MODEL DEĞİŞMEDİ)
+- **Olay:** aynı G-code (Outer, PETG, çelik 0.4) dört kez; dördü de ilk katman yakın/tıkanma → filaman kesildi, havaya
+  baskı. Etiketler `etiketler.csv`'de (`0611_1815`…`0811_0957`, beklenen B).
+  1. 06.11 18:15, **yakalandı:** fansız ilk katman (k_fil 1.0 sabit), eksik güç kademeli +1 → +3.5 W, GUC_AZALDI 18:25,
+     aktif duraklatma 18:34. Şans payı: baskı k'sı 0.965, duraklatmada öğrenilen 0.909 → +0.8 W taban eşiği geçirdi.
+  2. 06.11 18:46, **kaçtı, alarm yok:** 19:01'de filaman kesildi, 30 dk havaya baskı. İlk katman %25 fanla basıldı,
+     çünkü 1. denemenin iptali fanı açık bırakmıştı (`CANCEL_PRINT`'te de `START_GCODE`'da da `M107` yoktu, Klipper
+     baskı başında fanı sıfırlamıyor). Fan açık → k_fil öğreniyor: 1.37 → **0.80 (alt sınır)**, eksik ısının ~yarısını
+     (≈ 1.0 W) yuttu, eksik güç +1.1…1.8 W'ta kaldı.
+  3. 08.11 09:57, **alarm verdi ama duraklatmadı:** fansız ilk katmanda 10:09'da +0.5 W basamak (+1.0 → +1.5 W), 10:18'de fan
+     açılınca k_fil 1.33 → 1.14 kısmen yuttu, 10:27'de ikinci basamak +2…3 W. GUC_AZALDI 19 dk boyunca ARALIKLI (17 parça,
+     en uzun 45 s, toplam 472 s; 60 s ortalama medyanı 2.26 W): eksik güç katman deseniyle (akış 1.2 ↔ 1.8 mm/s) eşiğin
+     iki yanında salınıyor, `PAUSE_AFTER` 150 s kesintisiz koşulu hiç sağlanmadı.
+- **Ortak kök neden (fizik):** bu akışta (~1.5 mm/s, 245 °C) filamanın taşıdığı ısının TAMAMI ≈ 1.9 W × k_fil
+  (1.14–1.37) ≈ 2.2–2.6 W. Tam tıkanma bile en fazla bu kadar eksik güç üretir; eşik 2.5 W. Yani düşük akışta GUC tam
+  tıkanmaya yapısal olarak sınırda (CLAUDE.md'deki "düşük ilk katman akışında filaman ısısı eşiğin sınırında" notunun
+  baskı ortasındaki karşılığı). Eşik altında kalan kısmı k_fil öğrenmesi "yeni normal" sayıyor (16.10 hızlı k_fil
+  yutması, K55 tanımlanabilirlik sınırının gerçek baskıdaki örneği).
+- **Yapılan (model dışı):** Pi'deki `printer.cfg`'de `START_GCODE` başına ve `CANCEL_PRINT`'e `M107` (yedek
+  `printer.cfg.bak_20261108_m107`), Klipper yeniden başlatıldı, iki makroda da yüklü olduğu doğrulandı; `yazici/printer.cfg`
+  Pi'den güncellendi (nozzle 0.4 ve z_endstop −2.105 de eski kopyada kalmıştı). Her baskı yine fansız ilk katmanla
+  başlar (k_fil 1.0 sabit; PETG tutunması için de doğru). 3. olayı (08.11) bu düzeltmez.
+- **K63 kanıtı (kural dondurulmuş, sayılara dokunulmadı):** `scan_subthreshold.py --yellow` 06.11 3. denemede 19:02'de
+  sarı (31 dk, tepe 1.83 W), 08.11'de 10:29'da sarı (yeniden oynatmada) verdi. İlk gerçek eşik altı arıza örnekleri.
+- **Açık (kabul kapısı gerekir, yapılmadı):** (a) duraklatma kuralı kesintisiz süre yerine birikimli süre/oran
+  (aralıklı GUC; geriye dönük yanlış duraklatma taraması gerekir), (b) eksik gücü beklenen filaman ısısına oranlamak
+  ("filaman ısısı kayboldu" doğrudan fizik), (c) eşik altı sapma sürerken k_fil öğrenmesini dondurmak. K63
+  değerlendirmesi bitmeden hiçbiri canlıya girmez.

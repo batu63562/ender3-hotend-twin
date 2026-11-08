@@ -1797,3 +1797,20 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   (aralıklı GUC; geriye dönük yanlış duraklatma taraması gerekir), (b) eksik gücü beklenen filaman ısısına oranlamak
   ("filaman ısısı kayboldu" doğrudan fizik), (c) eşik altı sapma sürerken k_fil öğrenmesini dondurmak. K63
   değerlendirmesi bitmeden hiçbiri canlıya girmez.
+- **Ek (08.11): birikimli duraklatma geriye dönük tarandı (`benchmark/pause_rule_scan.py`), kural DEĞİŞMEDİ.**
+  Kural: son W s içinde GUC_AZALDI süresi ≥ X s (baskıda); W 300/600, X 120/150/180, mevcut kural "150 s kesintisiz".
+  İki kaynak: tüm arşivin bugünkü kodla yeniden oynatılması (yerel + Pi, 142.8 baskı saati, 39 etiketli arıza) ve
+  bugünkü model sürümüyle kaydedilmiş logların canlı alarm kayıtları (53.2 saat, 25 arıza).
+  - X = 150: yeniden oynatmada yeni yakalanan yok (06.11 1. deneme iki kuralda da 18:34'te; etiket sonuna denk geliyor).
+    Canlı kayıtta tek kazanç 08.11 (W 600: 10:36:30, W 300: 10:42:30; arıza 10:27'de, iptal 10:46). Bedeli bir olası yanlış
+    duraklatma: `2710_1457_petg_benchy_celik_4` (K78 koşulu; yeniden oynatmada mevcut kural da orada yanlış duraklatıyor).
+    W 300 ile 600 arasında 08.11'in zamanı dışında fark yok.
+  - X = 120: 4–5 arıza daha yakalanıyor (2509 topak, 2710 ısı kulesi akış 6, 2210 TPU topak, 2610 benchy) ama iki yanlış
+    duraklatma (`2710_1421_benchy_celik_1`, `_4`). X = 180: 2610 benchy kaçıyor.
+  - **08.11 kazancı k farkına dayanıyor:** yeniden oynatmada (k_ref = k, K75 geri alması yok, k 0.89) 08.11'de HİÇ GUC
+    yok. Canlıdaki aralıklı alarmın bir kısmı baskı başında k'nin 0.99'a geri alınmasından geliyordu (06.11 1. denemede
+    de k 0.965). Yani kural şekli darboğaz değil; 39 arızanın 30'undan fazlası hiçbir kuralda duraklatmıyor, çünkü sinyal
+    eşiğe hiç yaklaşmıyor ya da kısa kalıyor.
+  - **Sonuç:** duraklatma kuralına dokunulmadı (bir kazanç, bir yanlış duraklatma riski; kazanç da şansa bağlı). Asıl
+    kaldıraç sinyalin kendisi: (b) eksik gücü filaman ısısına oranlamak ya da (c) eşik altında k_fil'i dondurmak, ikisi de
+    kabul kapısından geçmeli. Tarama aracı, kural yeniden ele alınırsa diye `benchmark/`'ta.

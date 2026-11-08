@@ -1872,7 +1872,8 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
     biriken plastik fanın ucu soğutmasını perdeliyor. Kaynak benim G-code'um: kolonlar arası travel'da GERİ ÇEKME
     YOK (`ariza_deneyleri` hareketleri ekstrüzyonsuz deneyler için yazıldı) → kullanıcı genel ipliklenme ve en uzun
     kolonda topak gördü. Topak C1 fanlı değerini şişirmiş olabilir; fansız C1 farkı (+0.9) ve gecikmeli basamaklar
-    bundan bağımsız.
+    bundan bağımsız. Baskı sonunda nozzle'da yalnız hafif iplikler vardı (büyük topak yok, kullanıcı): ucu perdeleyen
+    plastik küçük, fanlı tekrar farkının (0.9 W) tamamını açıklaması zor → fanlı tekrarlanabilirlik AÇIK.
   - **Sonuç:** eksik güçte katman süresine bağlı ~+1 W'lık fiziksel bir terim var (≲ 10 s katmanlarda). Oran kuralı
     (Ek 2) bunu bilmeden GİRMEZ. Seçenekler: kısa katman bölgelerinde oranı susturmak (plan katman süresini biliyor) ya
     da modele katman süresi terimi (kabul kapısı; tek deney + iki Benchy veri olarak az). Şimdilik SINIRLAMA olarak not.

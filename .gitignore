@@ -39,6 +39,7 @@ yazici/*
 !yazici/printer.cfg
 !yazici/deney*.gcode
 !yazici/ariza_deneyleri.py
+!yazici/deney*.py
 !yazici/ARIZA_DENEYLERI.md
 !yazici/BASKI_KUYRUGU.md
 !yazici/calibration_print.py

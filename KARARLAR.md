@@ -1834,3 +1834,13 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   - **Sonuç:** oran bu haliyle GUC_AZALDI'ya (duraklatabilen) GİRMEZ: küçük üst katmanlı her baskıda (kule, ince parça)
     tıkanma kadar büyük sinyal üretebilir (29.09 Benchy +1.56 W > Outer tıkanmaları +1.1…1.5 W); mutlak taban da ayırmaz.
     Önce geometri etkisinin mekanizması. Analiz betikleri depoya alınmadı (scratchpad).
+- **Ek 3 (08.11): deney18 hazırlandı (`yazici/deney18_katman_boyutu.py` → `.gcode`), BASILMADI.** Ek 2'deki "(2) kısa
+  katman süresi nicel olarak zayıf" yargısı aceleydi: öğrenilmiş k_fil net bir değer, başka hataları da telafi edebilir;
+  deney13'te katman süresi 12.5 → 26 s uzayınca baskıya DAHA FAZLA ısı gitmişti (−0.6 W), işaret (2)'ye uyuyor.
+  Deney iki adayı ayırıyor, her ölçüm segmentinde aynı çizgi (0.45 × 0.2 mm), hız (25 mm/s) ve akış (planlayıcı
+  1.8–2.0 mm³/s): blok 40×40 (L, 22.9 s/katman) → 3 katman zemin → 4 kolon 16×16 (C4, 22.2 s) → 2 kolon (C2, 11.1 s)
+  → 1 kolon (C1, 5.2 s, Benchy kabini ~7 s). L ve C4 fan kapalı/%50 dönüşümlü 4'er dk (ABAB, kayma görülsün diye),
+  C2 ve C1 fan %50, sonda C1 fansız 90 s. Fan %50 = Orca profilinin üst sınırı; %60'ta çelikteki K78 fan hatası
+  büyüyor. Beklenen: (1) fan havası → fanlıda C4 > L, fansızda C4 = L, C1 ≈ C4; (2) katman süresi → C1 > C2 > C4,
+  L ≈ C4. Analiz: log z ile segmentlere kesilir, k ve k_fil donuk yeniden oynatılır (fanlı segmentlerde k_fil öğrenir,
+  fansızda 1.0: karşılaştırma ham enerji dengesiyle).

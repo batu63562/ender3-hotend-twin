@@ -1,6 +1,6 @@
 # Baskı kuyruğu
 
-Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-10-28 (çelik nozzle dönemi; sıra: aşağıda "Şimdiki sıra").
+Yazıcıyla yapılacak her şey, sırasıyla. Güncellik: 2026-11-08 (çelik nozzle dönemi; sıra: aşağıda "Şimdiki sıra").
 Bir madde bitince Claude'a söyle; işaretler, logu alır ve inceler.
 
 ## Kurallar (her seferinde)
@@ -75,7 +75,13 @@ duraklatır. Duraklatırsa iptal etme; nedenine bak, saati not et.
 2. ~~deney17~~ (28.10 BİTTİ, K85: uç kalıntısı etkisi yok, tutmalar 17.1–17.4 W) (`yazici/deney17_uc_kalintisi.gcode`, ~38 dk) — normal bir baskının HEMEN ardından: filament takılı, nozzle
    TEMİZLENMEDEN, < 40 °C. İki PAUSE'da ucu sıcakken temizle, ne çıktığını not et, RESUME. Yedek gerekmez (K79).
 3. ~~4 saat dolunca K74~~ (28.10 BİTTİ: A kalır; `pause_mode` satırı silindi, K84).
-4. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan
+4. **deney18 (08.11, K89):** `yazici/deney18_katman_boyutu.gcode`, ~54 dk baskı + ~6 dk ısınma, PETG, çelik 0.4.
+   Soru: Benchy'nin en küçük katmanlarındaki ~+1 W eksik güç fan havasından mı (büyük katmanda hava baskıya çarpıp
+   bloğa döner) yoksa kısa katman süresinden mi? Blok 40×40 → zemin → 4 kolon → 2 → 1 kolon; fan kapalı/%50 sırayla.
+   Başlat, başka bir şey yapma; LCD segmenti gösterir. Son segment (tek kolon, fansız, 5 s katman) yumuşayabilir:
+   kolon eğilir ya da nozzle topak sürüklerse iptal et, saati not et. İkiz duraklatırsa Resume, saati not et.
+   Yedek gerekmez (K79). Nozzle temiz, tabla temiz, ilk katman ayarı Outer'daki gibi DEĞİL (z_offset kontrol).
+5. **Sonra, acelesiz:** ikinci ısı kulesi (yeni sürüm: 2 mm geri çekme + prime/silme; tekrarlanabilirlik ve "temas mı fan
    mı"), bir TPU baskı (A7, isteğe bağlı), K63 değerlendirmesi (23.10'dan ≥ 20 PETG saati, sonuçlar dönem dönem de).
 
 Bitti (27.10): nozzle değişimi, deney16 (fan hafızası çelikte yok), kalibrasyon baskısı, ısı kulesi (K78).

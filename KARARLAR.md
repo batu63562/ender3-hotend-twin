@@ -1844,3 +1844,38 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   büyüyor. Beklenen: (1) fan havası → fanlıda C4 > L, fansızda C4 = L, C1 ≈ C4; (2) katman süresi → C1 > C2 > C4,
   L ≈ C4. Analiz: log z ile segmentlere kesilir, k ve k_fil donuk yeniden oynatılır (fanlı segmentlerde k_fil öğrenir,
   fansızda 1.0: karşılaştırma ham enerji dengesiyle).
+- **Ek 4 (08.11): deney18 basıldı → fan havası ÇÜRÜDÜ, kısa katman süresi DESTEKLENDİ; MODEL DEĞİŞMEDİ.** Log
+  `loglar/deneyler/deney18_katman_boyutu.csv` (14:07–15:02, alarm yok, K79 k'yı geri aldı). k 0.894 ve k_fil 1.33 donuk
+  yeniden oynatma (`_kalman` kapalı; canlı loglanan eksik güç ±0.1–0.4 W içinde aynı), her segmentin ilk 2 katmanı atıldı.
+  Eksik güç (W) segment ortalaması / segment sonu:
+
+  | Segment | Fan | Katman | Eksik güç | Not |
+  |---|---|---|---|---|
+  | L1 / L3 (blok) | kapalı | 22.7 s | +0.05 / +0.05 | |
+  | C4_1 / C4_3 (4 kolon) | kapalı | 21.8 s | +0.09 / +0.13 | C4_3 sonu +0.2…0.28 |
+  | L2 / L4 (blok) | %50 | 22.7 s | −0.19 / +0.55 | L4 +1.0'dan +0.27'ye sönüyor |
+  | C4_2 / C4_4 (4 kolon) | %50 | 21.8 s | −0.09 / +0.75 | C4_4 +0.6 → +0.96 yükseliyor |
+  | C2 | %50 | 10.9 s | +1.17 | başlangıçtan ~45 s sonra +0.8 → +1.2 basamak |
+  | C1 | %50 | 5.1 s | +1.57 | ~1 dk'da +1.26 → +1.6 |
+  | C1 fansız | kapalı | 5.1 s | +1.06 | fan kapanınca 0.85'e iner, sonra 1.15'e çıkar |
+
+  - **(1) fan havası / geometri çürüdü:** aynı katman süresinde blok ile 4 kolon eşit: fansız +0.05 ↔ +0.11, fanlı
+    +0.18 ↔ +0.33 (fark ≤ 0.15 W, fanlı tekrarlar arası yayılmanın çok altında).
+  - **(2) kısa katman süresi destekleniyor:** fansız 5 s katman, fansız 22 s katmandan +0.9…1.0 W (fan gerekmiyor);
+    fanlıda C1 > C2 > C4 sırası. Basamaklar segment geçişinden 45–60 s SONRA geliyor (katman süresi değişince
+    kolon birkaç katmanda ısınıyor) → rastgele topak değil, baskının ısıl geçmişi. Benchy kabini (~7 s, +1.1…1.6 W)
+    C2–C1 arasına düşüyor: K89 Ek 2'deki yanlış oran alarmlarının kaynağı bu.
+  - İnce mekanizma ayrılamıyor: sıcak kolona iletim azalması mı, sıcak kolonun bloğu çevreleyen havayı ısıtması mı
+    (fansız C1'de eksik güç ≈ filaman ısısının tamamı, 1.06 / 0.97 W: yalnız iletimle açıklamak zor). İkisi de katman
+    süresinin fonksiyonu ve G-code planından önceden bilinir.
+  - **Zayıf nokta:** fanlı tekrarlar 0.75–0.9 W farklı (L2/L4, C4_2/C4_4; fansızlar ±0.05 tutarlı). Aday: nozzle'da
+    biriken plastik fanın ucu soğutmasını perdeliyor. Kaynak benim G-code'um: kolonlar arası travel'da GERİ ÇEKME
+    YOK (`ariza_deneyleri` hareketleri ekstrüzyonsuz deneyler için yazıldı) → kullanıcı genel ipliklenme ve en uzun
+    kolonda topak gördü. Topak C1 fanlı değerini şişirmiş olabilir; fansız C1 farkı (+0.9) ve gecikmeli basamaklar
+    bundan bağımsız.
+  - **Sonuç:** eksik güçte katman süresine bağlı ~+1 W'lık fiziksel bir terim var (≲ 10 s katmanlarda). Oran kuralı
+    (Ek 2) bunu bilmeden GİRMEZ. Seçenekler: kısa katman bölgelerinde oranı susturmak (plan katman süresini biliyor) ya
+    da modele katman süresi terimi (kabul kapısı; tek deney + iki Benchy veri olarak az). Şimdilik SINIRLAMA olarak not.
+  - İlk deneme (13:52, tabla tutmadı, iptal 14:00): GUC_AZALDI 13:59:54–14:00:12 (19 s), ilk ekstrüzyondan 20 s sonra,
+    150 → 245 ısınmanın hemen ardından = ilk katman başı geçici rejimi (K37), tutunmama değil (filaman akıyordu).
+    Etiket `-`; < 150 s, duraklatma yok.

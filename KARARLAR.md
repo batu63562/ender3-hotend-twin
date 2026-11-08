@@ -1814,3 +1814,23 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   - **Sonuç:** duraklatma kuralına dokunulmadı (bir kazanç, bir yanlış duraklatma riski; kazanç da şansa bağlı). Asıl
     kaldıraç sinyalin kendisi: (b) eksik gücü filaman ısısına oranlamak ya da (c) eşik altında k_fil'i dondurmak, ikisi de
     kabul kapısından geçmeli. Tarama aracı, kural yeniden ele alınırsa diye `benchmark/`'ta.
+- **Ek 2 (08.11): filaman ısısına oran tarandı, Benchy yanlışları incelendi; MODEL DEĞİŞMEDİ.** Oran r = eksik güç (60 s)
+  / beklenen filaman ısısı k_fil·K_FIL·akış·(T1−T_amb) (60 s, ≥ 0.8 W). Ayar + atanmamış loglar (89 baskı saati, 25 arıza,
+  sınava bakılmadı): r ≥ 0.6 / 120 s 8/25 yakalıyor, GUC'un kaçırdığı 4'ü dahil (06.11 Outer 3 19:05'te, 08.11 Outer 4,
+  22.10 TPU kulesi, 21.10 ilk katman); GUC'ta olmayan ~5 yanlış (~0.06/saat). Çapaya göre oran (k_fil 1.33 sabit) daha
+  kötü (19 yanlış): k_fil 1.0–1.6 arasında meşru geziniyor. Oran k_fil yutmasına kendiliğinden dirençli (payda da küçülür).
+  - Yanlışların kaynağı oran değil, eksik güçteki filaman DIŞI ~1 W'lık hatalar; düşük akışta küçük paydaya bölününce
+    büyüyorlar: ilk katman başı (31.10 yafic, 17.10 TPU küp; K37), K78 çelik fan katsayısı (27.10 ısı kulesi), iki Benchy.
+  - **Benchy: köprü hipotezi ÇÜRÜDÜ.** Aynı z bandı iki ayrı baskıda (29.09 z 28–33.6, 21.10 z 27.6–32.1). G-code
+    (0.3 mm, 21.10'un birebir dosyası; Orca `;TYPE:`): bu aralıkta köprü %0, çıkıntı ≤ %6; köprüler z 0.6, 3, 5.7, 7.5,
+    14.1 ve 36.9–39 (çatı). Bu bant modelin EN KÜÇÜK katmanları (kabin pencereleri, katman başına 13–16 mm filaman, en
+    kısa katman süresi). Fan iki logda da sabit (%59/%60). 29.09'da eksik güç taban ~+0.3 → z 28–32'de +1.4…1.6 W, sonra
+    geri iniyor (gerçek artış, payda 1.2–1.4 W → r 0.87–1.09); 21.10'da z 18'den 30'a katmanlar küçüldükçe +0.2 → +0.86 W,
+    r'yi asıl büyüten paydanın 2.0'dan 1.1 W'a düşmesi. Yani küçük katmanlar hem payı büyütüyor hem paydayı küçültüyor.
+  - Mekanizma açık (iki aday): (1) fan havası büyük katmanlardan bloğa geri çarpıyor (çarpan jet, durma noktası ısı
+    transferi), küçük kabinde hava geçip gidiyor → blok daha az soğur; (2) kısa katman süresi → alttaki katman sıcak →
+    baskıya iletim azalır. (2) 29.09 için nicel olarak zayıf: k_fil 1.04, temas terimi ~0.05 W, +1.1 W'ı açıklayamaz.
+    Ayırmak için deney: aynı küçük geometri fanlı/fansız (aday 1 fansızda kaybolur).
+  - **Sonuç:** oran bu haliyle GUC_AZALDI'ya (duraklatabilen) GİRMEZ: küçük üst katmanlı her baskıda (kule, ince parça)
+    tıkanma kadar büyük sinyal üretebilir (29.09 Benchy +1.56 W > Outer tıkanmaları +1.1…1.5 W); mutlak taban da ayırmaz.
+    Önce geometri etkisinin mekanizması. Analiz betikleri depoya alınmadı (scratchpad).

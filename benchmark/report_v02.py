@@ -5,8 +5,9 @@ the confirmed missing-power alarms (GUC_*). Each alarm is matched against the fa
 (benchmark/ariza_ornekleri/etiketler.csv):
   true    overlaps a labelled fault (beklenen != "-")
   false   overlaps a "no fault" label (beklenen == "-") or no label at all (listed, to be checked by hand)
-A pause is what the live twin would request: GUC_AZALDI lasting PAUSE_AFTER s while printing (logs recorded before
-print_state was logged count as printing). Logs, sets (benchmark/setler.csv) and labels are matched by the first
+A pause is what the live twin's code requests in the replay (its `duraklat` output: GUC_AZALDI on PAUSE_AFTER s
+within PAUSE_WINDOW s while printing [K90]; logs recorded before print_state was logged count as printing); a pause
+belongs to the GUC_AZALDI event it falls in. Logs, sets (benchmark/setler.csv) and labels are matched by the first
 timestamp of the log, so a copy under another name is the same session. Analysis only: touches neither the model
 nor the alarms. KARARLAR [K28] is the first, hand-made version of this report.
 
@@ -92,15 +93,26 @@ def replay_log(path, m):
     if len(df) < 200 or df.T1_real.dtype == object:     # short, or the corrupted 2809 string log
         return None
     k0, kf0, r0 = ev.live_start(df)
-    events = []
-    ev.replay(df, m, events, k0=k0, kfil0=kf0, k_ref0=r0)
+    events, pauses = [], []
+    on_message = m.Twin.on_message
+
+    def record(self, now, *a, **kw):            # the twin's own pause decision (out["duraklat"]), not a copy of it
+        out = on_message(self, now, *a, **kw)
+        if out["duraklat"]:
+            pauses.append(now)
+        return out
+    m.Twin.on_message = record
+    try:
+        ev.replay(df, m, events, k0=k0, kfil0=kf0, k_ref0=r0)
+    finally:
+        m.Twin.on_message = on_message
     t = df.t.values
     tm = ev.mono_time(t)
     dt = np.r_[0.0, np.diff(tm)]
     has_ps = "print_state" in df and df.print_state.notna().any()
     printing = (df.print_state.fillna("").astype(str).values == "printing") if has_ps else np.zeros(len(df), bool)
     return dict(t0=t[0], t_end=t[-1], hours=tm[-1] / 3600 - tm[0] / 3600, print_h=dt[printing].sum() / 3600,
-                has_ps=has_ps, t=t, printing=printing, events=events)
+                has_ps=has_ps, t=t, printing=printing, events=events, pauses=pauses)
 
 
 def main():
@@ -137,15 +149,13 @@ def main():
                 kind = "false (labelled no fault)"
             else:
                 kind = "false? (unlabelled)"
-            # live rule: pause PAUSE_AFTER s after the start of a GUC_AZALDI that is still active, while printing
-            t_pause = t0 + m.PAUSE_AFTER
-            i_pause = min(np.searchsorted(r["t"], t_pause), len(r["t"]) - 1)
-            pause = (code == "GUC_AZALDI" and end - t0 >= m.PAUSE_AFTER
-                     and (not r["has_ps"] or r["printing"][i_pause]))
+            # the live twin's pause request during this event (cumulative rule, PAUSE_WINDOW [K90])
+            t_pause = next((tp for tp in r["pauses"] if t0 <= tp <= end), None) if code == "GUC_AZALDI" else None
+            pause = t_pause is not None
             hit_i = np.flatnonzero(r["t"] == t0)       # event time is a message time (right row if the clock went back)
             i0 = hit_i[0] if len(hit_i) else min(np.searchsorted(r["t"], t0), len(tm) - 1)
             alarms.append(dict(log=name, set=s["set"], code=code, start_s=tm[i0] - tm[0], dur_s=end - t0,
-                               kind=kind, pause=pause, t_abs=t0))
+                               kind=kind, pause=pause, t_abs=t0, t_pause=t_pause))
         for f in fault_iv:
             if f[2] == "-":
                 continue
@@ -155,7 +165,7 @@ def main():
             p = [e for e in mine if e["pause"]]
             faults.append(dict(log=name, set=f[4], observed=f[3][:40], expected=f[2],
                                alarm_delay_s=(first["t_abs"] + confirm - f[0]) if first else np.nan,
-                               pause_delay_s=(min(e["t_abs"] for e in p) + m.PAUSE_AFTER - f[0]) if p else np.nan))
+                               pause_delay_s=(min(e["t_pause"] for e in p) - f[0]) if p else np.nan))
         print(f"ok {name}", file=sys.stderr, flush=True)
 
     L, A, F = pd.DataFrame(logs), pd.DataFrame(alarms), pd.DataFrame(faults)
@@ -179,7 +189,7 @@ def main():
     print(pd.DataFrame(rows).round(3).to_string(index=False))
     print("  false_per_print_h counts only false alarms in logs that have print_state (print hours are known).")
 
-    print("\nLABELLED FAULTS (delay from the label start; alarm = start + ENERGY_CONFIRM, pause = start + PAUSE_AFTER)")
+    print("\nLABELLED FAULTS (delay from the label start; alarm = start + ENERGY_CONFIRM, pause = the twin's request)")
     print(F.round(0).to_string(index=False) if len(F) else "  none")
     if len(F):
         print(f"  caught {int(F.alarm_delay_s.notna().sum())}/{len(F)}, paused {int(F.pause_delay_s.notna().sum())}/"
@@ -187,12 +197,12 @@ def main():
 
     show = A if a.list else false
     print(f"\n{'ALL ALARMS' if a.list else 'FALSE AND UNLABELLED ALARMS'} (check the unlabelled ones by hand)")
-    print(show.drop(columns="t_abs").round(0).to_string(index=False) if len(show) else "  none")
+    print(show.drop(columns=["t_abs", "t_pause"]).round(0).to_string(index=False) if len(show) else "  none")
     if len(A):
         az = A[A.code == "GUC_AZALDI"].dur_s
         print(f"\nGUC_AZALDI events {len(az)}: duration median {az.median():.0f} s, 90 % {az.quantile(.9):.0f} s, "
               f"95 % {az.quantile(.95):.0f} s; longest false {false.dur_s.max() if len(false) else 0:.0f} s "
-              f"(pause after {m.PAUSE_AFTER:.0f} s)")
+              f"(pause after {m.PAUSE_AFTER:.0f} s on within {m.PAUSE_WINDOW:.0f} s)")
 
 
 if __name__ == "__main__":

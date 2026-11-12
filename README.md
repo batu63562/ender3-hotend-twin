@@ -239,7 +239,7 @@ unaffected.
   advice (low `k`: check heat-break thermal paste, dried plastic around the heatsink, i.e. heat-creep risk).
   Replayed on past data it would have advised maintenance two days before the real one, with no false advice.
   This mirrors aircraft-engine trend monitoring: a moving reference for events, a fixed one for wear.
-- **Pause.** If `GUC_AZALDI` lasts 150 s continuously during printing, the twin sends
+- **Pause.** If `GUC_AZALDI` has been on for 150 s in total within the last 10 minutes of printing, the twin sends
   `POST /printer/print/pause` to Moonraker (`pause_mode = "active"` in `config.toml`, the default since v0.2;
   `"shadow"` only logs "would pause", `"off"` turns it off; the CSV column `duraklat` keeps the Turkish values
   `aktif` / `golge`). In 70.1 print hours of replayed logs all 5 pauses were real faults
@@ -249,6 +249,11 @@ unaffected.
   one. The part fan cools steel ~30 % less, so with the old fan coefficient the twin paused a good Benchy (190 s of
   "missing" power) before `k` had settled. Pausing was switched to shadow until the nozzle-change test below was
   decided, and switched back on 2026-10-28 ([K78], [K84]). After a hardware change, run in shadow for a few prints.
+  **Cumulative since 2026-11-11 ([K90]):** until then the 150 s had to be uninterrupted. A clog at low flow, or a
+  print into air, keeps the missing power close to the 2.5 W threshold, so the alarm toggles on and off with the layer
+  pattern and never lasted 150 s in one piece (one print missed the pause by 13 s). Counted within a 10-minute window,
+  the live alarm logs (64.6 print hours, 31 labelled faults) pause 6 faults instead of 2 with one false pause, which
+  the old rule also gives in replay (the steel-nozzle Benchy above).
 - **Yellow, sub-threshold advisory (experimental, not in the live twin).** Some real defects stay below 2.5 W
   (a blob on the nozzle, a first layer not sticking, printing above the melt capacity). A pre-registered rule
   (PETG: the 60 s mean of the missing power at or above 1.0 W for 70 s and reaching 1.5 W, not in the first 90 s of

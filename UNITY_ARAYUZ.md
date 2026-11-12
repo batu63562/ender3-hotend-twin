@@ -55,8 +55,8 @@ Kayıt sütunları (Unity okumuyor, 2026-10-14'ten itibaren): `z_offset` = Klipp
 ihtiyacının baskıdan baskıya oynamasını ezmeyle ilişkilendirmek için.
 
 2026-10-16'dan itibaren: `malzeme` = baskının malzemesi (G-code başlığındaki `filament_type`, ikiz baskı başında
-okur; boş = bilinmiyor) → Unity Print kartında. `duraklat` = `GUC_AZALDI` `PAUSE_AFTER` (17.10'dan beri 150 s) kesintisiz sürdü ve baskı
-yazdırılıyordu (`golge`: yalnız kayıt, baskı duraklatılmadı; `aktif`: Moonraker'a pause gönderildi); olay başına tek
+okur; boş = bilinmiyor) → Unity Print kartında. `duraklat` = `GUC_AZALDI` son `PAUSE_WINDOW` (600 s) içinde toplam `PAUSE_AFTER`
+(150 s) açık kaldı ve baskı yazdırılıyordu (11.11'e kadar 150 s kesintisiz, K90) (`golge`: yalnız kayıt, baskı duraklatılmadı; `aktif`: Moonraker'a pause gönderildi); olay başına tek
 satır dolu. Unity `duraklat`'ı henüz okumuyor: gölge moddan aktife geçilince eklenecek (kullanıcı kararı, 16.10).
 Resmi alarm aralıkları (`anomali`) Unity'de zaman çubuğunda kırmızı şerit; N / P ile alarmdan alarma atlanır.
 

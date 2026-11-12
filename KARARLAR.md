@@ -1880,3 +1880,82 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   - İlk deneme (13:52, tabla tutmadı, iptal 14:00): GUC_AZALDI 13:59:54–14:00:12 (19 s), ilk ekstrüzyondan 20 s sonra,
     150 → 245 ısınmanın hemen ardından = ilk katman başı geçici rejimi (K37), tutunmama değil (filaman akıyordu).
     Etiket `-`; < 150 s, duraklatma yok.
+
+## K90 — Case baskısı iki kez havaya bastı; "k_fil tabanı" adayı REDDEDİLDİ (2026-11-11, ANALİZ, MODEL DEĞİŞMEDİ)
+- **Olay:** aynı G-code (`Case_0.2mm_PETG..._2h9m`, PETG, çelik 0.4) iki kez; kullanıcı: kök neden z offset hatası,
+  tıkanma → havaya baskı. İkisinde de duraklatma yok. Loglar Pi'de `realtime_log_ws_onceki_20261111_1859.csv`
+  (1. baskı, 17:50, iptal 18:56) ve 19:00'da başlayan baskının logu (2. baskı, 20:47'de hâlâ havaya basıyordu).
+  1. **1. baskı, yavaş:** z ≈ 0.44–0.64'te (18:14, fansız) eksik güç +1.8…2.2 W; akış 0.9 → 1.6 mm/s artarken pwm
+     0.46 → 0.40 DÜŞTÜ (filaman akmıyor). Fansız bölümde tek serbest öğrenici k: 0.893 → **0.85 (K_LOSS_MIN)**, fan
+     açılınca k_fil 1.33 → 0.83. GUC hiç yok (yalnız iptalden sonra 9 s).
+  2. **2. baskı, ani:** 19:48'de (z 1.45, fan %70'e çıkınca) +2.6…2.9 W basamak, GUC_AZALDI 137 s + 42 s + 83 s (arada
+     17 s ve 13 s boşluk; 4 dk'da 262 s) → 150 s kesintisiz koşulu 13 s farkla sağlanmadı. Alarm bitince k_fil 25 dk'da
+     1.34 → **0.80 (K_FIL_MIN)**, k 0.85'te; kalan eksik güç 1.0…1.4 W. Akış 1.15 → 2.0 mm/s iken pwm 0.477 → 0.473.
+  K63 sarı ikisini de başlangıcında yakaladı (19:48, 996 s, tepe 2.65 W; 18:16, 764 s, 2.24 W).
+- **Aday 1, K_FIL_MIN 0.8 → 1.0 (model değişikliği, fiziksel taban):** 5 gerçek havaya baskıda (Outer 1/3/4, Case 1/2)
+  canlı başlangıçla yeniden oynatma, GUC olayları ve duraklatmalar birebir AYNI. Taban eksik güce ≈ 0.3–0.4 W ekliyor,
+  2.5 W'a yetmiyor (K55'teki 9/20 ↔ 8/20 sonucunun gerçek baskıdaki karşılığı). Reddedildi.
+- **Aday 2, gösterge "fanlı baskıda k_fil < 1.0" (model dışı):** 120 baskı logu (74 fanlı baskı saati, 06–11.11 Pi
+  logları dahil) bugünkü kodla yeniden oynatıldı. k_fil, eksik gücün Kalman ile birikmiş hâli; sarı kuralın baktığı
+  sinyalin gecikmiş kopyası (sadelik kuralı: aynı bilgiyi ikinci yoldan hesaplama). Yakalama anı (sarı / k_fil):
+  Case 2 19:48 / 20:00, Case 1 18:16 / 18:51, Outer 3 19:02 / 19:14, Outer 4 10:29 / hiç. Yanlış: sağlam TPU gyroid küp
+  (1510, etiketli sağlam) 44 dk k_fil < 1.0.
+  **Deneme serisi (kullanıcı etiketi 11.11):** deneme3/4'ün son iki baskısı SAĞLAM (10.11 19:53 deneme3, 11.11 11:31
+  deneme4; deneme5 12:45 de sağlam), öncekiler BOZUK ("belirli bir z'den sonra kopma", bugünküne benzer: 10.11 12:32,
+  13:22, 14:21 iptal, 16:36). z'ye göre eksik güç: 12:32 z ≥ 20'de +1.5 → +2.4 W, 16:36 z 16–24'te +1.0…+1.6 W,
+  14:21 z 4–10'da +2.3…+2.6 W, 13:22 z ≥ 4'ten sonuna +1.2…+1.4 W; ama SAĞLAM 19:53 da baştan sona +1.1…+1.7 W ve
+  k_fil 0.80'e iniyor (13:22 bozuktan ısıl olarak ayırt edilemiyor). Katman süresi tepeye doğru 20 → 8 s (K89 Ek 4 kısa
+  katman terimi bu serinin üst kısmında da var).
+  | kural | bozuk deneme (4) | sağlam deneme (3) |
+  |---|---|---|
+  | k_fil < 1.0 | 1 (13:22) | 2 yanlış (19:53, 11:31) |
+  | K63 sarı | 3 (12:32, 14:21, 16:36) | 2 baskıda 3 yanlış olay (19:53 ×2, 11:31 ilk katman) |
+  → k_fil göstergesi sarıdan hem geç hem daha kötü ayırıyor. REDDEDİLDİ.
+- **K63 ara durum (kural dondurulmuş, sayılara dokunulmadı; resmi karar ≥ 20 PETG saatinde):** 06–11.11, 13.2 PETG
+  baskı saatinde 13 sarı olay, 10 gerçek (Case ×3 olay, Outer 1/3/4, deneme bozuk ×4 olay), 3 yanlış → 0.23 yanlış /
+  baskı saati, ön kayıtlı ölçüt ≤ 0.1'in üstünde. Kaçırılan bozuk: 13:22 deneme3.
+- **Açık:** (a) birikimli duraklatma (K89 Ek) için Case 2 ikinci gerçek örnek (4 dk'da 262 s GUC); yeniden tarama
+  gerekir. (b) Bu logların `loglar/baskilar/`'a kopyalanıp etiketlenmesi (başlangıç saniyeleri z profilinden).
+  Araçlar: scratchpad `kfil_replay.py`, `kfil_ozet.py`, `deneme_z.py`, `kmin_faults.py` (geçici).
+- **Ek (11.11): birikimli duraklatma YENİDEN tarandı (`benchmark/pause_rule_scan.py`, kural DEĞİŞMEDİ, karar
+  kullanıcıda).** Arşiv: yerel + Pi'nin 164 logu, bugünkü kodla yeniden oynatma 154.1 baskı saati / 45 etiketli arıza;
+  canlı alarm kaydı (model v4 logları) 64.6 saat / 31 arıza. Yeni etiketler GEÇİCİ dosyada (scratchpad
+  `etiketler_gecici.csv`; Case 1/2, deneme3 bozuk ×4 başlangıç z'den tahmin, deneme sağlam ×3), `etiketler.csv`'ye
+  yazılmadı.
+  | kural | yeniden oynatma: arıza / yanlış | canlı kayıt: arıza / yanlış |
+  |---|---|---|
+  | kesintisiz 150 s (bugünkü) | 5/45 / 1 (+2 belirsiz) | 2/31 / 0 |
+  | son 300 s'de ≥ 120 s | 11/45 / 2 | 9/31 / 2 |
+  | son 300 s'de ≥ 150 s | 8/45 / 1 (+1 belirsiz) | 6/31 / 1 |
+  | son 600 s'de ≥ 150 s | 8/45 / 1 (+1 belirsiz) | 6/31 / 1 |
+  | son 300/600 s'de ≥ 180 s | 6/45 / 1 | 6/31 / 1 |
+  - X = 150 kazancı (canlı): Case 2 (11.11, arızadan 168 s sonra = 19:51), Outer 4 (08.11; W 600 ile 1650 s, W 300 ile
+    2012 s), Outer 1 (06.11, 440 s; mevcut kural etiket sonunda 18:34'te), deneme3 14:21 (610 s). Kaybedilen yok.
+  - Tek yanlış: `2710_1457_petg_benchy_celik_4` (K78 dönemi, çelik nozzle'da pirinç fan katsayısı). Yeniden oynatmada
+    BUGÜNKÜ kural da orada yanlış duraklatıyor → birikimli kural yeni yanlış eklemiyor (yeniden oynatmada yanlış kümesi
+    aynı; canlıda mevcut kural 1457'yi duraklatmamıştı). X = 120 ikinci bir yanlış ekliyor (`2710_1421_benchy_celik_1`);
+    X = 180 `2610_1234 benchy`'yi kaybediyor.
+  - 08.11'deki taramaya göre fark: kazanç artık tek ve şansa bağlı bir örnek değil, dört gerçek örnek (ikisi bugünkü
+    yeniden oynatmada da). Outer 4 hâlâ yalnız canlıda (K75 k farkı).
+  - Aday: `GUC_AZALDI` son 600 s içinde toplam ≥ 150 s (baskıda) → duraklat; olay başına bir kez. Model dışı (tahmine
+    ve alarma dokunmaz), `Twin.on_message` içindeki `pause_flagged` bloğunun yerine. Sınırlama: Case 1, Outer 3,
+    deneme3 12:32/13:22/16:36 hiçbir kuralda duraklamıyor (sinyal eşiğe ulaşmıyor; darboğaz sinyal genliği, K89).
+- **Ek (11.11, UYGULANDI, kullanıcı onayı): duraklatma kuralı birikimli.** `GUC_AZALDI` son `PAUSE_WINDOW` = 600 s
+  içinde, baskıdayken toplam `PAUSE_AFTER` = 150 s açık → duraklat; bölüm başına bir kez, sonraki duraklatma için önce
+  600 s alarmsız geçmeli. Onaylanmış olay başlangıcından sayılır (onay süresi dahil, eski kuraldaki gibi); mesajlar
+  arası boşluk en çok 2 s sayılır (veri yok = alarm süresi yok). `Twin.pause_update` (eski `pause_flagged` bloğunun
+  yerine); konsol mesajı, README, UNITY_ARAYUZ güncellendi. MODEL DIŞI: tahmin, alarm, k/k_fil aynı.
+  - Doğrulama: GUC_AZALDI içeren 78 oturum yeni kodla yeniden oynatıldı; ikizin `duraklat` anları taramadaki
+    `cum600/150` ile 78/78 aynı (±2 s). Eski kurala göre değişen 4 oturum: Case 2 (`realtime_log_ws.csv` 52.7 dk = 19:51), deneme3 14:21 (`onceki_20261110_1630` 25.7 dk),
+    Outer 1 (13.3 dk, eskisi 18.6), 1457 benchy_4 (9.5 dk, eskisi 12.8; ikisi de yanlış).
+  - `benchmark/report_v02.py` artık duraklatmayı ikizin kendi `duraklat` çıktısından alıyor (kuralın ikinci kopyası
+    yok; değişirse rapor kendiliğinden izler).
+  - İzlenecek: aktif modda ilk birikimli duraklatmalar; yanlış olursa log + olay buraya, gerekirse `pause_mode = "shadow"`.
+  - Deploy 12.11 12:05 (kullanıcı, sudo): Pi `code_version` `3aa360ad` = yerel. Açılış durumu k = 0.850 (= `K_LOSS_MIN`),
+    k_ref 0.903, bakım önerisi açık ("low", fansız baskı k'sı 09–11.11: 0.877 / 0.873 / 0.842).
+  - Not (12.11, analiz): fansız baskı k'sı pirinçte ~1.00, çelikte (28.10–) 0.92 → 11.11'de 0.84; ama boşta 150 °C
+    tutma kaybı (`twin_gecmis.kayip150_pct`) çelik döneminde düz −9…−20 % (medyan ≈ −13 %), belirgin kayma yok. Baskı içi
+    düşüş büyük ölçüde arızalı baskıların (az ekstrüzyon → k'ye yutulan eksik güç) izi; bakım önerisinin referansı
+    (1.00) hâlâ pirinç → çelik değişiminden sonra elle güncellenmedi (açık, kullanıcı kararı). Risk: gerçek k 0.85'in
+    altına inerse öğrenici tabanda doyar → model fazla kayıp bekler → eksik güç + yönde → yanlış GUC_AZALDI / birikimli
+    duraklatma. Sonraki baskılarda izlenecek.

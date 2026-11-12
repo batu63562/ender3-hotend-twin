@@ -249,10 +249,15 @@ ENERGY_TEXT = {
 }
 FAULT_TEXT.update(ENERGY_TEXT)
 
-# Pause (the twin's only feedback to the printer): if GUC_AZALDI lasts PAUSE_AFTER s without interruption and the
-# print is printing. SHADOW mode only logs "would pause" (CSV duraklat, ariza_raporlari.txt); active mode sends a
-# pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19]. KAYIP_* never pauses.
-PAUSE_AFTER = 150.0       # s
+# Pause (the twin's only feedback to the printer): if GUC_AZALDI has been on for PAUSE_AFTER s in total within the
+# last PAUSE_WINDOW s of printing, and the print is printing. Cumulative, not uninterrupted: an alarm that toggles
+# around the threshold (low flow, layer pattern) still adds up [K90]. Once per episode; the next pause needs
+# PAUSE_WINDOW s without the alarm first. SHADOW mode only logs "would pause" (CSV duraklat, ariza_raporlari.txt);
+# active mode sends a pause to Moonraker. Benign events lasted <= 110 s, persistent real faults >= 246 s [K19].
+# KAYIP_* never pauses.
+PAUSE_AFTER = 150.0       # s - GUC_AZALDI on-time that requests a pause
+PAUSE_WINDOW = 600.0      # s - ... counted within this many seconds back [K90]
+PAUSE_DT_MAX = 2.0        # s - a longer gap between temperature messages counts as this much (no data = no alarm time)
 PAUSE_MODES = ("golge", "aktif", "kapali")   # shadow: log only | active: pause via Moonraker | off [K50]
 # config.toml takes the English names; the Turkish ones stay valid (older installs) and stay the internal value,
 # which the CSV column `duraklat` records (data contract) [K86]
@@ -882,7 +887,11 @@ class Twin:
         self.bed = 0.0                     # bed heater pwm (0-1); taken as off if unknown
         self.material = None               # material of the print (G-code header), logging only
         self.print_state = None            # Klipper print_stats.state of the previous message (None = unknown)
-        self.pause_flagged = False         # pause already requested for this GUC_AZALDI event (PAUSE_AFTER)
+        self.pause_flagged = False         # pause already requested in this GUC_AZALDI episode (PAUSE_AFTER)
+        self.pause_samples = deque()       # [t, dt, counted, on] per temperature message within PAUSE_WINDOW
+        self.pause_on_s = 0.0              # GUC_AZALDI on-time while printing within PAUSE_WINDOW (s)
+        self.pause_on_n = 0                # ... as a sample count (exact zero test: episode over)
+        self.pause_last_t = None           # time of the previous temperature message
         self.experiment = False            # this job's G-code is marked EXPERIMENT_MARK (set by the live loop) [K79]
         self.job_start = None              # learned state at this job's start, restored at its end if an experiment
 
@@ -927,7 +936,7 @@ class Twin:
                "k_accepted": None,   # (old reference, new k): a permanent change was accepted (see K_ACCEPT_TIME)
                "k_reverted": None,   # (k, k_ref): an idle loss shift was not carried into the print (IDLE_K_REVERT)
                "k_restored": None,   # (k, k at job start): an experiment's learning was undone at its end [K79]
-               "duraklat": False}  # GUC_AZALDI has lasted PAUSE_AFTER s without interruption (once per event)
+               "duraklat": False}  # GUC_AZALDI on PAUSE_AFTER s within PAUSE_WINDOW s (once per episode)
         # 0) new print: k_fil is a property of the print, not carried over from the previous one [K27]
         if print_state is not None:
             in_job = self.print_state in ("printing", "paused")
@@ -1061,13 +1070,43 @@ class Twin:
             if not out["resynced"]:
                 conds |= energy_conditions(out["eksik_guc"])
             out["faults_started"], out["faults_ended"] = self.faults.update(now, conds)
-            t_az = self.faults.active.get("GUC_AZALDI")
-            if t_az is None:
-                self.pause_flagged = False
-            elif not self.pause_flagged and now - t_az >= PAUSE_AFTER:
-                self.pause_flagged = out["duraklat"] = True
+            out["duraklat"] = self.pause_update(now)
         out["anomali"] = bool(self.faults.active)   # CSV 'anomali' = an official alarm is active (Unity status pill)
         return out
+
+    def pause_update(self, now):
+        """Cumulative pause rule (see PAUSE_WINDOW): True once when GUC_AZALDI on-time while printing within the last
+        PAUSE_WINDOW s reaches PAUSE_AFTER s. A confirmed event counts from its start (the confirmation time too, as
+        in the uninterrupted rule before [K90]). Unknown print state (old logs) counts as printing."""
+        dt = 0.0 if self.pause_last_t is None else min(max(now - self.pause_last_t, 0.0), PAUSE_DT_MAX)
+        self.pause_last_t = now
+        printing = self.print_state in (None, "printing")
+        t_az = self.faults.active.get("GUC_AZALDI")
+        if t_az is not None:
+            for s in reversed(self.pause_samples):    # just confirmed: the pending samples become alarm time
+                if s[0] < t_az or s[3]:
+                    break
+                s[3] = True
+                if s[2]:
+                    self.pause_on_s += s[1]
+                    self.pause_on_n += 1
+        on = t_az is not None
+        self.pause_samples.append([now, dt, printing, on])
+        if on and printing:
+            self.pause_on_s += dt
+            self.pause_on_n += 1
+        while self.pause_samples and self.pause_samples[0][0] < now - PAUSE_WINDOW:
+            t, d, counted, was_on = self.pause_samples.popleft()
+            if counted and was_on:
+                self.pause_on_s -= d
+                self.pause_on_n -= 1
+        if self.pause_on_n == 0:
+            self.pause_on_s = 0.0                     # no float drift; PAUSE_WINDOW s without alarm: episode over
+            self.pause_flagged = False
+        elif not self.pause_flagged and printing and self.pause_on_s >= PAUSE_AFTER:
+            self.pause_flagged = True
+            return True
+        return False
 
 
 LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "twin.lock")
@@ -1892,7 +1931,8 @@ async def main():
                                 except OSError:
                                     pass
                             if r["duraklat"] and PAUSE_MODE != "kapali" and pstat.get("state") == "printing":
-                                msg = (f"PAUSE: GUC_AZALDI for {PAUSE_AFTER:.0f} s without interruption "
+                                msg = (f"PAUSE: GUC_AZALDI on for {PAUSE_AFTER:.0f} s within the last "
+                                       f"{PAUSE_WINDOW / 60:.0f} min "
                                        f"(missing power {r['eksik_guc'] if r['eksik_guc'] is not None else float('nan'):+.1f} W, "
                                        f"{pstat.get('filename', '?')}) - "
                                        + ("SHADOW MODE: print not paused, logged only" if PAUSE_MODE == "golge"

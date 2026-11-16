@@ -254,6 +254,12 @@ unaffected.
   pattern and never lasted 150 s in one piece (one print missed the pause by 13 s). Counted within a 10-minute window,
   the live alarm logs (64.6 print hours, 31 labelled faults) pause 6 faults instead of 2 with one false pause, which
   the old rule also gives in replay (the steel-nozzle Benchy above).
+  **The pause is per print ([K91], 2026-11-15):** a new print starts with an empty window, so an alarm that stayed on
+  through a cancel cannot use up the next print's pause. The same day showed why both start-of-print fixes are
+  needed together: after a cancel the nozzle was cleaned by hand at 255 °C, `k` jumped and drifted back inside the
+  `KAYIP` hysteresis band 7 s before the next print, and the raised `k` was carried in. The good print then showed
+  `GUC_AZALDI` for 18 minutes; the stale pause flag happened to hide it. Now a loss alarm that started outside a print
+  reverts `k` to its last accepted level at the next print start even if it has already closed ([K75], [K91]).
 - **Yellow, sub-threshold advisory (experimental, not in the live twin).** Some real defects stay below 2.5 W
   (a blob on the nozzle, a first layer not sticking, printing above the melt capacity). A pre-registered rule
   (PETG: the 60 s mean of the missing power at or above 1.0 W for 70 s and reaching 1.5 W, not in the first 90 s of

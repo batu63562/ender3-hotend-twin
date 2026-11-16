@@ -879,7 +879,8 @@ class Twin:
         self.kst_t = 0.0                            # hot time spent in this window (s)
         self.kout_t = 0.0                           # hot time the loss alarm has been on (s)
         self.k_alarm = False                        # loss alarm state (with hysteresis, see K_ALARM_CLEAR)
-        self.k_alarm_idle = False                   # the loss alarm started outside a print job (IDLE_K_REVERT)
+        self.k_alarm_idle = False                   # a loss alarm started outside a print job since the last print
+                                                    # start, on or already off (IDLE_K_REVERT) [K91]
         self.faults = FaultMonitor(confirm_by_code={c: ENERGY_CONFIRM for c in ENERGY_TEXT})
         self.energy = EnergyMonitor()      # does not touch the twin's computation
         self.energy_error = None
@@ -942,13 +943,20 @@ class Twin:
             in_job = self.print_state in ("printing", "paused")
             if print_state == "printing" and self.print_state is not None and not in_job:
                 self.anchor_kfil()
-                if IDLE_K_REVERT and self.k_alarm and self.k_alarm_idle:
+                # an idle loss alarm reverts k even if k is back inside the hysteresis band at the start (15.11:
+                # band left 7 s before the print, k 0.935 was carried in) [K91]
+                if IDLE_K_REVERT and self.k_alarm_idle:
                     out["k_reverted"] = (self.learner.k, self.k_ref)
                     self.learner.k = self.k_ref
-                    self.k_alarm = self.k_alarm_idle = False
+                    self.k_alarm = False
                     self.kout_t = 0.0
                     self.kst_lo = self.kst_hi = self.k_ref
                     self.kst_t = 0.0
+                self.k_alarm_idle = False
+                # the pause episode is per print: a GUC_AZALDI kept on through a cancel does not use up the next
+                # print's pause [K91]
+                self.pause_samples.clear()
+                self.pause_on_s, self.pause_on_n, self.pause_flagged = 0.0, 0, False
                 self.experiment, self.job_start = False, self.learned_state()
             elif in_job and print_state not in ("printing", "paused"):
                 # job ended: an experiment's holds (fan 100 %, a dirty or cleaned tip) do not teach the hotend [K79]
@@ -1011,7 +1019,7 @@ class Twin:
                         out["k_accepted"] = (self.k_ref, k)
                         self.k_ref = k
                         self.kout_t = 0.0
-                        self.k_alarm = False
+                        self.k_alarm = self.k_alarm_idle = False
                 if self.energy is not None:
                     # on an error only the missing power switches off; the twin and monitoring continue
                     try:

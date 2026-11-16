@@ -1959,3 +1959,57 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
     (1.00) hâlâ pirinç → çelik değişiminden sonra elle güncellenmedi (açık, kullanıcı kararı). Risk: gerçek k 0.85'in
     altına inerse öğrenici tabanda doyar → model fazla kayıp bekler → eksik güç + yönde → yanlış GUC_AZALDI / birikimli
     duraklatma. Sonraki baskılarda izlenecek.
+
+## K91 — 15.11 baskı günü: iki taşınma hatası düzeltildi (duraklatma bölümü ve boştaki k kayması baskı başında) (2026-11-15, HATA DÜZELTMESİ, kullanıcı onayı)
+- **Gün (Pi logları `realtime_log_ws_onceki_20261115_1037…1929`, riff'ler hariç):** `r_pi_4_b_case` (PETG, çelik 0.4)
+  245 °C'de 13 kez başlatıldı, hepsi iptal (kullanıcı: hatalı); 255 °C'ye çıkınca 18:21 baskısı ve 19:29 `deneme5`
+  sağlam. İkiz 09:53, 11:47, 15:26 baskılarını ilk katmanda duraklattı (GUC_AZALDI, sınıflandırıcı B|C; 13:53'te
+  13:06 baskısında B = filaman akmıyor, duraklatma yok). Uzun kaçırılanlar: 10:39 (Z 6.0), 12:12 (Z 6.1), 15:50
+  (Z 9.1), 17:10 (Z 1.6): eksik güç ilk katmandan sonra +1…+2 W, k = 0.85 (`K_LOSS_MIN`) ve k_fil 1.33 → 1.02…0.80.
+  Sağlam 255 °C baskısının (18:21) son katmanlarında da k_fil 0.80, eksik güç +0.9…+1.3 W → bozuk 245 °C'den ~0.7 W
+  ayrılıyor, eşiğin altında (K89 sinyal genliği). 12.11 notundaki risk gerçekleşti: k tabanda, 245 °C tutma kaybı
+  bugün −17.5…−21.9 %, 150 °C −14.9…−23.7 % (çelik medyanı −13 %) → her baskıda ~+1 W eksik güç tabanı.
+  K63 sarı (dondurulmuş kural, `scan_subthreshold.py --yellow`): 6.1 PETG saatinde 16 olay; 245 °C'deki iptallerin
+  hepsinde (1133, 1147, 1208, 1306, 1550, 1656, 1710, 1756) ve 17:56 (255 °C, iptal) baskısında; sağlam 18:21'de yok.
+  Etiketler kullanıcıdan bekleniyor (kusur türü; 17:56 gerçekten hatalı mıydı — sınıflandırıcı "anlamlı sapma yok").
+- **Hata 1 — duraklatma bölümü baskıdan baskıya taşınıyordu (K90 kuralı):** 17:56 baskısı 18:17:23'te duraklatıldı,
+  iptal edildi; GUC_AZALDI iptalden sonra da (nozzle 255 °C'de elle temizlenirken) aralıklı açık kaldı → 600 s'lik
+  pencere hiç boşalmadı → `pause_flagged` 18:21 baskısına geçti: o baskıda GUC_AZALDI 651 + 410 s açık, duraklatma
+  YOK. Baskı bozuk olsaydı ikiz onu duraklatmayacaktı. **Düzeltme:** yeni baskı başında (`print_state` → printing,
+  pause'dan dönüş hariç; `anchor_kfil` ile aynı yer) duraklatma bölümü sıfırlanır (`pause_samples`, `pause_on_s/n`,
+  `pause_flagged`). MODEL DIŞI.
+- **Hata 2 — boştaki k kayması bant içine dönünce baskıya taşınıyordu (K75 kuralı):** 18:19–18:21 iptalden sonra
+  255 °C'de elle müdahale: k 0.85 → 1.04 (GUC_ARTTI, KAYIP_ARTTI 18:20:30), sonra 0.935'e indi; `k_alarm` histerezis
+  (|k − k_ref| < 0.06, k_ref 0.903) ile baskı başlamadan **7 s önce** kapandı → K75 koşulu (`k_alarm and k_alarm_idle`)
+  sağlanmadı, k 0.935 baskıya taşındı → model ~1.7 W fazla kayıp bekledi → sağlam baskıda ilk 25 dk yanlış GUC_AZALDI.
+  Zamana duyarlı: aynı olay 1821 logundan tek başına oynatılınca (k 0.968, alarm açık) eski kural da geri alıyor.
+  **Düzeltme:** `k_alarm_idle` artık "son baskı başından beri baskı dışında başlamış bir kayıp alarmı oldu (açık ya da
+  kapanmış)"; baskı başında bu doğruysa k → k_ref (K75'teki gibi), her baskı başında ve k kabulünde sıfırlanır.
+  Geri dönüş noktası K75'teki gibi k_ref; yeni eşik yok. Sınır: alarm boşta kapandıktan sonra saatlerce boşta
+  öğrenilen k da baskı başında k_ref'e döner (fark < 0.06, bant içi).
+- **İkisinin etkileşimi (olay oynatması, servis çalışması 15:26 → 19:29 birleşik, k_ref 0.903):**
+  | kod | 18:21 baskı başı k | 18:21 baskısında GUC_AZALDI | duraklatma |
+  |---|---|---|---|
+  | eski (canlıyla aynı; 17:10 zincirinde 0.956, 1264 s) | 0.935 | 657 + 416 + 41 s | yok (bayrak taşındı) |
+  | yalnız Hata 1 düzeltmesi | 0.956* | 1264 s | **18:26:51 yanlış** (sağlam baskı) |
+  | ikisi birlikte | 0.903 (geri alındı) | 15 s | yok |
+  *17:10 logundan başlayan zincir. Bugün iki hata birbirini götürdü; tek başına Hata 1 düzeltmesi zararlı olurdu.
+  Sabah zinciri (09:53 → 13:01) eski/yeni birebir aynı; 15:26 → 18:21 arası birebir aynı.
+- **Kapı (davranış yalnız baskı başında, boşta k alarmı ya da açık duraklatma bölümü varken değişir):** (1) iki
+  hata düzeltmesi. (2–4) `baseline_snapshot --check v0.3` çıktısı öncesi/sonrası birebir aynı (Eylül 9, ayar 59, sınav
+  65 log; v0.3'ten sonra eklenen 63 yeni satır ikisinde de aynı). (5) `report_v02 --list` (212 log, 224.3 saat, 98.1
+  baskı saati) birebir aynı: yakalama 30/39, duraklatma 7/39, yanlış olaylar aynı; `slow_fault_test --set calibration`
+  birebir aynı (fan_on 3 W 9/23, 4 W 15/15; mid 3 W 18/20, 4 W 7/7). Log başına oynatma baskı başını göremez (log 19.10'dan
+  beri baskı başında bölünüyor, K75 notu) → etki yalnız birleşik olay oynatmasında (yukarıdaki tablo). (6) tek konu
+  (baskı başında taşınan durum), kullanıcı onayı 15.11. Eski kod: scratchpad `onceki/realtime_websocket.py`; olay
+  aracı scratchpad `olay.py` (geçici).
+- **Açık:** (a) `K_LOSS_MIN` 0.85 ile k_ref 0.903 iken KAYIP_AZALDI yapısal olarak İMKÂNSIZ (k_ref − 0.08 = 0.823 <
+  0.85): yavaş düşüşü yalnız sabit referanslı bakım göstergesi görüyor (9.11'den beri her gün uyarıyor). Tabanın
+  indirilmesi model değişikliği (kapı). (b) Bakımdan sonra (heat-break / blok çevresi / nozzle) k'nin dönüp dönmediği.
+  (c) Bugünkü logların yerel arşive kopyalanıp etiketlenmesi; 13:06 (`_1414`) ve `deneme5` logu Pi kapalıyken
+  incelenemedi. (d) Deploy YAPILMADI: Pi'nin USB denetleyicisi (VL805) 15.11
+  ~20:09 ani güç kesintisinden sonra arızalandı (Klipper yazıcıya ulaşamıyor); Pi değişince (aynı SD kart) `deploy.ps1`.
+- Destek bitişindeki çizgiler (kullanıcı sorusu, ikizle ilgisiz): 18:21 baskısında Z 3.24 katmanı 128 s (komşular
+  36–50 s), bunun 96 s'i 13 mm/s ve fan %70 ile x ≈ 70 duvarında dar şeritte (destek üstü köprü); Z 7.44'te 20 s.
+  Nozzle sıcaklığı bu katmanlarda da 254.4–255.7 °C, eksik güç değişmiyor → hotend değil, parçanın soğuması
+  (dilimleyici köprü fanı/hızı). Öneri: köprü fanı %70 → ~%40, tek değişiklik.

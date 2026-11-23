@@ -2034,3 +2034,75 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
     beri düz. Kullanıcı bu dönemde birkaç şey değiştirdi (liste bekleniyor). Ayırıcı test: bağımsız termometre
     (K tipi termokupl) ile 245 °C hedefte blok/nozzle sıcaklığı.
 
+## K92 — Hareket ikizi (v0.6+) v0.4'ten önce başlıyor; ADXL345 takıldı (2026-11-22, YOL HARİTASI KARARI, kullanıcı kararı, MODEL DEĞİŞMEDİ)
+- **Neden:** v0.4 ("başka bir yazıcıda çalışır") ikinci bir Klipper yazıcısı bekliyor; ne kullanıcı ne testçi bulabildi.
+  ROADMAP'teki "v0.4'ten sonra" sırası bir tercihti (önce tek genelleşmiş ikiz); dışarıya bağlı bir sürüm yüzünden
+  proje durmasın diye kullanıcı hareket ikizini öne aldı. v0.4 kapanmadı, testçi/yazıcı bulununca devam eder; termal
+  çekirdek ve kabul kapısı değişmez. Hareket ikizi termal ikize dokunmaz (ayrı sinyal, ayrı alarm).
+- **Donanım (22.11):** GY-291 (ADXL345) Pi'nin kendi SPI'ında (`[mcu rpi]`, `[adxl345] cs_pin: rpi:None`), kafaya basılmış
+  braketle vidalı. Pinler: VCC 1, GND 25, SDA 19, SDO 21, SCL 23, CS 24 (Pi dikey, USB altta → pin 1 ÜSTTE). Kablo iki
+  ekli bölgede renk değiştiriyor, renge değil pine bak. Aynı gün VCC yanlışlıkla pin 39'a (GND) takıldı, kart ısındı,
+  `got 0 vs e5`; doğru bağlanınca sağlam (≈ 9.65 m/s²).
+- **İlk ölçümler (`loglar/rezonans/`, input shaper):** X 33 Hz + 21 Hz (oran 0.24), Y 27 Hz; tekrar aynı. Sağ gantry
+  eksantriği ayarlandıktan sonra X 32 + 41 Hz, **21 Hz yok**, X tepe gücü 5970 → 4360 (−27 %); Y 28 Hz. → Bir mekanik
+  boşluğun spektrumda izi ve onarımla kaybolması: ROADMAP'teki "rezonans frekansı = k'nin karşılığı, gevşeme = yavaş
+  kayma" fikrinin elle yapılmış ilk örneği. Uygulanan ayar (kullanıcı onayı, elle): X 3hump_ei 80.6 Hz, Y mzv 30.0 Hz,
+  `max_accel` 3000 → 2700 (yedek `printer-20261122_202422.cfg`). Gantry tek Z'li yapıdan dolayı baskılar arası hâlâ
+  eğilebiliyor (çift Z / senkron kayış önerildi, yapılmadı); ilk katman k gürültüsünün (14.10 notu) adayı.
+- **İlk adım, kod yok:** baskı sırasında birkaç dakikalık ham kayıt (`ACCELEROMETER_MEASURE`) → hareket komutları ivmede
+  görünüyor mu, fan titreşimi ne kadar, saatte kaç MB, Pi yükü. Sonra tek iddia seçilir (aday: ani darbe / çarpma
+  tespiti, kasıtlı olayla sınanır). Konum ölçülmez (çift integral t² ile kayar); geometri G-code'dan kalır.
+- **İlk kayıt sonucu (22.11 21:22, `boxaaaaa` baskısı %39, 120 s, `loglar/hareket/`):** 386 210 örnek, 3205 Hz,
+  boşluk yok. **Hacim:** 18.8 MB / 2 dk ≈ 560 MB/saat → ham kayıt sürekli tutulamaz; termal ikiz gibi canlı işlenip
+  4 Hz özet saklanmalı. **Pi yükü:** ölçüm sırasında klippy %13, klipper_mcu %16.5 (tek çekirdek; Pi 4'te 4 var),
+  loadavg 0.19; ölçümsüz taban ölçülmedi. **Sinyal:** < 20 Hz bantta sensörün x ekseni komut edilen ivmeleri
+  gösteriyor (99. yüzdelik 2344, maks 3347 mm/s² ≈ `max_accel` 2700 + sönüm), y 536, z 213 → kafadaki sensör yalnız
+  X'i görüyor; Y tablada (bed slinger), Y için ayrı/tablaya takılı sensör gerekir (Y shaper ölçümü de bu yüzden zayıf).
+  **Gürültü:** ham rms ~4000 mm/s² (≈ 0.4 g), çoğu > 200 Hz (268/272/297 Hz; y,z'de 155–191 Hz; fan / step motor
+  adayları) → darbe tespiti bant ayırmalı. 4 Hz ikiz logu (pos_x) ivmeyle karşılaştırmak için kaba (korelasyon
+  ≤ 0.2): beklenen ivme planlayıcıdan (`gcode_plan` Klipper lookahead kopyası) gelmeli. **Dikkat:** kaydı durduran
+  `ACCELEROMETER_MEASURE` G-code akışını ~1.25 s bekletti (dosya yazımı) → baskıda start/stop ile kayıt yapılmaz;
+  sürekli ölçüm Klipper API'den (`adxl345/dump_adxl345` aboneliği) akış olarak alınmalı.
+- **Plan ↔ ölçüm karşılaştırması (22.11, aynı 120 s; araçlar scratchpad `hareket/*.py`, geçici):**
+  - **Sensör X'i doğru ölçüyor:** sensör ivmesinin integrali (0.3 Hz yüksek geçiren) ile ikiz logundaki X hızı
+    (`pos_x` farkı, 4 Hz) korelasyonu **−0.92**, genlik oranı 1.07; Y ile ≤ 0.4. Sensörün x ekseni = **−makine X**
+    (brakette ters). Zaman tabanı da doğru (ADXL print_time ↔ log eventtime, kayma 0 ms'de en iyi).
+  - **`gcode_plan` ince ölçekte "beklenen ivme" olamıyor:** plan konumları gerçek yola 5 s'lik parçalarda 0.02–8 mm
+    oturuyor ama bu katmanlarda gerçek hareket plandan **%5.7 yavaş** (plan saati 0.946 s / gerçek s); zaman bükülüp
+    1 s'lik pencerelerde kaydırılsa bile < 20 Hz ivme korelasyonu medyan 0.42 (açıklanan varyans %17), pencere başına
+    en iyi kayma ±110 ms dağınık. Plan baskı süresi için kalibre (dakika ölçeği), ivme darbesi (0.1 s) için değil.
+    %5.7'nin kaynağı açık (tel ucunda silme/geri çekme sınırı `max_extrude_only_*` ile hesaplandı, bu baskıda sınır
+    devreye girmiyor → neden o değil); termal plan için ayrı not, hareket ikizi için gereksiz (aşağı).
+  - **Sonuç → model girdisi:** beklenen ivme G-code planından değil, Klipper'ın gerçekten yürüttüğü yörüngeden
+    (`motion_report/dump_trapq` API akışı: her hareketin başlangıç zamanı, hızı, ivmesi; ADXL ile aynı print_time
+    tabanında) alınmalı. Plan hesabı ve zaman hizalaması gereksizleşir; residual = ölçülen − (trapq ivmesi ⊗ input
+    shaper ⊗ makine dinamiği). Sonraki adım: aynı anda ADXL + trapq kaydı (ikisi de API'den, baskıyı bekletmeden).
+- **API akışı denemesi (22.11 21:36, aynı baskı Z 4.24, 60 s; `loglar/hareket/api_*_20261122_2136.csv`, araçlar
+  `loglar/hareket/araclar/`):** Klipper API soketinden (`~/printer_data/comms/klippy.sock`) iki abonelik:
+  `adxl345/dump_adxl345` + `motion_report/dump_trapq` (Klipper'ın `motan` aracıyla aynı yol). G-code yok → baskı
+  beklemedi; 192 650 örnek (3215 Hz), 6757 trapq parçası, hata/taşma yok. Yük: kaydedici %4 çekirdek, klippy %13.5
+  (önceki ACCELEROMETER_MEASURE ile aynı). Ham hacim CSV 7.1 + 0.6 MB/dk.
+  **Sonuç — komut edilen ivme ölçüleni açıklıyor:** hiç hizalama yapmadan (aynı print_time tabanı, en iyi kayma
+  +0.6 ms) < 20 Hz'de korelasyon **0.946**, kazanç 1.05, **açıklanan varyans %89.5**, residual rms 293 mm/s²
+  (ölçülen 903). < 60 Hz'de input shaper'ı (X 3hump_ei 80.6 Hz) komuta uygulamak açıklananı %68 → %75'e çıkarıyor
+  (shaper'ın etkisi ölçümde görünüyor). Residual 0.25 s pencerelerde medyan 245, %95 484, maks 847 mm/s²; residual
+  spektrumunun < 20 Hz tepesi **3.8 Hz** (aday: tablanın Y hareketinin gövdeyi sallaması ya da gantry; açık).
+  → Hareket ikizinin "modeli" ilk hâliyle hazır: beklenen ivme = trapq ⊗ shaper; residual tabanı ~0.025 g.
+  Termal ikizdeki eksik gücün karşılığı bu residual. Sonraki: tek iddia seçimi (aday: ani darbe/çarpma, kasıtlı
+  olayla sınanır) ve residual'ın baskılar arası tabanı.
+- **Residual tabanı (22.11 21:54–22:04, aynı baskı %71→%83, 600 s API kaydı `loglar/hareket/api_*_taban_20261122_2154.csv`,
+  araç `loglar/hareket/araclar/residual_taban.py`):** 1 927 760 örnek, boşluk yok. < 20 Hz: korelasyon 0.966, kazanç
+  1.15, **açıklanan %93.3**, residual rms 158 mm/s². 0.25 s pencere (ikizin satır hızı) residual rms: medyan 107,
+  %99 446, **maks 798**; anlık tepe medyan 261, %99 1094, maks 2529 (normal baskıda tek örnek tepeleri büyük →
+  kural pencere rms'ine bakmalı). Travel (≥ 150 mm/s, 47 pencere) rms medyanı 223, maks 502. Bu 10 dakikada Z hareketi
+  (katman değişimi) YOK → taban katman değişimini ve ilk katmanı kapsamıyor; tek baskı, tek gün (baskılar arası oynama
+  bilinmiyor). Residual < 20 Hz spektrumunda 0.5–0.9 Hz baskın (60 s kayıttaki 3.8 Hz bu sefer öne çıkmadı).
+- **ÖN KAYIT — çarpma/darbe kuralı (22.11, kullanıcı onayı, test öncesi DONDURULDU):** X ekseni, residual =
+  −sensör_x − (trapq ivmesi ⊗ X shaper), 4. derece Butterworth 20 Hz alçak geçiren (filtfilt), 0.25 s pencere rms'i
+  **> 1000 mm/s²** → "darbe". (Taban maks 798, medyan 107; araç `residual_taban.py` ile aynı hesap.)
+  **Test (yapılmadı, kullanıcı sonra yapacak):** soğuk nozzle, Z 50 mm, X'te 75 mm/s ileri geri ~3 dk (test G-code'u
+  hazırlanacak); kafaya yandan kalemle **10 orta şiddet** vuruş (zamanlar not edilir / sesli sayılır), birkaç hafif
+  vuruş yalnız keşif; 1 dk hiç dokunmadan. **Başarı:** orta vuruşların ≥ 8/10'u ±0.5 s içinde yakalanır VE vuruşsuz
+  dakikada 0 yanlış. Diğer bantlar (20–200 Hz vb.) yalnız keşif olarak raporlanır, başarı sayılmaz. Not: kalem darbesi
+  kısa/yüksek frekanslı, gerçek çarpma (nozzle engele takılıp yavaşlar) düşük frekanslı → test başarısızsa kural
+  gerçek çarpma için çürümüş sayılmaz, yalnız bu uyarım için.

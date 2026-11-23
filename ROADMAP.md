@@ -10,9 +10,9 @@ not serve the claim of its version waits.
 | [v0.1](#v01--it-works-on-one-printer) | It works on one printer | done (2026-10-19) |
 | [v0.2](#v02--it-is-reliable) | It is reliable | done (2026-10-22) |
 | [v0.3](#v03--the-physics-is-not-ender-3-specific) | The physics is not Ender 3 specific | released (2026-10-22); yellow advisory still being judged |
-| [v0.4](#v04--it-works-on-another-printer) | It works on another printer | planned |
+| [v0.4](#v04--it-works-on-another-printer) | It works on another printer | waiting for a second printer |
 | [v0.5](#v05--other-people-can-install-it) | Other people can install it | planned |
-| [v0.6+](#v06--motion-twin-accelerometer) | Motion is twinned too | direction |
+| [v0.6+](#v06--motion-twin-accelerometer) | Motion is twinned too | started early (2026-11-22, [K92]); data first |
 
 Only the next version has a firm scope. Later versions are directions and may change with what the
 earlier ones show.
@@ -249,7 +249,12 @@ Klipper printers for input shaping):
 An accelerometer does not give position (double integration drifts with t²). Geometry still comes from
 the G-code. The accelerometer marks *where* on the toolpath a shift or collision happened.
 
-Starts only after v0.4, so that one generalized twin exists before a second one is built.
+Originally planned to start only after v0.4, so that one generalized twin exists before a second one is
+built. Started early on 2026-11-22 ([K92]) because v0.4 is blocked on finding a second Klipper printer; v0.4
+stays open and the thermal core is unchanged. An ADXL345 is now mounted on the toolhead. First step: look at
+raw accelerometer data recorded during a print (signal, fan noise, data volume, Pi load) before writing any
+model, then pick one claim (likely: detecting a sudden impulse such as a collision, tested with deliberate
+events, as the thermal faults were).
 
 ---
 

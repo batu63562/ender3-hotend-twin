@@ -23,6 +23,7 @@ bakim_izleme.csv
 twin_gecmis*.csv
 ariza_raporlari.txt
 durum_yedek/
+motion/
 
 # Logs and generated data (published separately as a sample dataset)
 /*.csv

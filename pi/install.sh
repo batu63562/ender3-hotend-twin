@@ -54,6 +54,16 @@ sudo systemctl enable ender3-twin >/dev/null
 sudo systemctl restart ender3-twin
 echo "== service started: systemctl status ender3-twin   |   live console: journalctl -u ender3-twin -f"
 
+# Motion twin recorder [K92]: only if an accelerometer is configured in Klipper (needs [adxl345] in printer.cfg)
+if [ -f "$APP_DIR/motion_logger.py" ] && grep -qs '^\[adxl345\]' "$HOME/printer_data/config/printer.cfg"; then
+    sed -e "s|@USER@|$USER_NAME|g" -e "s|@APP_DIR@|$APP_DIR|g" "$APP_DIR/pi/ender3-motion.service" \
+        | sudo tee /etc/systemd/system/ender3-motion.service >/dev/null
+    sudo systemctl daemon-reload
+    sudo systemctl enable ender3-motion >/dev/null
+    sudo systemctl restart ender3-motion
+    echo "== motion recorder started: journalctl -u ender3-motion -f   (files in $APP_DIR/motion)"
+fi
+
 if [ "${1:-}" = "--samba" ]; then
     command -v smbd >/dev/null || { sudo apt-get update && sudo apt-get install -y samba; }
     if ! grep -q '^\[ender3-twin\]' /etc/samba/smb.conf; then

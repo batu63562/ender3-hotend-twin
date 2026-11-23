@@ -1,0 +1,22 @@
+[Unit]
+Description=Ender 3 motion twin recorder (ADXL345 + executed moves, per print)
+After=klipper.service time-sync.target
+Wants=klipper.service
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@APP_DIR@
+# Waits for NTP like the twin, so the file names carry the real time (the Pi has no battery clock).
+ExecStartPre=-/usr/bin/timeout 120 /bin/sh -c 'until [ "$(timedatectl show -p NTPSynchronized --value)" = yes ]; do sleep 2; done'
+TimeoutStartSec=180
+ExecStart=@APP_DIR@/venv/bin/python -u @APP_DIR@/motion_logger.py
+Restart=always
+RestartSec=10
+# Klipper's host process is timing-sensitive: the recorder stays below it in CPU and I/O priority.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

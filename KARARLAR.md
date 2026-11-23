@@ -2106,3 +2106,12 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   dakikada 0 yanlış. Diğer bantlar (20–200 Hz vb.) yalnız keşif olarak raporlanır, başarı sayılmaz. Not: kalem darbesi
   kısa/yüksek frekanslı, gerçek çarpma (nozzle engele takılıp yavaşlar) düşük frekanslı → test başarısızsa kural
   gerçek çarpma için çürümüş sayılmaz, yalnız bu uyarım için.
+- **Otomatik kayıt (23.11, MODEL DIŞI, kullanıcı onayı "tam hız"):** `motion_logger.py` + `pi/ender3-motion.service`
+  (ayrı servis, termal ikize dokunmaz; `install.sh` yalnız printer.cfg'de `[adxl345]` varsa kurar). Klipper API
+  soketinden `print_stats` dinlenir; `printing`/`paused` boyunca (ısınma dahil) baskı başına
+  `motion/motion_YYYYMMDD_HHMM_{adxl,trapq}.csv.gz`. ADXL tam hızda (~3250 Hz) ham sayım olarak (API değerleri
+  ölçek × tam sayı, doğrulandı → kayıpsız), zaman µs farkı. Okuma `read_adxl` / `read_trapq` (aynı dosyada).
+  400 Hz'e indirme REDDEDİLDİ: sürtme/kazıma (ilk katman Z offset sorusu) büyük ihtimalle 200 Hz üstünde; hassasiyet
+  (hangi bant gerekli) veri biriktikçe yeniden bakılacak. Silme yok; boş yer < 800 MB iken kayıt başlamaz/durur
+  (SD Klipper ve termal ikizle ortak; 23.11'de 3.2 GB boş). Pi testi: CPU ~%5, durağan ~23 MB/saat (baskıda daha çok,
+  ilk baskıda ölçülecek); SIGTERM'de dosyalar düzgün kapanıyor.

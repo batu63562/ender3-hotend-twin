@@ -2106,6 +2106,12 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   dakikada 0 yanlış. Diğer bantlar (20–200 Hz vb.) yalnız keşif olarak raporlanır, başarı sayılmaz. Not: kalem darbesi
   kısa/yüksek frekanslı, gerçek çarpma (nozzle engele takılıp yavaşlar) düşük frekanslı → test başarısızsa kural
   gerçek çarpma için çürümüş sayılmaz, yalnız bu uyarım için.
+  **Testten ÖNCE yazılan tahmin (23.11, kural değişmedi):** sinyal tarafının hesabı (4. derece 20 Hz Butterworth
+  filtfilt, 0.25 s pencere): tek, kısa (~1 ms) bir darbenin pencere rms'i 1000'i ancak Δv ≈ 85 mm/s'de geçiyor
+  (Δv 30 → rms 360, 60 → 720, 100 → 1200; tepe değer Δv × ~41 /s). Kalem vuruşunun kafada bıraktığı ana iz X
+  rezonansında (~33–41 Hz) sönümlü salınım; 20 Hz filtre onu ~%2'ye indirir. → Eşik yalnız gürültü tarafından
+  (yanlış alarm) seçildi, sinyal tarafı hesaplanmamıştı; **tahmin: kural kalem testinde büyük ihtimalle başarısız**.
+  Başarısız olursa yeni kural (ör. rezonansı içeren bant) aynı veride değil, YENİ bir test oturumunda sınanır.
 - **Otomatik kayıt (23.11, MODEL DIŞI, kullanıcı onayı "tam hız"):** `motion_logger.py` + `pi/ender3-motion.service`
   (ayrı servis, termal ikize dokunmaz; `install.sh` yalnız printer.cfg'de `[adxl345]` varsa kurar). Klipper API
   soketinden `print_stats` dinlenir; `printing`/`paused` boyunca (ısınma dahil) baskı başına

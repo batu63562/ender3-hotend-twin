@@ -2013,3 +2013,24 @@ ilk geri bildirimi "bu ne diyor?" yapardı. Yol haritasında v0.5'teydi; dil kur
   36–50 s), bunun 96 s'i 13 mm/s ve fan %70 ile x ≈ 70 duvarında dar şeritte (destek üstü köprü); Z 7.44'te 20 s.
   Nozzle sıcaklığı bu katmanlarda da 254.4–255.7 °C, eksik güç değişmiyor → hotend değil, parçanın soğuması
   (dilimleyici köprü fanı/hızı). Öneri: köprü fanı %70 → ~%40, tek değişiklik.
+- **Ek (16.11, ANALİZ, model değişmedi): k neden ~0.90 → ~0.80?** Pi bozuk; yerel loglar (27.10–08.11 çelik baskıları,
+  kalibrasyon_245_celik, deney17/18) + 15.11 logları. Araçlar scratchpad `kdir.py`, `rates.py`, `coolshape.py` (geçici).
+  - **Tutmada da düştü, yalnız baskıda değil:** ekstrüzyonsuz, fansız 245 °C tutmada doğrudan güç dengesinden k
+    (`(pwm·40 W·(1−0.042·bed_pwm) − ısı kırığı yolu) / natural_loss(T)`): 27.10 kalibrasyon 0.911, 28.10 deney17 0.919,
+    08.11 deney18 0.892 → 15.11 0.798 / 0.806. Fansız baskı k'sı 15.11'de aynı (0.79–0.81) → 12.11 notundaki "baskı
+    içi düşüş az ekstrüzyonun izi" bugün geçerli DEĞİL; ısı bloktan gerçekten ~1.8 W az gidiyor (ya da öyle görünüyor).
+    150 °C tutmalar (gürültülü, ±0.05): önce ort. 0.89 (16 baskı) → 15.11 0.78 (3) → göreli düşüş 150 ve 245'te benzer.
+  - **Isıtıcı gücü artışı ELENDİ:** 170 → 220 °C tam güç ısınma (tabla açık) medyan 13.04 s (31) → 12.53 s (11), %4
+    hızlı; 230 → 180 °C serbest soğuma (ısıtıcı, fan kapalı) 24.3 s (25) → 26.8 s (10), %10 YAVAŞ. Güç artışı soğumayı
+    değiştirmez, ısınmayı ~%16 hızlandırırdı; kayıp azalması ikisini de doğru büyüklükte açıklıyor.
+  - **Kalan iki aday, eldeki veriyle ayrılamadı:** (a) bloktan havaya kayıp gerçekten azaldı (çorap / blok üstünde
+    plastik / blok çevresindeki hava akışı ya da sıcaklığı); soğuma eğimi oranı her bantta aynı olmalı (~0.90).
+    (b) termistör ~15 °C YÜKSEK okuyor (gerçek blok 245 yerine ~230 °C); oran soğukta küçülmeli (225: 0.90, 145: 0.85,
+    75: 0.69). Ölçülen oran (sonra/önce): 225 0.90, 185 0.96, 145 0.90, 105 0.83, 75 0.81 (düşük bantlarda 2–5 örnek)
+    → ikisinin arası. (b) 245 °C'de az ekstrüzyon / 255 °C'de düzelmeyi de tek başına açıklıyor; (a) açıklamıyor.
+    Ortam (oda) ısınması büyüklükçe elendi (1.8 W için ~35 K gerekir); ısı kırığı yolu modelde yalnız ~1 W.
+  - **Zaman çizgisi (bakım göstergesi, fansız baskı k'sı günlük medyan):** 06.11 0.923, 08.11 0.897, 09.11 0.877,
+    10.11 0.873, 11.11 0.843, 12.11 0.816, 13.11 0.802, 14.11 0.805, 15.11 ~0.80 → 08–13.11 arası düştü, 13.11'den
+    beri düz. Kullanıcı bu dönemde birkaç şey değiştirdi (liste bekleniyor). Ayırıcı test: bağımsız termometre
+    (K tipi termokupl) ile 245 °C hedefte blok/nozzle sıcaklığı.
+
